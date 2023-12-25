@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     # 'auth_firebase.apps.AuthFirebaseConfig',
     'rest_framework',
     'core',
+    'django_countries',
     # 'flutter_wave_client',
 ]
 
