@@ -10,7 +10,7 @@ __pycache__/
 
 # Distribution / packaging
 .Python
-.env/
+backend/.env/
 build/
 develop-eggs/
 dist/
@@ -78,11 +78,10 @@ target/
 celerybeat-schedule
 
 # dotenv
-.env
+backend/.env
 
 # virtualenv
 venv/
-.env/
 
 # Spyder project settings
 .spyderproject
@@ -184,3 +183,4 @@ fabric.properties
 # idea folder, uncomment if you don't need it
 # .idea
 /payverve-563e2-firebase-adminsdk-mv51l-40f047a448.json
+/payverve-61d68-firebase-adminsdk-3ecm0-a03f16912a.json

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Wallet, Transaction
+from .models import Wallet, Transaction, Transfer
 
 
 class WalletSerializer(serializers.ModelSerializer):
@@ -11,7 +11,7 @@ class WalletSerializer(serializers.ModelSerializer):
 
 class TransferSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Transaction
+        model = Transfer
         fields = '__all__'
 
 
