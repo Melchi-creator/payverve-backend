@@ -22,11 +22,13 @@ try:
         "client_x509_cert_url": settings.FIREBASE_CLIENT_X509_CERT_URL
     })
     default_app = firebase_admin.initialize_app(cred)
-except Exception:
+except Exception as ex:
+    print(ex.__cause__)
     raise FirebaseError(
-        "Firebase Admin SDK credentials not found. "
+        f"Firebase Admin SDK credentials not found. "
         "Please add the path to the credentials file to "
-        "the FIREBASE_ADMIN_SDK_CREDENTIALS_PATH environment variable.")
+        "the FIREBASE_ADMIN_SDK_CREDENTIALS_PATH environment variable. \n"
+        "Caused by :: Exception :: ", ex.__cause__)
 
 
 class FirebaseAuthentication(authentication.BaseAuthentication):
