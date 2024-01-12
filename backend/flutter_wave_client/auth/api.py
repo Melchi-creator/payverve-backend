@@ -1,8 +1,11 @@
 from rave_python import Rave, RaveExceptions, Misc
 from django.conf import settings
+from backend.core.utils import Currency
 
-rave = Rave(publicKey=settings.FLUTTERWAVE_PUBLIC_KEY, production=settings.PRODUCTION,
-            secretKey=settings.FLUTTERWAVE_SECRET_KEY)
+rave = Rave(publicKey=settings.FLUTTERWAVE_PUBLIC_KEY,
+            production=settings.PRODUCTION,
+            secretKey=settings.FLUTTERWAVE_SECRET_KEY
+            )
 
 payload_sample_account = {
     "amount": 123,
@@ -33,6 +36,12 @@ Transactions initiated via this method are authorized by the user on their Banki
 
 
 class Account:
+
+    def __init__(self):
+        account_number = ""
+        account_bank = ""
+        currency = ""
+        balance = ""
 
     def charge(self, payload):
         try:
@@ -118,8 +127,8 @@ class Card:
     def get_type_of_args_required(self):
         pass
 
-    def update_payload(self,authMethod, payload, arg):
+    def update_payload(self, authMethod, payload, arg):
         pass
 
-    def charge(self,payload_for_saved_card, chargeWithToken=True):
+    def charge(self, payload_for_saved_card, chargeWithToken=True):
         pass
