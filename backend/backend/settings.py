@@ -9,7 +9,7 @@ https://docs.djangoproject.com/en/4.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
-
+import json
 import os
 from pathlib import Path
 
@@ -156,21 +156,22 @@ REST_FRAMEWORK = {
     #     'rest_framework.renderers.JSONRenderer',
     # ),
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'accounts.firebase_auth.authentication.FirebaseAuthentication',
+        # 'accounts.firebase_auth.authentication.FirebaseAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticated',
+        # 'rest_framework.permissions.IsAuthenticated',
     ],
 }
 
 AUTHENTICATION_BACKENDS = [
-    'accounts.backends.model_backend.ModelBackend',
+    'accounts.firebase_auth.authentication.FirebaseAuthentication',
 ]
+
 # email settings
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = os.environ.get("EMAIL_HOST")
 EMAIL_PORT = os.environ.get("EMAIL_PORT")
-EMAIL_USE_TLS = True
+EMAIL_USE_TLS = False
 EMAIL_USE_SSL = False
 EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD")
@@ -196,6 +197,9 @@ FLUTTERWAVE_ENCRYPTION_KEY = os.environ.get('FLWENCK')
 # RUNNING ENVIRONMENT
 PRODUCTION=False
 
+FIREBASE_CONFIG_FILE = BASE_DIR / 'firebase_config.json'
+FIREBASE_CRED_FILE = BASE_DIR / 'payverve-61d68-firebase-adminsdk-3ecm0-a03f16912a.json'
+
 
 try:
     config = {
@@ -204,8 +208,8 @@ try:
         "databaseURL": os.environ.get("FIREBASE_DATABASE_URL"),
         "storageBucket": os.environ.get("FIREBASE_STORAGE_BUCKET"),
     }
-    firebase = pyrebase.initialize_app(config)
-    auth = firebase.auth()
+    pb = pyrebase.initialize_app(json.load(open(FIREBASE_CONFIG_FILE)))
+    auth = pb.auth()
 except Exception:
     raise Exception("Firebase configuration credentials not found. "
                     "Please add the configuration to the environment variables.")

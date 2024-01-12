@@ -22,10 +22,10 @@ from rest_framework import permissions
 
 schema_view = get_schema_view(
     openapi.Info(
-        title="User Management API",
+        title="PayVerve API",
         default_version='v1',
         description="API Documentation",
-        terms_of_service="",
+        terms_of_service="Internal use only",
         contact=openapi.Contact(email="payverve.fintech@gmail.com"),
         license=openapi.License(name="MIT"),
     ),
