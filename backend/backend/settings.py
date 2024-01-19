@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'django.contrib.admin',
     'corsheaders',
     'drf_yasg',
+    'auditlog',
 ]
 
 MIDDLEWARE = [
@@ -102,7 +103,7 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
         # 'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': 'payverve',
+        'NAME': 'payverve_db',
         'USER': 'payverve',
         'PASSWORD': '$qJ@y`y%5~55n^£b^p=5b0[A3£I0m69Q',
         'HOST': 'localhost',

@@ -2,8 +2,8 @@ from enum import Enum
 
 
 class Currency(Enum):
-    Pound = '£'
-    Dollar = '$'
+    Pound = 'GBP'
+    Dollar = 'USD'
     Naira = 'NGN'
 
     @classmethod

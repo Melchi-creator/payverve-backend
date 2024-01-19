@@ -10,12 +10,15 @@ class WalletSerializer(serializers.ModelSerializer):
 
 
 class TransferSerializer(serializers.ModelSerializer):
+    wallet = WalletSerializer(many=True)
+
     class Meta:
         model = Transfer
         fields = '__all__'
 
 
 class TransferAdditionalInformationSerializer(serializers.ModelSerializer):
+    transfer = TransferSerializer
     class Meta:
         model = TransferAdditionalInformation
         fields = '__all__'

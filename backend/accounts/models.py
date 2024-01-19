@@ -40,7 +40,8 @@ class User(AbstractUser):
     objects = CustomUserManager()
 
     def __str__(self):
-        return self.email
+        username = str(self.email).split('@')[0]
+        return f"{username}"
 
     class Meta:
         db_table = 'user'
