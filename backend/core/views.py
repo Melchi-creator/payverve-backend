@@ -1,4 +1,6 @@
 # Create your views here.
+from decimal import Decimal
+
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import generics, status  # , status
@@ -9,7 +11,7 @@ from rest_framework.views import APIView
 from .config.authentication import FirebaseAuthentication
 from .models import Wallet, Transaction, TransferAdditionalInformation, Transfer
 from .serializers import WalletSerializer, TransactionSerializer, TransferAdditionalInformationSerializer, \
-    TransferSerializer
+    TransferSerializer, WalletTopUpSerializer
 from .services import process_payment_transfer, initiate_bank_transfer, get_exchange_rate
 
 
@@ -37,6 +39,29 @@ class WalletListCreate(generics.ListCreateAPIView):
 class WalletRetrieveUpdate(generics.RetrieveUpdateAPIView):
     queryset = Wallet.objects.all()
     serializer_class = WalletSerializer
+
+
+class WalletTopUpView(generics.UpdateAPIView):
+    queryset = Wallet.objects.all()
+    serializer_class = WalletTopUpSerializer
+    http_method_names = ['put']
+
+    def update(self, request, *args, **kwargs):
+        pk = self.kwargs['pk']
+        wallet = Wallet.objects.get(pk=pk)
+        amount = Decimal(request.data.get('amount', 0))
+
+        if wallet is None:
+            return Response({'error': 'Wallet does not exist.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            wallet.balance += amount
+            wallet.save()
+        except Exception as ex:
+            print(f'Wallet top up failed :: Exception :: {ex.__cause__}')
+            return Response({'error': 'Top up failed.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({'success': 'Top up successful.'}, status=status.HTTP_200_OK)
 
 
 class UserWalletRetrieve(generics.ListAPIView):
@@ -124,43 +149,61 @@ class TransferListCreate2(APIView):
 
         response = {
             "status": "success",
-            "message": "User created successfully.",
+            "message": "Transfer successful.",
             "data": transfer
         }
         return Response(response, status=status.HTTP_201_CREATED)
 
 
-class WalletListCreateView(generics.ListCreateAPIView):  # TODO: Remove reduntant view (defined above)
-    queryset = Wallet.objects.all()
-    serializer_class = WalletSerializer
-
-
 class WalletToWalletTransferView(generics.UpdateAPIView):
-    serializer_class = WalletSerializer
+    serializer_class = TransferSerializer
+    queryset = Wallet.objects.all()
 
-    # queryset = Wallet.objects.all()
-    # def
+    http_method_names = ["put"]
 
     def update(self, request, *args, **kwargs):
-        # self.serializer_class = WalletSerializer
         pk = self.kwargs['pk']
         sender_wallet = Wallet.objects.get(pk=pk)  # self.get_object()
-        receiver_wallet_id = self.kwargs['receiver_wallet_id']
-        receiver_wallet = Wallet.objects.get(id=receiver_wallet_id)
+        receiver_account_number = request.data.get('account_number')
+        # receiver_wallet_id = self.kwargs['receiver_wallet_id']
+        receiver_wallet = Wallet.objects.get(account_number__exact=receiver_account_number)
+        # serializer = TransferSerializer
+        option = request.data.get('option')
 
-        amount = request.data.get('amount', 0)
+        # TODO: impelemnt Currency validation and exchange rate calculation
+
+        if receiver_wallet is None:
+            return Response({'error': 'The account number provided does not exist.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        if option != "PayVerve":
+            return Response({'error': 'Transfer not allowed.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        amount = Decimal(request.data.get('amount', 0))
 
         # Check if the sender has enough balance
         if sender_wallet.balance < amount:
             return Response({'error': 'Insufficient funds.'}, status=status.HTTP_400_BAD_REQUEST)
 
         # Implement the logic to deduct from sender and credit to receiver
-        sender_wallet.balance -= amount
-        receiver_wallet.balance += amount
-        sender_wallet.save()
-        receiver_wallet.save()
+        try:  # TODO: add record to transfer/transaction for audit.
+            sender_wallet.balance -= amount
+            receiver_wallet.balance += amount
+            sender_wallet.save()
+            receiver_wallet.save()
+            Transfer.objects.create(
+                wallet=sender_wallet,
+                option=option,
+                account_number=receiver_account_number,
+                amount=amount,
+                narration=request.data.get('narration')
+            )
+        except Exception as ex:
+            print(f'Wallet to wallet transfer failed :: Exception :: {ex.__cause__}')
+            return Response({'error': 'Transfer failed.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        return Response({'success': 'Transfer successful.'})
+        return Response({'success': 'Transfer successful.'}, status=status.HTTP_201_CREATED)
 
 
 class WalletToBankTransferView(generics.CreateAPIView):

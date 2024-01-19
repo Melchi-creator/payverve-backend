@@ -9,16 +9,27 @@ class WalletSerializer(serializers.ModelSerializer):
         fields = '__all__'  # ('id', 'balance', 'email', 'message')
 
 
+class WalletTopUpSerializer(serializers.ModelSerializer):
+    amount = serializers.DecimalField(required=True, min_value=0, decimal_places=4, max_digits=15)
+
+    class Meta:
+        model = Wallet
+        fields = ('id', 'amount')
+
+
 class TransferSerializer(serializers.ModelSerializer):
-    wallet = WalletSerializer(many=True)
+    # wallet = WalletSerializer(many=True)
+    narration = serializers.CharField(required=False)
+    option = serializers.ChoiceField(choices=['PayVerve', 'Other Banks'])
 
     class Meta:
         model = Transfer
-        fields = '__all__'
+        fields = ('id', 'amount', 'option', 'account_number', 'narration')
 
 
 class TransferAdditionalInformationSerializer(serializers.ModelSerializer):
     transfer = TransferSerializer
+
     class Meta:
         model = TransferAdditionalInformation
         fields = '__all__'

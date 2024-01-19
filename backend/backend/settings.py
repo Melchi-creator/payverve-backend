@@ -150,6 +150,8 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# APPEND_SLASH=False
+
 # Prod settings
 # TODO: disable on prod environment => disable the browsable API
 REST_FRAMEWORK = {
