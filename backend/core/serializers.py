@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Wallet, Transaction, Transfer, TransferAdditionalInformation
+from .models import Wallet, Transaction, Transfer, TransferAdditionalInformation, CurrencyExchangeRate
 
 
 class WalletSerializer(serializers.ModelSerializer):
@@ -28,14 +28,28 @@ class TransferSerializer(serializers.ModelSerializer):
 
 
 class TransferAdditionalInformationSerializer(serializers.ModelSerializer):
-    transfer = TransferSerializer
+    transfer = TransferSerializer(many=False)
+    type = serializers.ChoiceField(choices=['Local', 'Foreign'])
+    bank_name = serializers.CharField(required=True)
+    bank_swift = serializers.CharField(required=True)
+    country = serializers.CharField(required=True)
 
     class Meta:
         model = TransferAdditionalInformation
-        fields = '__all__'
+        fields = ('transfer', 'bank_name', 'bank_swift', 'type', 'country')  # '__all__'
+
+    # def validate(self, attrs):
+    #     if self.type == 'Foreign' and self.country == 'Nigeria':
+    #         raise ValueError("Country cannot be Nigeria for foreign")
 
 
 class TransactionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Transaction
         fields = '__all__'
+
+
+class CurrencyExchangeRateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CurrencyExchangeRate
+        fields = ('id', 'base_currency', 'target_currency')

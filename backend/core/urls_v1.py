@@ -1,8 +1,8 @@
 from django.urls import path
 
-from .views import (WalletListCreate,  UserWalletRetrieve,
+from .views import (WalletListCreate, UserWalletRetrieve,
                     TransferListCreate2, WalletToWalletTransferView, WalletToBankTransferView,
-                    get_currency_exchange_rate, WalletTopUpView)
+                    get_currency_exchange_rate, WalletTopUpView, CurrencyExchangeRateView)
 
 urlpatterns = [
     path('wallets/', WalletListCreate.as_view(), name="api-wallets"),
@@ -27,8 +27,8 @@ urlpatterns = [
     # initiate_wallet_to_wallet_transfer, name='wallet-to-wallet-transfer'),
     # path('wallet-to-bank/<int:sender_wallet_id>/<decimal:amount>/<str:bank_account_number>/<str:bank_code>/',
     # initiate_wallet_to_bank_transfer, name='wallet-to-bank-transfer'),
-    path('exchange-rate/<str:base_currency>/<str:target_currency>/',
-         get_currency_exchange_rate,
+    path('exchange-rate/',
+         CurrencyExchangeRateView.as_view(),
          name='currency-exchange-rate'
          ),
 

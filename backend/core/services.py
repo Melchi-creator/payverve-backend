@@ -70,7 +70,7 @@ def process_payment_transfer(payload):
         return transfer
 
 
-FLUTTERWAVE_API_KEY = settings.FLUTTERWAVE_PUBLIC_KEY
+FLUTTERWAVE_API_KEY = settings.FLUTTERWAVE_SECRET_KEY
 FLUTTERWAVE_BASE_URL = 'https://api.flutterwave.com/v3'
 REDIRECT_URL = 'http://localhost:8001'
 

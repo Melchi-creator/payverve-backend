@@ -9,9 +9,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .config.authentication import FirebaseAuthentication
-from .models import Wallet, Transaction, TransferAdditionalInformation, Transfer
+from .models import Wallet, Transaction, TransferAdditionalInformation, Transfer, CurrencyExchangeRate
 from .serializers import WalletSerializer, TransactionSerializer, TransferAdditionalInformationSerializer, \
-    TransferSerializer, WalletTopUpSerializer
+    TransferSerializer, WalletTopUpSerializer, CurrencyExchangeRateSerializer
 from .services import process_payment_transfer, initiate_bank_transfer, get_exchange_rate
 
 
@@ -211,11 +211,13 @@ class WalletToBankTransferView(generics.CreateAPIView):
     queryset = Wallet.objects.all()
 
     def create(self, request, *args, **kwargs):
-        sender_wallet = self.get_object()
+        payload = request.data
+        print(f'Data: {payload}')
 
-        amount = request.data.get('amount', 0)
-        bank_account_number = request.data.get('bank_account_number')
-        bank_code = request.data.get('bank_code')
+        sender_wallet = self.get_object()
+        amount = request.data.get('transfer.amount', 0)
+        bank_account_number = request.data.get('transfer.account_number')
+        bank_code = request.data.get('bank_swift')
 
         # Check if the sender has enough balance
         if sender_wallet.balance < amount:
@@ -226,11 +228,13 @@ class WalletToBankTransferView(generics.CreateAPIView):
 
         # Check the response for success or failure and handle accordingly
         # TODO: reduce sender wallet by amount
+        print(f'Response: {response}')
 
-        if response.status == 200:
+        if response['status'] == 'success':
             sender_wallet.balance -= amount
             sender_wallet.save()
-            serializer = WalletSerializer(sender_wallet)
+            serializer = TransferAdditionalInformationSerializer
+            serializer.save(self=request)
             extra_data = {
                 "wallet_info": serializer.data,
                 "amount": amount,
@@ -251,3 +255,36 @@ class WalletToBankTransferView(generics.CreateAPIView):
 def get_currency_exchange_rate(request, base_currency, target_currency):
     response = get_exchange_rate(base_currency, target_currency)
     return Response(response, status=status.HTTP_200_OK)
+
+
+class CurrencyExchangeRateView(generics.ListCreateAPIView):
+    serializer_class = CurrencyExchangeRateSerializer
+    queryset = CurrencyExchangeRate.objects.all()
+
+    http_method_names = ['post']
+
+    def create(self, request, *args, **kwargs):
+        base = request.data.get('base_currency')
+        target = request.data.get('target_currency')
+        response = get_exchange_rate(base, target)
+        print(f'Currency Exchange Response: {response}')
+        if response['status'] == 'error':
+            return Response({'error': 'Could not fetch exchange data.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        data = response['data']
+        serializer = CurrencyExchangeRateSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            response = {
+                "status": "success",
+                "message": "Currency exchange fetch successful.",
+                "data": serializer.data
+            }
+            return Response(response, status=status.HTTP_201_CREATED)
+        else:
+            bad_response = {
+                "status": "error",
+                "message": "Currency exchange fetch failed.",
+                "data": serializer.errors
+            }
+            return Response(bad_response, status=status.HTTP_400_BAD_REQUEST)
