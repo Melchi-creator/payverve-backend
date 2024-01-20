@@ -108,3 +108,23 @@ def get_exchange_rate(base_currency, target_currency):
 
     response = requests.get(url, headers=headers)
     return response.json()
+
+
+# TODO: get banks list, bill payments (package details)
+def initiate_utility_payment(account_number, amount):
+    url = f"{FLUTTERWAVE_BASE_URL}/airtime"  # TODO change to switch case for all utiliies
+    headers = {
+        'Authorization': f'Bearer {FLUTTERWAVE_API_KEY}',
+        'Content-Type': 'application/json',
+    }
+    data = {
+        'tx_ref': 'unique_transaction_reference',
+        'amount': amount,
+        'currency': 'NGN',
+        'redirect_url': 'https://your-redirect-url.com',
+        'order_id': 'order_id',
+        'account_number': account_number,
+    }
+
+    response = requests.post(url, json=data, headers=headers)
+    return response.json()

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Wallet, Transaction, Transfer, TransferAdditionalInformation, CurrencyExchangeRate
+from .models import Wallet, Transaction, Transfer, TransferAdditionalInformation, CurrencyExchangeRate, UtilityPayment
 
 
 class WalletSerializer(serializers.ModelSerializer):
@@ -53,3 +53,9 @@ class CurrencyExchangeRateSerializer(serializers.ModelSerializer):
     class Meta:
         model = CurrencyExchangeRate
         fields = ('id', 'base_currency', 'target_currency')
+
+
+class UtilityPaymentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UtilityPayment
+        fields = '__all__'

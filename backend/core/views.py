@@ -9,10 +9,10 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .config.authentication import FirebaseAuthentication
-from .models import Wallet, Transaction, TransferAdditionalInformation, Transfer, CurrencyExchangeRate
+from .models import Wallet, Transaction, TransferAdditionalInformation, Transfer, CurrencyExchangeRate, UtilityPayment
 from .serializers import WalletSerializer, TransactionSerializer, TransferAdditionalInformationSerializer, \
-    TransferSerializer, WalletTopUpSerializer, CurrencyExchangeRateSerializer
-from .services import process_payment_transfer, initiate_bank_transfer, get_exchange_rate
+    TransferSerializer, WalletTopUpSerializer, CurrencyExchangeRateSerializer, UtilityPaymentSerializer
+from .services import process_payment_transfer, initiate_bank_transfer, get_exchange_rate, initiate_utility_payment
 
 
 # from rest_framework.response import Response
@@ -288,3 +288,25 @@ class CurrencyExchangeRateView(generics.ListCreateAPIView):
                 "data": serializer.errors
             }
             return Response(bad_response, status=status.HTTP_400_BAD_REQUEST)
+
+
+class UtilityPaymentView(generics.CreateAPIView):
+    queryset = UtilityPayment.objects.all()
+    serializer_class = UtilityPaymentSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        # Implement logic to initiate airtime recharge
+        response = initiate_utility_payment(serializer.validated_data['account_number'],
+                                            serializer.validated_data['amount'])
+
+        if response.get('status') == 'success':
+            # Save the transaction if the payment is successful
+            serializer.save(user=self.request.user)
+
+            return Response({'success': 'Utility payment successful.'}, status=status.HTTP_201_CREATED)
+        else:
+            return Response({'error': 'Utility payment failed.'}, status=status.HTTP_400_BAD_REQUEST)
+

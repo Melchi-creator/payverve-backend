@@ -88,6 +88,15 @@ class CurrencyExchangeRate(models.Model):
 
     def __str__(self):
         return f"{self.base_currency}/{self.target_currency}: {self.rate}"
+
+
+class UtilityPayment(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='utility_payments', on_delete=models.SET_NULL, null=True)
+    account_number = models.CharField(max_length=15)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+
 # class Utility:
 #     class UtilityType(models.TextChoices):
 #         Airtime = 'Local'
