@@ -108,6 +108,14 @@ DATABASES = {
         'PASSWORD': '$qJ@y`y%5~55n^£b^p=5b0[A3£I0m69Q',
         'HOST': 'localhost',
         'PORT': '5432',  # default PostgreSQL port
+    },
+    'mysql': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'payverve$default',
+        'USER': 'payverve',
+        'PASSWORD': '$qJ@y`y%5~55n^£b^p',
+        'HOST': 'payverve.mysql.pythonanywhere-services.com',
+        # 'PORT': '5432',
     }
 }
 
