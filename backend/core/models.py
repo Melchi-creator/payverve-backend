@@ -40,7 +40,7 @@ class TransferAdditionalInformation(models.Model):
     bank_name = models.CharField(max_length=50, null=False, default="ECO BANK")
     country = CountryField(null=False, default="Nigeria")
     bank_swift = models.CharField(max_length=50, null=True)
-    type = models.CharField(max_length=15,choices=TransferType.choices, null=False, default=TransferType.LOCAL)
+    type = models.CharField(max_length=15, choices=TransferType.choices, null=False, default=TransferType.LOCAL)
 
 
 class Transaction(models.Model):
