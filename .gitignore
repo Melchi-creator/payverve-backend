@@ -82,7 +82,6 @@ backend/.env
 
 # virtualenv
 venv/
-env/
 
 # Spyder project settings
 .spyderproject
