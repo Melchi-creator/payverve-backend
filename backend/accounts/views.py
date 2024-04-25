@@ -79,23 +79,42 @@ class AuthCreateNewUserView(APIView):
             user = auth.create_user_with_email_and_password(email, password)
             # create user on django database
             uid = user['localId']
+            id_token = user['idToken']
             data["firebase_uid"] = uid
             data["is_active"] = True
 
-            # sending custom email verification link
+            # send normal mail
             try:
-                user_email = email
-                display_name = first_name.capitalize()
-                generate_custom_email_from_firebase.delay(user_email, display_name)
+                auth.send_email_verification(id_token)
+                print('Sent email verification!')
             except Exception as ex:
                 # delete user from firebase if email verification link could not be sent
                 print(f'Exception occured: {ex.__cause__}')
                 firebase_admin_auth.delete_user(uid)
                 bad_response = {
                     "status": "failed",
-                    "message": f'Email verification link could not be sent; Please try again. Exception: {ex.__cause__}'
+                    "message": f'Email verification link could not be sent; Please try again. '
+                               f'Exception: {ex.__cause__}'
                 }
                 return Response(bad_response, status=status.HTTP_400_BAD_REQUEST)
+
+            # sending custom email verification link
+            # try:
+            #     user_email = email
+            #     display_name = first_name.capitalize()
+            #     auth.send_email_verification()
+            #     print('Sent email verification!')
+            #     generate_custom_email_from_firebase.delay(user_email, display_name)
+            # except Exception as ex:
+            #     # delete user from firebase if email verification link could not be sent
+            #     print(f'Exception occured: {ex.__cause__}')
+            #     firebase_admin_auth.delete_user(uid)
+            #     bad_response = {
+            #         "status": "failed",
+            #         "message": f'Email verification link could not be sent; Please try again. '
+            #                    f'Exception: {ex.__cause__}'
+            #     }
+            #     return Response(bad_response, status=status.HTTP_400_BAD_REQUEST)
 
             serializer = UserSerializer(data=data)
             if serializer.is_valid():
@@ -298,7 +317,8 @@ class RetrieveUpdateDestroyExistingUser(APIView):
 
     @swagger_auto_schema(
         operation_summary="Delete an existing user",
-        operation_description="Delete an existing user both on firebase and django database  based on their primary key.",
+        operation_description="Delete an existing user both on firebase and django database "
+                              "based on their primary key.",
         tags=["User Management"],
         responses={204: "User deleted successfully.", 404: "User does not exist."}
     )
@@ -353,7 +373,8 @@ class UpdateUserEmailAddressView(APIView):
 
     @swagger_auto_schema(
         operation_summary="Update an existing  user's email address on firebase and in the database",
-        operation_description="Update an existing user's email address on firebase by providing the new email and firebase uid.",
+        operation_description="Update an existing user's email address on firebase by providing "
+                              "the new email and firebase uid.",
         tags=["User Management"],
         request_body=UserEmailUpdateSerializer,
         responses={200: "User email updated successfully.", 400: "new email and firebase uid are required.",

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Wallet, Transaction, Transfer
+from .models import Wallet, Transaction, Transfer, TransferAdditionalInformation, CurrencyExchangeRate, UtilityPayment
 
 
 class WalletSerializer(serializers.ModelSerializer):
@@ -9,19 +9,53 @@ class WalletSerializer(serializers.ModelSerializer):
         fields = '__all__'  # ('id', 'balance', 'email', 'message')
 
 
+class WalletTopUpSerializer(serializers.ModelSerializer):
+    amount = serializers.DecimalField(required=True, min_value=0, decimal_places=4, max_digits=15)
+
+    class Meta:
+        model = Wallet
+        fields = ('id', 'amount')
+
+
 class TransferSerializer(serializers.ModelSerializer):
+    # wallet = WalletSerializer(many=True)
+    narration = serializers.CharField(required=False)
+    option = serializers.ChoiceField(choices=['PayVerve', 'Other Banks'])
+
     class Meta:
         model = Transfer
-        fields = '__all__'
+        fields = ('id', 'amount', 'option', 'account_number', 'narration')
 
 
 class TransferAdditionalInformationSerializer(serializers.ModelSerializer):
+    transfer = TransferSerializer(many=False)
+    type = serializers.ChoiceField(choices=['Local', 'Foreign'])
+    bank_name = serializers.CharField(required=True)
+    bank_swift = serializers.CharField(required=True)
+    country = serializers.CharField(required=True)
+
     class Meta:
-        model = Transaction
-        fields = '__all__'
+        model = TransferAdditionalInformation
+        fields = ('transfer', 'bank_name', 'bank_swift', 'type', 'country')  # '__all__'
+
+    # def validate(self, attrs):
+    #     if self.type == 'Foreign' and self.country == 'Nigeria':
+    #         raise ValueError("Country cannot be Nigeria for foreign")
 
 
 class TransactionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Transaction
+        fields = '__all__'
+
+
+class CurrencyExchangeRateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CurrencyExchangeRate
+        fields = ('id', 'base_currency', 'target_currency')
+
+
+class UtilityPaymentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UtilityPayment
         fields = '__all__'
