@@ -25,7 +25,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure--d73r2bzlx@*+^$p(ql#fijpt*$gqvjtt*!!sg-4arb12q(h#='
+SECRET_KEY = os.environ.get('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -88,34 +88,35 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
 DATABASES = {
+    # production database
+
+    # 'default': {
+    #     'ENGINE': os.environ.get('PROD-ENGINE'),
+    #     'NAME': os.environ.get('PROD-NAME'),
+    #     'USER': os.environ.get('PROD-USER'),
+    #     'PASSWORD': os.environ.get('PROD-PASSWORD'),
+    #     'HOST': os.environ.get('PROD-HOST'),
+    #     'PORT': os.environ.get('PROD-PORT'),
+    # }
+
+    # development database
+
+    # SQLite for database query
+
     # 'default': {
     #     'ENGINE': 'django.db.backends.sqlite3',
     #     'NAME': BASE_DIR / 'db.sqlite3',
     # },
-    # 'default': {
-    #     'ENGINE': 'django.db.backends.postgresql',
-    #     'NAME': 'payverve',
-    #     'USER': 'postgres',
-    #     'PASSWORD': 'admin123',
-    #     'HOST': 'localhost',
-    #     'PORT': '5432', # default PostgreSQL port
-    # },
+
+    # PostgreSQL
+
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        # 'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': 'payverve_db',
-        'USER': 'payverve',
-        'PASSWORD': '$qJ@y`y%5~55n^£b^p=5b0[A3£I0m69Q',
-        'HOST': 'localhost',
-        'PORT': '5432',  # default PostgreSQL port
-    },
-    'mysql': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'payverve$default',
-        'USER': 'payverve',
-        'PASSWORD': '$qJ@y`y%5~55n^£b^p',
-        'HOST': 'payverve.mysql.pythonanywhere-services.com',
-        # 'PORT': '5432',
+        'ENGINE': os.environ.get('ENGINE'),
+        'NAME': os.environ.get('NAME'),
+        'USER': os.environ.get('USER'),
+        'PASSWORD': os.environ.get('PASSWORD'),
+        'HOST': os.environ.get('HOST'),
+        'PORT': os.environ.get('PORT'),
     }
 }
 
