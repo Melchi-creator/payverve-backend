@@ -1,13 +1,15 @@
 # Create your views here.
-from rest_framework import generics, status
+from rest_framework import generics  # , status
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
 
 from .config.authentication import FirebaseAuthentication
 from .models import Wallet, Transaction, TransferAdditionalInformation, Transfer
 from .serializers import WalletSerializer, TransactionSerializer, TransferAdditionalInformationSerializer, \
     TransferSerializer
+
+
+# from rest_framework.response import Response
 
 
 class WalletListCreate(generics.ListCreateAPIView):
@@ -46,6 +48,19 @@ class UserWalletRetrieve(generics.ListAPIView):
 class TransferListCreate(generics.ListCreateAPIView):
     queryset = Transfer.objects.all()
     serializer_class = TransferSerializer
+
+    def perform_create(self, serializer):
+        wallet = self.kwargs['wallet']
+
+
+class TransfersListByOwner(generics.ListAPIView):
+    serializer_class = TransferSerializer
+    lookup_field = 'wallet'
+
+    def get_queryset(self):
+        wallet_id = self.kwargs['wallet']  # self.request.get('pk', None)
+        # filter query set based on the wallet => pk (try filer by owner)
+        return Transfer.objects.filter(wallet_id=wallet_id)
 
 
 class TransferAdditionalInformationListCreate(generics.ListCreateAPIView):
