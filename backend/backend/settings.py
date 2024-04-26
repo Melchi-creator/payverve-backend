@@ -9,10 +9,11 @@ https://docs.djangoproject.com/en/4.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
-
-from pathlib import Path
+import json
 import os
+from pathlib import Path
 
+import pyrebase
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -34,23 +35,29 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
-    'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
     # 'auth_firebase.apps.AuthFirebaseConfig',
+    'accounts',
     'rest_framework',
     'core',
     'django_countries',
     # 'flutter_wave_client',
+    'django.contrib.admin',
+    'corsheaders',
+    'drf_yasg',
+    'auditlog',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # new
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
+    'corsheaders.middleware.CorsMiddleware',  # new
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
@@ -152,14 +159,34 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# APPEND_SLASH=False
+
 # Prod settings
 # TODO: disable on prod environment => disable the browsable API
-# REST_FRAMEWORK = {
-#     'DEFAULT_RENDERER_CLASSES': (
-#         'rest_framework.renderers.JSONRenderer',
-#     )
-# }
+REST_FRAMEWORK = {
+    # 'DEFAULT_RENDERER_CLASSES': (
+    #     'rest_framework.renderers.JSONRenderer',
+    # ),
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        # 'accounts.firebase_auth.authentication.FirebaseAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        # 'rest_framework.permissions.IsAuthenticated',
+    ],
+}
 
+AUTHENTICATION_BACKENDS = [
+    'accounts.firebase_auth.authentication.FirebaseAuthentication',
+]
+
+# email settings
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = os.environ.get("EMAIL_HOST")
+EMAIL_PORT = os.environ.get("EMAIL_PORT")
+EMAIL_USE_TLS = False
+EMAIL_USE_SSL = False
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD")
 
 """FIREBASE CREDENTIALS"""
 FIREBASE_ACCOUNT_TYPE = os.environ.get('FIREBASE_ACCOUNT_TYPE')
@@ -172,3 +199,63 @@ FIREBASE_AUTH_URI = os.environ.get('FIREBASE_AUTH_URI')
 FIREBASE_TOKEN_URI = os.environ.get('FIREBASE_TOKEN_URI')
 FIREBASE_AUTH_PROVIDER_X509_CERT_URL = os.environ.get('FIREBASE_AUTH_PROVIDER_X509_CERT_URL')
 FIREBASE_CLIENT_X509_CERT_URL = os.environ.get('FIREBASE_CLIENT_X509_CERT_URL')
+
+
+# FLUTTERWAVE API KEYS
+FLUTTERWAVE_PUBLIC_KEY = os.environ.get('FLWPUBK')
+FLUTTERWAVE_SECRET_KEY = os.environ.get('FLWSECK')
+FLUTTERWAVE_ENCRYPTION_KEY = os.environ.get('FLWENCK')
+
+# RUNNING ENVIRONMENT
+PRODUCTION=False
+
+FIREBASE_CONFIG_FILE = BASE_DIR / 'firebase_config.json'
+FIREBASE_CRED_FILE = BASE_DIR / 'payverve-61d68-firebase-adminsdk-3ecm0-a03f16912a.json'
+
+
+try:
+    config = {
+        "apiKey": os.environ.get("FIREBASE_API_KEY"),
+        "authDomain": os.environ.get("FIREBASE_AUTH_DOMAIN"),
+        "databaseURL": os.environ.get("FIREBASE_DATABASE_URL"),
+        "storageBucket": os.environ.get("FIREBASE_STORAGE_BUCKET"),
+    }
+    pb = pyrebase.initialize_app(json.load(open(FIREBASE_CONFIG_FILE)))
+    auth = pb.auth()
+except Exception:
+    raise Exception("Firebase configuration credentials not found. "
+                    "Please add the configuration to the environment variables.")
+
+# custom user model
+AUTH_USER_MODEL = 'accounts.User'
+
+# swagger settings
+SWAGGER_SETTINGS = {
+    'USE_SESSION_AUTH': False,
+    'SECURITY_DEFINITIONS': {
+        'Bearer': {
+            'type': 'apiKey',
+            'name': 'Authorization',
+            'in': 'header',
+        }
+    },
+    'APIS_SORTER': 'alpha',
+    'SHOW_REQUEST_HEADERS': True,
+    'JSON_EDITOR': True,
+}
+# cors settings
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_METHODS = [
+    "GET",
+    "POST",
+    "PUT",
+    "PATCH",
+    "DELETE",
+    "OPTIONS",
+]
+CORS_ALLOW_HEADERS = [
+    "Accept",
+    "Content-Type",
+    "Authorization",
+]
+CORS_ALLOW_CREDENTIALS = True

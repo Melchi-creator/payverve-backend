@@ -33,7 +33,7 @@ class Migration(migrations.Migration):
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('transaction_datetime', models.DateTimeField(auto_now_add=True)),
                 ('currency', models.CharField(choices=[('£', 'Pound'), ('$', 'Dollar'), ('NGN', 'Naira')],
-                                              default=core.utils.Currency.Currency['Naira'], max_length=10)),
+                                              default=core.utils.Currency.Currency['Naira'], max_length=20)),
                 ('balance', models.DecimalField(decimal_places=4, max_digits=15)),
                 ('transaction_status', models.CharField(
                     choices=[('Initiated', 'INITIATED'), ('Pending', 'PENDING'), ('Completed', 'COMPLETED')],
