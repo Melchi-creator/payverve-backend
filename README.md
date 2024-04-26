@@ -2,14 +2,17 @@
 
 ## About Payverve
 
-Payverve is a fintech application designed to facilitate financial transactions for Nigerians, providing them with the capability to manage dollar and pound accounts, swap currencies, create virtual cards, and more. The backend of this application is built using Django, a high-level Python web framework known for its robustness and scalability.
+Payverve is a fintech application designed to facilitate financial transactions for Nigerians, providing them with the
+capability to manage dollar and pound accounts, swap currencies, create virtual cards, and more. The backend of this
+application is built using Django, a high-level Python web framework known for its robustness and scalability.
 
 ## Features
 
 - Multi-Currency Support: Users can create and manage dollar and pound accounts within the application.
 - Currency Swapping: Exchange currencies seamlessly within the app to meet various financial needs.
 - Virtual Card Creation: Generate virtual cards for online transactions, providing added security and convenience.
-- Scalable Architecture: Built on Django, ensuring a stable and scalable backend for handling a large number of users and transactions.
+- Scalable Architecture: Built on Django, ensuring a stable and scalable backend for handling a large number of users
+  and transactions.
 
 ## Requirements
 
@@ -25,7 +28,7 @@ Create a virtual environment to manage project dependencies and isolate them fro
 
 ### Development Environment
 
-#### Virtual environment 
+#### Virtual environment
 
 ##### for PyCharm
 
@@ -46,16 +49,17 @@ Create a virtual environment to manage project dependencies and isolate them fro
     ```
 - Activate the virtual environment:
 
-    **On Windows:**
+  **On Windows:**
     ```Copy code
     source venv/Scripts/activate
     ````
-    **On macOS/Linux:**
+  **On macOS/Linux:**
     ```Copy code
     source venv/bin/activate
     ```
 
 #### Installing Dependencies
+
 Install the required dependencies using `pip`.
 
 - for development
@@ -65,7 +69,7 @@ Install the required dependencies using `pip`.
     ```
 
 - for production
-    
+
     ```Copy code
     pip install -r prod-requirements.txt
     ```
@@ -74,7 +78,7 @@ Install the required dependencies using `pip`.
 
 - Configure your database settings in `backend/settings.py` and perform migrations to initialize the database schema.
 - To perform migrations run:
-    
+
     ```Copy code
     python manage.py migrate
     ```
@@ -86,7 +90,7 @@ Install the required dependencies using `pip`.
     ```Copy code
     python manage.py runserver
     ```
-    
+
 Access the application at http://127.0.0.1:8000/ in your web browser.
 
 Now, the backend of Payverve is set up and ready to handle financial transactions and operations efficiently.
