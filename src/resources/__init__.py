@@ -1,7 +1,6 @@
 """
 resources
-
 Hold all resources import
 """
 
-from .server import Server
+from .server import ServerResource
