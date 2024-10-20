@@ -1,6 +1,8 @@
-"""wsgi.py
+"""
+wsgi.py
 
 web server gateway interface
+Application Entry Point in Production
 """
 
 from . import config

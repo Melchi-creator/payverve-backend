@@ -1,11 +1,14 @@
 """
 server.py
-This file is for the route that verifies the server is running and accessbile
+
+Route for server check
 """
+
 from flask import Blueprint
 
-from src.resources import Server
+from resources import ServerResource
 
-ServerBlueprint = Blueprint("server", __name__)
 
-ServerBlueprint.route("/", methods=['GET'])(Server.server)
+ServerBlueprint = Blueprint("server_check", __name__)
+
+ServerBlueprint.route("/", methods=['GET'])(ServerResource.status_check)
