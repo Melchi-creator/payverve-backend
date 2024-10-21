@@ -4,20 +4,20 @@
 
 Payverve is a fintech application designed to facilitate financial transactions for Nigerians, providing them with the
 capability to manage dollar and pound accounts, swap currencies, create virtual cards, and more. The backend of this
-application is built using Django, a high-level Python web framework known for its robustness and scalability.
+application is built using FLASK, a high-level Python web framework known for its robustness and scalability.
 
 ## Features
 
 - Multi-Currency Support: Users can create and manage dollar and pound accounts within the application.
 - Currency Swapping: Exchange currencies seamlessly within the app to meet various financial needs.
 - Virtual Card Creation: Generate virtual cards for online transactions, providing added security and convenience.
-- Scalable Architecture: Built on Django, ensuring a stable and scalable backend for handling a large number of users
+- Scalable Architecture: Built on FLASK, ensuring a stable and scalable backend for handling a large number of users
   and transactions.
 
 ## Requirements
 
 - Python 3.x
-- Django
+- Flask
 - Additional dependencies as specified in requirements.txt
 
 ## Setup
@@ -76,22 +76,30 @@ Install the required dependencies using `pip`.
 
 #### Database setup
 
-- Configure your database settings in `backend/settings.py` and perform migrations to initialize the database schema.
+- Configure your database settings in `.env` and perform migrations to initialize the database schema.
 - To perform migrations run:
 
     ```Copy code
-    python manage.py migrate
+    flask db upgrade
     ```
 
 #### Run server application
 
-- Run the Django development server to start the backend application.
+- Run the Flask development server to start the backend application.
 
     ```Copy code
-    python manage.py runserver
+    export flask_app=src/server.py
     ```
 
-Access the application at http://127.0.0.1:8000/ in your web browser.
+    ```Copy code
+    export flask_debug=true
+    ```
+
+    ```Copy code
+    python -m src.server
+    ```
+
+Access the application at http://127.0.0.1:3100/payverve/ in your web browser.
 
 Now, the backend of Payverve is set up and ready to handle financial transactions and operations efficiently.
 
