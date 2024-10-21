@@ -11,9 +11,8 @@ from flask_cors import CORS
 from flask_migrate import Migrate
 from flask_talisman import Talisman
 
-import config
-import routes
-from models import db
+from . import config, routes
+from .models import db
 
 server = Flask(__name__)
 server.secret_key = config.secret_key

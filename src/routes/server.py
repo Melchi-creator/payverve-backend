@@ -6,8 +6,7 @@ Route for server check
 
 from flask import Blueprint
 
-from resources import ServerResource
-
+from ..resources import ServerResource
 
 ServerBlueprint = Blueprint("server_check", __name__)
 
