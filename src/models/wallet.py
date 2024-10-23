@@ -28,3 +28,9 @@ class WalletModel(db.Model, BaseModel, metaclass=MetaBaseModel):
 
     user = db.Column(UUID(as_uuid=True), db.ForeignKey('users.id'), nullable=False)
     currency = db.Column(UUID(as_uuid=True), db.ForeignKey('currencies.id'), nullable=False)
+
+    # relationships
+
+    foreign_transfers = db.relationship('ForeignTransferModel', backref='wallets', lazy=True, cascade="all")
+    local_transfers = db.relationship('LocalTransferModel', backref='wallets', lazy=True, cascade="all")
+    payverve_transfers = db.relationship('PayverveTransferModel', backref='wallets', lazy=True, cascade="all")
