@@ -19,6 +19,7 @@ def parse_params(*arguments):
         @wraps(func)
         def resource_verb(*args, **kwargs):
             """ Decorated function """
+
             parser = reqparse.RequestParser()
             for argument in arguments:
                 parser.add_argument(argument)

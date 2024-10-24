@@ -26,7 +26,7 @@ class BankAccountModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     country = db.Column(db.String(), nullable=False)
 
     created_at = db.Column(db.DateTime(), default=NetworkDateTime.network_datetime(), nullable=False)
-    updated_at = db.Column(db.DateTime(), onupdate=NetworkDateTime.network_datetime(), nullable=False)
+    updated_at = db.Column(db.DateTime(), onupdate=NetworkDateTime.network_datetime(), nullable=True)
 
     # foreign keys
 

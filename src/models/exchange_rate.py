@@ -23,4 +23,4 @@ class ExchnageRateModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     rate = db.Column(db.Integer, nullable=False)
 
     created_at = db.Column(db.DateTime(), default=NetworkDateTime.network_datetime(), nullable=False)
-    updated_at = db.Column(db.DateTime(), onupdate=NetworkDateTime.network_datetime(), nullable=False)
+    updated_at = db.Column(db.DateTime(), onupdate=NetworkDateTime.network_datetime(), nullable=True)

@@ -26,7 +26,7 @@ class UserModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     email_address = db.Column(db.String(), nullable=False, unique=True)
     mobile_number = db.Column(db.String(), nullable=False, unique=True)
     password = db.Column(db.String(), nullable=False)
-    auth_pin = db.Column(db.String(), nullable=False)
+    auth_pin = db.Column(db.String(), nullable=True)
     transaction_pin = db.Column(db.String(), nullable=True)
     gender = db.Column(db.String(), nullable=False)
     date_of_birth = db.Column(db.Date(), nullable=False)
@@ -38,9 +38,10 @@ class UserModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     country = db.Column(db.String(), nullable=True)
     photo = db.Column(db.String(), nullable=True)
     deleted = db.Column(db.Boolean(), nullable=False, default=False)
+    deleted_date = db.Column(db.DateTime(), nullable=True)
 
     created_at = db.Column(db.DateTime(), default=NetworkDateTime.network_datetime(), nullable=False)
-    updated_at = db.Column(db.DateTime(), onupdate=NetworkDateTime.network_datetime(), nullable=False)
+    updated_at = db.Column(db.DateTime(), onupdate=NetworkDateTime.network_datetime(), nullable=True)
 
     # relationships
 
