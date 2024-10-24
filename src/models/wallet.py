@@ -19,12 +19,18 @@ class WalletModel(db.Model, BaseModel, metaclass=MetaBaseModel):
 
     id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     fund = db.Column(db.Float(), nullable=False, default=0)
-    account_number = db.Column(db.Integer, nullable=False)
+    account_number = db.Column(db.BigInteger, nullable=False)
 
     created_at = db.Column(db.DateTime(), default=NetworkDateTime.network_datetime(), nullable=False)
-    updated_at = db.Column(db.DateTime(), onupdate=NetworkDateTime.network_datetime(), nullable=False)
+    updated_at = db.Column(db.DateTime(), onupdate=NetworkDateTime.network_datetime(), nullable=True)
 
     # foreign keys
 
     user = db.Column(UUID(as_uuid=True), db.ForeignKey('users.id'), nullable=False)
     currency = db.Column(UUID(as_uuid=True), db.ForeignKey('currencies.id'), nullable=False)
+
+    # relationships
+
+    foreign_transfers = db.relationship('ForeignTransferModel', backref='wallets', lazy=True, cascade="all")
+    local_transfers = db.relationship('LocalTransferModel', backref='wallets', lazy=True, cascade="all")
+    payverve_transfers = db.relationship('PayverveTransferModel', backref='wallets', lazy=True, cascade="all")

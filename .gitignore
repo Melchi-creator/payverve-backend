@@ -181,6 +181,6 @@ fabric.properties
 .idea/caches/build_file_checksums.ser
 
 # idea folder, uncomment if you don't need it
-# .idea
+.idea
 /payverve-563e2-firebase-adminsdk-mv51l-40f047a448.json
 /payverve-61d68-firebase-adminsdk-3ecm0-a03f16912a.json

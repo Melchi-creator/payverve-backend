@@ -36,7 +36,7 @@ class AdminModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     photo = db.Column(db.String(), nullable=True)
 
     created_at = db.Column(db.DateTime(), default=NetworkDateTime.network_datetime(), nullable=False)
-    updated_at = db.Column(db.DateTime(), onupdate=NetworkDateTime.network_datetime(), nullable=False)
+    updated_at = db.Column(db.DateTime(), onupdate=NetworkDateTime.network_datetime(), nullable=True)
 
     # foreign keys
 
