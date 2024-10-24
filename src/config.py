@@ -29,3 +29,7 @@ database_uri = f"postgresql://{database_username}:{database_paswword}@{database_
 database_tracker = False
 
 mobile_app_path = os.getenv('MOBILE_APP_PATH')
+
+exchange_rate_api_key = os.getenv('EXCHANGERATE_API_KEY')
+exchange_rate_api_url = os.getenv('EXCHANGERATE_API_URL')
+exchange_rate_markup = os.getenv('EXCHANGERATE_MARKUP')

@@ -32,3 +32,23 @@ class RandomGenerator:
                 'code_status': 'recursion error',
                 'data': 'could not generate account number'
             }), 500
+
+    @staticmethod
+    def swap_reference_number():
+        """ Swap Reference Number Generator """
+
+        try:
+            reference_number = secrets.token_hex(8)
+            return reference_number
+        except ArithmeticError:
+            return jsonify({
+                'code': 500,
+                'code_status': 'arithmetic error',
+                'data': 'could not generate reference number'
+            }), 500
+        except RecursionError:
+            return jsonify({
+                'code': 500,
+                'code_status': 'recursion error',
+                'data': 'could not generate reference number'
+            }), 500
