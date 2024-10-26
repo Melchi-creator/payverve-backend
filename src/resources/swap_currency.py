@@ -33,6 +33,7 @@ class SwapCurrencyResource(Resource):
         """ Swap Currency """
 
         try:
+            swapped_currencies = SwapCurrencyModel.query.all()
             exchange_rate = ExchangeRateModel.query.filter_by(
                 base_currency=base_currency,
                 target_currency=target_currency).first()
@@ -84,6 +85,12 @@ class SwapCurrencyResource(Resource):
             wallet.fund += float(converted_amount)
             check_balance.fund -= float(amount)
 
+            reference_number = RandomGenerator.swap_reference_number()
+
+            for swapped_currency in swapped_currencies:
+                if str(swapped_currency.reference) == str(reference_number):
+                    reference_number = RandomGenerator.swap_reference_number()
+
             # noinspection PyArgumentList
             new_swap_currency = SwapCurrencyModel(
                 base_currency=base_currency,
@@ -91,7 +98,7 @@ class SwapCurrencyResource(Resource):
                 amount=amount,
                 currency_pair=f'{base_currency.upper()}-{target_currency.upper()}',
                 amount_received=converted_amount,
-                reference=RandomGenerator.swap_reference_number(),
+                reference=reference_number,
                 user=user,
             )
             wallet.save()
@@ -108,6 +115,8 @@ class SwapCurrencyResource(Resource):
                 'amount_received': new_swap_currency.amount_received,
                 'reference': new_swap_currency.reference,
                 'user': new_swap_currency.user,
+                'created_at': new_swap_currency.created_at,
+                'updated_at': new_swap_currency.updated_at
             }
 
             return jsonify({
@@ -188,6 +197,8 @@ class SwapCurrencyResource(Resource):
                     'amount_received': swapped_currency.amount_received,
                     'reference': swapped_currency.reference,
                     'user': swapped_currency.user,
+                    'created_at': swapped_currency.created_at,
+                    'updated_at': swapped_currency.updated_at
                 })
 
             return jsonify({
@@ -241,6 +252,8 @@ class SwapCurrencyResource(Resource):
                 'amount_received': swapped_currency.amount_received,
                 'reference': swapped_currency.reference,
                 'user': swapped_currency.user,
+                'created_at': swapped_currency.created_at,
+                'updated_at': swapped_currency.updated_at
             }
 
             return jsonify({

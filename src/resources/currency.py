@@ -111,6 +111,8 @@ class CurrencyResource(Resource):
                     'name': currency.name,
                     'short_code': currency.short_code,
                     'country': currency.country,
+                    'created_at': currency.created_at,
+                    'updated_at': currency.updated_at
                 })
 
             return jsonify({
@@ -159,6 +161,8 @@ class CurrencyResource(Resource):
                 'name': currency.name,
                 'short_code': currency.short_code,
                 'country': currency.country,
+                'created_at': currency.created_at,
+                'updated_at': currency.updated_at
             }
 
             return jsonify({
@@ -223,6 +227,8 @@ class CurrencyResource(Resource):
                 'name': currency.name,
                 'short_code': currency.short_code,
                 'country': currency.country,
+                'created_at': currency.created_at,
+                'updated_at': currency.updated_at
             }
 
             return jsonify({

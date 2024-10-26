@@ -19,7 +19,7 @@ class BeneficiaryModel(db.Model, BaseModel, metaclass=MetaBaseModel):
 
     id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     name = db.Column(db.String(), nullable=False)
-    account_number = db.Column(db.Integer, nullable=False)
+    account_number = db.Column(db.BigInteger, nullable=False)
     bank = db.Column(db.String(), nullable=False)
     country = db.Column(db.String(), nullable=False)
 

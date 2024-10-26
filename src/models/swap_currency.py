@@ -24,7 +24,7 @@ class SwapCurrencyModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     transaction_type = db.Column(db.String(), nullable=False, default="swap")
     currency_pair = db.Column(db.String(), nullable=False)
     amount_received = db.Column(db.Float(), nullable=False)
-    reference = db.Column(db.String(), nullable=False)
+    reference = db.Column(db.String(), nullable=False, unique=True)
 
     created_at = db.Column(db.DateTime(), default=NetworkDateTime.network_datetime(), nullable=False)
     updated_at = db.Column(db.DateTime(), onupdate=NetworkDateTime.network_datetime(), nullable=True)

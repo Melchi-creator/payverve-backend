@@ -20,7 +20,7 @@ class LocalTransferModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     amount = db.Column(db.Float(), nullable=False)
     narration = db.Column(db.String(), nullable=True)
-    account = db.Column(db.Integer, nullable=False)
+    account = db.Column(db.BigInteger, nullable=False)
     name = db.Column(db.String(), nullable=False)
     bank = db.Column(db.String(), nullable=False)
 

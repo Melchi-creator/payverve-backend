@@ -20,7 +20,10 @@ class PayverveTransferModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     amount = db.Column(db.Float(), nullable=False)
     narration = db.Column(db.String(), nullable=True)
-    account = db.Column(db.Integer, nullable=False)
+    account = db.Column(db.BigInteger, nullable=False)
+    reference = db.Column(db.String(), nullable=False, unique=True)
+    transaction_type = db.Column(db.String(), nullable=False, default="wallet tranfer")
+    transfer_pair = db.Column(db.String(), nullable=False)
 
     created_at = db.Column(db.DateTime(), default=NetworkDateTime.network_datetime(), nullable=False)
     updated_at = db.Column(db.DateTime(), onupdate=NetworkDateTime.network_datetime(), nullable=True)

@@ -19,7 +19,7 @@ class BankAccountModel(db.Model, BaseModel, metaclass=MetaBaseModel):
 
     id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     bank_name = db.Column(db.String(), nullable=False)
-    account_number = db.Column(db.Integer, nullable=False)
+    account_number = db.Column(db.BigInteger, nullable=False)
     bank_swift = db.Column(db.String(), nullable=False)
     account_first_name = db.Column(db.String(), nullable=False)
     account_last_name = db.Column(db.String(), nullable=False)

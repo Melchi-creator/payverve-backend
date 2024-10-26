@@ -123,6 +123,8 @@ class ExchangeRateResource(Resource):
                     'base_currency': exchange_rate.base_currency,
                     'target_currency': exchange_rate.target_currency,
                     'rate': exchange_rate.rate,
+                    'created_at': exchange_rate.created_at,
+                    'updated_at': exchange_rate.updated_at
                 })
 
             return jsonify({
@@ -171,6 +173,8 @@ class ExchangeRateResource(Resource):
                 'base_currency': exchange_rate.base_currency,
                 'target_currency': exchange_rate.target_currency,
                 'rate': exchange_rate.rate,
+                'created_at': exchange_rate.created_at,
+                'updated_at': exchange_rate.updated_at
             }
 
             return jsonify({
@@ -235,6 +239,8 @@ class ExchangeRateResource(Resource):
                 'base_currency': exchange_rate.base_currency,
                 'target_currency': exchange_rate.target_currency,
                 'rate': exchange_rate.rate,
+                'created_at': exchange_rate.created_at,
+                'updated_at': exchange_rate.updated_at
             }
 
             return jsonify({

@@ -29,6 +29,7 @@ class WalletResource(Resource):
     def create(user, currency):
         """ Adds a new wallet """
 
+        all_wallets = WalletModel.query.all()
         wallets = WalletModel.query.filter_by(user=user).all()
 
         try:
@@ -37,13 +38,19 @@ class WalletResource(Resource):
                     return jsonify({
                         'code': 409,
                         'code_status': 'conflict',
-                        'data': 'you alread own this currency'
+                        'data': 'you already own a wallet with this currency'
                     }), 409
+
+            account_number = RandomGenerator.wallet_account_number()
+
+            for one_wallet in all_wallets:
+                if int(one_wallet.account_number) == int(account_number):
+                    account_number = RandomGenerator.wallet_account_number()
 
             # noinspection PyArgumentList
             new_wallet = WalletModel(
                 fund=0,
-                account_number=RandomGenerator.wallet_account_number(),
+                account_number=account_number,
                 user=user,
                 currency=currency
             )
@@ -52,14 +59,14 @@ class WalletResource(Resource):
             return jsonify({
                 'code': 201,
                 'code_status': 'created',
-                'data': 'currency was successfully added'
+                'data': 'wallet was successfully created'
             }), 201
 
         except IntegrityError:
             return jsonify({
                 'code': 409,
                 'code_status': 'conflict - integrity error',
-                'data': 'this currency has already been listed'
+                'data': 'a wallet with this currency has already been listed'
             }), 409
 
         except DataError:
@@ -118,6 +125,8 @@ class WalletResource(Resource):
                         'currency_shortcode': currency.short_code,
                         'currency_full_name': currency.name,
                     },
+                    'created_at': wallet.created_at,
+                    'updated_at': wallet.updated_at
                 })
 
             return jsonify({
@@ -172,6 +181,8 @@ class WalletResource(Resource):
                     'currency_shortcode': currency.short_code,
                     'currency_full_name': currency.name,
                 },
+                'created_at': wallet.created_at,
+                'updated_at': wallet.updated_at
             }
 
             return jsonify({
@@ -234,6 +245,8 @@ class WalletResource(Resource):
                     'currency_shortcode': currency.short_code,
                     'currency_full_name': currency.name,
                 },
+                'created_at': wallet.created_at,
+                'updated_at': wallet.updated_at
             }
 
             return jsonify({
