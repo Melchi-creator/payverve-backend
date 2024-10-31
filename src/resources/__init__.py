@@ -3,6 +3,7 @@ resources
 Hold all resources import
 """
 
+from .beneficiary import BeneficiaryResource
 from .currency import CurrencyResource
 from .server import ServerResource
 from .user import UserResource

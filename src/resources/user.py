@@ -6,16 +6,13 @@ Defines all functions for users especially CRUD
 from flask import jsonify
 from flask_restful import Resource
 from flask_restful.reqparse import Argument
-from sqlalchemy.exc import DataError, \
-    DisconnectionError, \
-    IntegrityError, \
-    InternalError, \
-    OperationalError, \
-    ProgrammingError, SQLAlchemyError
+from sqlalchemy.exc import (DataError, DisconnectionError, IntegrityError,
+                            InternalError, OperationalError, ProgrammingError,
+                            SQLAlchemyError)
 
 from ..middlewares import NetworkDateTime
 from ..models import CurrencyModel, UserModel, WalletModel
-from ..utilities import parse_params, RandomGenerator
+from ..utilities import RandomGenerator, parse_params
 
 
 class UserResource(Resource):
