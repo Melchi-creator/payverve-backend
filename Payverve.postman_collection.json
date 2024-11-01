@@ -1,0 +1,616 @@
+{
+	"info": {
+		"_postman_id": "5f5e4dd0-6ba0-4915-983a-8f6e8b08a8d3",
+		"name": "Payverve",
+		"description": "The Payverve API Collection enables seamless integration with the Payverve fintech application, facilitating robust financial transactions for Nigerians. This collection includes endpoints for account management, currency swapping, virtual card creation, and transaction management, leveraging Payverve's scalable Flask backend. Import this collection into Postman to test API endpoints, integrate Payverve functionality, and streamline financial transactions.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "21686564"
+	},
+	"item": [
+		{
+			"name": "currencies",
+			"item": [
+				{
+					"name": "create",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"name\":  \"united state dollar\",\r\n    \"short_code\": \"usd\",\r\n    \"country\": \"united state of america\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{payverve-api}}currencies",
+							"host": [
+								"{{payverve-api}}currencies"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "read_all",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{payverve-api}}currencies",
+							"host": [
+								"{{payverve-api}}currencies"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "read_one",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{payverve-api}}currencies/11e672fe-64f6-498b-bc10-d63a0a80d79d",
+							"host": [
+								"{{payverve-api}}currencies"
+							],
+							"path": [
+								"11e672fe-64f6-498b-bc10-d63a0a80d79d"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "update",
+					"request": {
+						"method": "PUT",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"name\": \"nigeria naira\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{payverve-api}}currencies/addad86e-9f25-40dc-aaf2-b2c8b07b20dd",
+							"host": [
+								"{{payverve-api}}currencies"
+							],
+							"path": [
+								"addad86e-9f25-40dc-aaf2-b2c8b07b20dd"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "delete",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{payverve-api}}currencies/11e672fe-64f6-498b-bc10-d63a0a80d79d",
+							"host": [
+								"{{payverve-api}}currencies"
+							],
+							"path": [
+								"11e672fe-64f6-498b-bc10-d63a0a80d79d"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "exchange_rate",
+			"item": [
+				{
+					"name": "create",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"base_currency\": \"ngn\",\r\n    \"target_currency\": \"usd\",\r\n    \"rate\": 0.0006060606060606061\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{payverve-api}}exchange-rates",
+							"host": [
+								"{{payverve-api}}exchange-rates"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "read_all",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{payverve-api}}exchange-rates",
+							"host": [
+								"{{payverve-api}}exchange-rates"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "read_one",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{payverve-api}}exchange-rates/d54ad612-5408-4ae5-96e6-17dc45ed5e08",
+							"host": [
+								"{{payverve-api}}exchange-rates"
+							],
+							"path": [
+								"d54ad612-5408-4ae5-96e6-17dc45ed5e08"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "update",
+					"request": {
+						"method": "PUT",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"rate\": 1650\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{payverve-api}}exchange-rates/d346f2a6-bb3a-454f-8a5a-bc45a93fbef3",
+							"host": [
+								"{{payverve-api}}exchange-rates"
+							],
+							"path": [
+								"d346f2a6-bb3a-454f-8a5a-bc45a93fbef3"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "delete",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{payverve-api}}exchange-rates/69f7125d-e0f9-4c26-bf07-00221e5b7d23",
+							"host": [
+								"{{payverve-api}}exchange-rates"
+							],
+							"path": [
+								"69f7125d-e0f9-4c26-bf07-00221e5b7d23"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "local_transfer",
+			"item": [
+				{
+					"name": "create",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"amount\": 2000,\r\n    \"narration\": \"to self\",\r\n    \"account\": \"0127962555\",\r\n    \"name\": \"Samuel Doghor Destiny\",\r\n    \"bank\": \"GTBank\",\r\n    \"user\": \"6e43e301-8ff9-4485-b46f-bc92e99c5761\",\r\n    \"wallet\": \"89583cca-e1f7-4ed0-b47a-64a907c6a671\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{payverve-api}}local_transfers",
+							"host": [
+								"{{payverve-api}}local_transfers"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "read_all",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{payverve-api}}local_transfers",
+							"host": [
+								"{{payverve-api}}local_transfers"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "payverve_transfer",
+			"item": [
+				{
+					"name": "create",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"amount\": 4600,\r\n    \"narration\": \"self\",\r\n    \"account\": 9514497904,\r\n    \"user\": \"6e43e301-8ff9-4485-b46f-bc92e99c5761\",\r\n    \"wallet\": \"89583cca-e1f7-4ed0-b47a-64a907c6a671\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{payverve-api}}payverve-transfers",
+							"host": [
+								"{{payverve-api}}payverve-transfers"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "read_all",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{payverve-api}}payverve-transfers",
+							"host": [
+								"{{payverve-api}}payverve-transfers"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "read_one",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{payverve-api}}payverve-transfers/8a141c3f-86bf-4ea5-bdd0-6e09ae8a6197",
+							"host": [
+								"{{payverve-api}}payverve-transfers"
+							],
+							"path": [
+								"8a141c3f-86bf-4ea5-bdd0-6e09ae8a6197"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "swap_currency",
+			"item": [
+				{
+					"name": "create",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"base_currency\": \"usd\",\r\n    \"target_currency\": \"ngn\",\r\n    \"amount\": 2.18181818181818,\r\n    \"user\": \"1ad3b56e-eee6-42a4-8dbd-b168aefb52a2\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{payverve-api}}swap-currencies",
+							"host": [
+								"{{payverve-api}}swap-currencies"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "read_all",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{payverve-api}}swap-currencies",
+							"host": [
+								"{{payverve-api}}swap-currencies"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "read_one",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{payverve-api}}swap-currencies/",
+							"host": [
+								"{{payverve-api}}swap-currencies"
+							],
+							"path": [
+								""
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "users",
+			"item": [
+				{
+					"name": "create",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Get the current date and time in ISO 8601 format\r",
+									"const currentDate = new Date(2011, 5, 28).toISOString();\r",
+									"\r",
+									"// Extract the date and time separately\r",
+									"const dateOnly = currentDate.split('T')[0];\r",
+									"const timeOnly = currentDate.split('T')[1].split('.')[0];\r",
+									"\r",
+									"// Extract the year\r",
+									"const year = dateOnly.split('-')[0];\r",
+									"\r",
+									"\r",
+									"// Store the date and time in Postman environment variables\r",
+									"pm.environment.set('currentDate', dateOnly);\r",
+									"pm.environment.set('currentTime', timeOnly);\r",
+									"pm.environment.set('currentYear', year);\r",
+									""
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"first_name\": \"Doghor\",\r\n    \"last_name\": \"Samuel\",\r\n    \"email_address\": \"testourapp63@gmail.com\",\r\n    \"mobile_number\": \"07031390921\",\r\n    \"password\": \"Password@1\",\r\n    \"gender\": \"male\",\r\n    \"date_of_birth\": \"{{currentDate}}\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{payverve-api}}users",
+							"host": [
+								"{{payverve-api}}users"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "read_all",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{payverve-api}}users",
+							"host": [
+								"{{payverve-api}}users"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "read_one",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{payverve-api}}users/6e43e301-8ff9-4485-b46f-bc92e99c5761",
+							"host": [
+								"{{payverve-api}}users"
+							],
+							"path": [
+								"6e43e301-8ff9-4485-b46f-bc92e99c5761"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "update",
+					"request": {
+						"method": "PUT",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"username\": \"samdoghor\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{payverve-api}}users/6e43e301-8ff9-4485-b46f-bc92e99c5761",
+							"host": [
+								"{{payverve-api}}users"
+							],
+							"path": [
+								"6e43e301-8ff9-4485-b46f-bc92e99c5761"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "delete",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{payverve-api}}users/6e43e301-8ff9-4485-b46f-bc92e99c5761",
+							"host": [
+								"{{payverve-api}}users"
+							],
+							"path": [
+								"6e43e301-8ff9-4485-b46f-bc92e99c5761"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "wallets",
+			"item": [
+				{
+					"name": "create",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"user\": \"1ad3b56e-eee6-42a4-8dbd-b168aefb52a2\",\r\n    \"currency\": \"e5f6ba72-0e8e-4f7d-8c4c-8705c8ed4f15\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{payverve-api}}wallets",
+							"host": [
+								"{{payverve-api}}wallets"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "read_all",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{payverve-api}}wallets",
+							"host": [
+								"{{payverve-api}}wallets"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "read_one",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{payverve-api}}wallets/dbbc1e23-8c63-454f-969c-7cc4a93b2e30",
+							"host": [
+								"{{payverve-api}}wallets"
+							],
+							"path": [
+								"dbbc1e23-8c63-454f-969c-7cc4a93b2e30"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "delete",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{payverve-api}}wallets/1fdfa5d2-e486-4a27-9f11-3f6a9b21c701",
+							"host": [
+								"{{payverve-api}}wallets"
+							],
+							"path": [
+								"1fdfa5d2-e486-4a27-9f11-3f6a9b21c701"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "home",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{payverve-api}}",
+					"host": [
+						"{{payverve-api}}"
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		}
+	]
+}

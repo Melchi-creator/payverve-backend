@@ -23,6 +23,8 @@ class LocalTransferModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     account = db.Column(db.BigInteger, nullable=False)
     name = db.Column(db.String(), nullable=False)
     bank = db.Column(db.String(), nullable=False)
+    rference_number = db.Column(db.String(), nullable=False)
+    transfer_type = db.Column(db.String(), nullable=False)
 
     created_at = db.Column(db.DateTime(), default=NetworkDateTime.network_datetime(), nullable=False)
     updated_at = db.Column(db.DateTime(), onupdate=NetworkDateTime.network_datetime(), nullable=True)

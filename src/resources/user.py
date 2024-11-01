@@ -53,6 +53,15 @@ class UserResource(Resource):
                     'data': 'mobile number already has an account'
                 }), 409
 
+            # age = NetworkDateTime.network_datetime() - date_of_birth
+            #
+            # if age < 17:
+            #     return jsonify({
+            #         'code': 400,
+            #         'code_status': 'bad request',
+            #         'data': 'you must be 17 years and above'
+            #     }), 400
+
             # noinspection PyArgumentList
             new_user = UserModel(
                 first_name=first_name,

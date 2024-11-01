@@ -72,3 +72,23 @@ class RandomGenerator:
                 'code_status': 'recursion error',
                 'data': 'could not generate reference number'
             }), 500
+
+    @staticmethod
+    def local_transfer_reference_number():
+        """ Local Transfer Reference Number Generator """
+
+        try:
+            reference_number = secrets.token_hex(12)
+            return reference_number
+        except ArithmeticError:
+            return jsonify({
+                'code': 500,
+                'code_status': 'arithmetic error',
+                'data': 'could not generate reference number'
+            }), 500
+        except RecursionError:
+            return jsonify({
+                'code': 500,
+                'code_status': 'recursion error',
+                'data': 'could not generate reference number'
+            }), 500
