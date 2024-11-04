@@ -3,6 +3,7 @@ routes
 Hold all routed import
 """
 
+from .admin import AdminBlueprint
 from .admin_roles import AdminRoleBlueprint
 # from .bankaccount import BankaccountBlueprint
 from .beneficiary import BeneficiaryBlueprint

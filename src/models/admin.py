@@ -8,9 +8,9 @@ from uuid import uuid4
 from sqlalchemy import UUID
 from werkzeug.security import check_password_hash, generate_password_hash
 
+from ..middlewares import NetworkDateTime
 from . import db
 from .abc import BaseModel, MetaBaseModel
-from ..middlewares import NetworkDateTime
 
 
 class AdminModel(db.Model, BaseModel, metaclass=MetaBaseModel):
