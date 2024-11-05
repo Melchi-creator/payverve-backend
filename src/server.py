@@ -12,6 +12,7 @@ from flask_migrate import Migrate
 from flask_talisman import Talisman
 
 from . import config, routes
+from .middlewares.auth import Auth
 from .models import db
 
 server = Flask(__name__)
@@ -24,6 +25,8 @@ server.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = config.database_tracker
 db.init_app(server)
 db.app = server
 migrate = Migrate(server, db)
+
+auth = Auth(app=server, db=db)
 
 allowed_origins = [
     config.mobile_app_path

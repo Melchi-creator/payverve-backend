@@ -136,7 +136,7 @@ class UserResource(Resource):
                     'first_name': user.first_name,
                     'last_name': user.last_name,
                     'middle_name': user.middle_name,
-                    'username': user.username,
+                    'username': user.username,	
                     'email_address': user.email_address,
                     'mobile_number': user.mobile_number,
                     'password': user.password,

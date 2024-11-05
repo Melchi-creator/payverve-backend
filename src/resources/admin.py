@@ -12,10 +12,9 @@ from sqlalchemy.exc import (DataError, DisconnectionError, IntegrityError,
 
 from ..middlewares import NetworkDateTime
 from ..models import AdminModel, CurrencyModel, WalletModel
+from ..server import auth
 from ..utilities import RandomGenerator, parse_params
 
-['id', 'first_name', 'last_name', 'middle_name', 'email_address', 'mobile_number', 'password', 'geneder', 'date_of_birth'
- 'house_number', 'street_name', 'city', 'state', 'zipcode', 'country', 'photo', 'admin_role']
 
 class AdminResource(Resource):
     """ This class is concern with admin Resources """
@@ -79,12 +78,12 @@ class AdminResource(Resource):
                 'data': 'account already has an account'
             }), 409
 
-        # except DataError:
-        #     return jsonify({
-        #         'code': 400,
-        #         'code_status': 'bad request - data error',
-        #         'data': 'ensure input data are correct'
-        #     }), 400
+        except DataError:
+            return jsonify({
+                'code': 400,
+                'code_status': 'bad request - data error',
+                'data': 'ensure input data are correct'
+            }), 400
 
         except InternalError:
             return jsonify({
@@ -93,12 +92,12 @@ class AdminResource(Resource):
                 'data': 'could not fetch data'
             }), 500
 
-        # except (OperationalError, DisconnectionError, SQLAlchemyError):
-        #     return jsonify({
-        #         'code': 500,
-        #         'code_status': 'database error - operation, sqlalchemy and disconnection error',
-        #         'data': 'could not fetch data'
-        #     }), 500
+        except (OperationalError, DisconnectionError, SQLAlchemyError):
+            return jsonify({
+                'code': 500,
+                'code_status': 'database error - operation, sqlalchemy and disconnection error',
+                'data': 'could not fetch data'
+            }), 500
 
         except ProgrammingError:
             return jsonify({
@@ -268,63 +267,6 @@ class AdminResource(Resource):
                 if value is not None:
                     setattr(admin, key, value)
 
-            # if 'first_name' in fields and fields['first_name'] is not None:
-            #     admin.first_name = fields['first_name']
-
-            # if 'last_name' in fields and fields['last_name'] is not None:
-            #     admin.last_name = fields['last_name']
-
-            # if 'middle_name' in fields and fields['middle_name'] is not None:
-            #     admin.middle_name = fields['middle_name']
-
-            # if 'adminname' in fields and fields['adminname'] is not None:
-            #     admin.adminname = fields['adminname']
-
-            # if 'email_address' in fields and fields['email_address'] is not None:
-            #     admin.email_address = fields['email_address']
-
-            # if 'mobile_number' in fields and fields['mobile_number'] is not None:
-            #     admin.mobile_number = fields['mobile_number']
-
-            # if 'password' in fields and fields['password'] is not None:
-            #     admin.set_password(fields['password'])
-
-            # if 'auth_pin' in fields and fields['auth_pin'] is not None:
-            #     admin.set_auth_pin(fields['auth_pin'])
-
-            # if 'transaction_pin' in fields and fields['transaction_pin'] is not None:
-            #     admin.set_transaction_pin(fields['transaction_pin'])
-
-            # if 'gender' in fields and fields['gender'] is not None:
-            #     admin.gender = fields['gender']
-
-            # if 'date_of_birth' in fields and fields['date_of_birth'] is not None:
-            #     admin.date_of_birth = fields['date_of_birth']
-
-            # if 'house_number' in fields and fields['house_number'] is not None:
-            #     admin.house_number = fields['house_number']
-
-            # if 'street_name' in fields and fields['street_name'] is not None:
-            #     admin.street_name = fields['street_name']
-
-            # if 'city' in fields and fields['city'] is not None:
-            #     admin.city = fields['city']
-
-            # if 'state' in fields and fields['state'] is not None:
-            #     admin.state = fields['state']
-
-            # if 'zipcode' in fields and fields['zipcode'] is not None:
-            #     admin.zipcode = fields['zipcode']
-
-            # if 'country' in fields and fields['country'] is not None:
-            #     admin.country = fields['country']
-    
-            # if 'photo' in fields and fields['photo'] is not None:
-            #     admin.photo = fields['photo']
-
-            # if 'deleted' in fields and fields['deleted'] is not None:
-            #     admin.deleted = fields['deleted']
-
             admin.save()
 
             data = {
@@ -417,4 +359,57 @@ class AdminResource(Resource):
                 'data': 'could not fetch table'
             }), 500
 
+            
+    @staticmethod
+    @parse_params(
+        Argument("email_address", location="json", required=True),
+        Argument("password", location="json", required=True),
+    )
+    def login(email_address, password):
+        """ Retrieve a admin account by id """
 
+        admin: AdminModel = AdminModel.query.filter_by(email_address=email_address).first()
+        
+        try:
+            if not admin:
+                return jsonify({
+                    'code': 404,
+                    'code_status': 'data not found',
+                    'data': 'no admin account was found'
+                }), 404
+
+            if admin and admin.check_password(password=password):
+                return auth.login(user=admin)
+
+            return jsonify({
+                'code': 401,
+                'code_status': 'Invalid credentials',
+            }), 401
+
+        except InternalError:
+            return jsonify({
+                'code': 500,
+                'code_status': 'internal server - internal server error',
+                'data': 'could not fetch data'
+            }), 500
+
+        except (OperationalError, DisconnectionError):
+            return jsonify({
+                'code': 500,
+                'code_status': 'database error - operation and disconnection error',
+                'data': 'could not fetch data'
+            }), 500
+
+        except ProgrammingError:
+            return jsonify({
+                'code': 500,
+                'code_status': 'database error - programming error',
+                'data': 'could not fetch table'
+            }), 500
+
+
+    @staticmethod
+    @auth.login_required
+    def logout(**kwargs):
+        """ Retrieve a admin account by id """
+        return auth.logout()

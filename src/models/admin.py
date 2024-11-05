@@ -5,6 +5,7 @@ Defines the model structure for admins
 """
 from uuid import uuid4
 
+from flask_login import UserMixin
 from sqlalchemy import UUID
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -13,7 +14,7 @@ from . import db
 from .abc import BaseModel, MetaBaseModel
 
 
-class AdminModel(db.Model, BaseModel, metaclass=MetaBaseModel):
+class AdminModel(db.Model, BaseModel, UserMixin, metaclass=MetaBaseModel):
     """ Admin Model """
 
     __tablename__ = 'admins'
