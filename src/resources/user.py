@@ -497,5 +497,49 @@ class UserResource(Resource):
         """ Retrieve a user account by id """
         return auth.logout()
 
+    @staticmethod
+    @parse_params(
+        Argument("email_address", location="json", required=True),
+    )
+    def reset_password(email_address):
+        user = UserModel.query.filter_by(email_address=email_address).first()
+
+        try:
+            if not user:
+                return jsonify({
+                    'code': 404,
+                    'code_status': 'data not found',
+                    'data': 'no account with that email'
+                }), 404
+            
+            return jsonify({
+                    'code': 200,
+                    'code_status': 'email found',
+                    'data': 'account with that email exists'
+                }), 200
+        
+        except InternalError:
+            return jsonify({
+                'code': 500,
+                'code_status': 'internal server - internal server error',
+                'data': 'could not fetch data'
+            }), 500
+
+        except (OperationalError, DisconnectionError):
+            return jsonify({
+                'code': 500,
+                'code_status': 'database error - operation and disconnection error',
+                'data': 'could not fetch data'
+            }), 500
+
+        except ProgrammingError:
+            return jsonify({
+                'code': 500,
+                'code_status': 'database error - programming error',
+                'data': 'could not fetch table'
+            }), 500
+
+
+
 
         
