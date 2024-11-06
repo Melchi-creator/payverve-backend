@@ -12,6 +12,7 @@ from sqlalchemy.exc import (DataError, DisconnectionError, IntegrityError,
 
 from ..middlewares import NetworkDateTime
 from ..models import CurrencyModel, UserModel, WalletModel
+from ..server import auth
 from ..utilities import RandomGenerator, parse_params
 
 
@@ -440,3 +441,61 @@ class UserResource(Resource):
                 'code_status': 'database error - programming error',
                 'data': 'could not fetch table'
             }), 500
+
+
+    @staticmethod
+    @parse_params(
+        Argument("email_address", location="json", required=True),
+        Argument("password", location="json", required=True),
+    )
+    def login(email_address, password):
+        """ Retrieve a user account by id """
+
+        user = UserModel.query.filter_by(email_address=email_address).first()
+
+        try:
+            if not user:
+                return jsonify({
+                    'code': 404,
+                    'code_status': 'data not found',
+                    'data': 'no account was found'
+                }), 404
+
+            if user and user.check_password(password=password):
+                return auth.login(user=user)
+
+            return jsonify({
+                'code': 401,
+                'code_status': 'Invalid credentials',
+            }), 401
+
+        except InternalError:
+            return jsonify({
+                'code': 500,
+                'code_status': 'internal server - internal server error',
+                'data': 'could not fetch data'
+            }), 500
+
+        except (OperationalError, DisconnectionError):
+            return jsonify({
+                'code': 500,
+                'code_status': 'database error - operation and disconnection error',
+                'data': 'could not fetch data'
+            }), 500
+
+        except ProgrammingError:
+            return jsonify({
+                'code': 500,
+                'code_status': 'database error - programming error',
+                'data': 'could not fetch table'
+            }), 500
+
+
+    @staticmethod
+    @auth.login_required
+    def logout(**kwargs):
+        """ Retrieve a user account by id """
+        return auth.logout()
+
+
+        
