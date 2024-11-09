@@ -1,4 +1,5 @@
 """
+AdminResource
 admin.py
 
 Defines all functions for admin admins especially CRUD
@@ -10,10 +11,9 @@ from sqlalchemy.exc import (DataError, DisconnectionError, IntegrityError,
                             InternalError, OperationalError, ProgrammingError,
                             SQLAlchemyError)
 
-from ..middlewares import NetworkDateTime
-from ..models import AdminModel, CurrencyModel, WalletModel
-from ..server import auth
-from ..utilities import RandomGenerator, parse_params
+from ..middlewares.auth import auth
+from ..models import AdminModel
+from ..utilities import parse_params, validation
 
 
 class AdminResource(Resource):
@@ -64,11 +64,17 @@ class AdminResource(Resource):
             )
             new_admin.set_password(password)
             new_admin.save()
+            
+            # function to generate account validation token
+            token = validation.generate_token(new_admin.get_id())
+            
+            
 
             return jsonify({
                 'code': 201,
                 'code_status': 'created',
-                'data': 'admin account was successfully created'
+                'data': 'admin account was successfully created',
+                'token': token
             }), 201
 
         except IntegrityError:
@@ -202,6 +208,7 @@ class AdminResource(Resource):
                 'country': admin.country,
                 'photo': admin.photo,
                 'admin_role': admin.admin_role,
+                'verified': admin.email_verified
             }
 
             return jsonify({
@@ -413,3 +420,24 @@ class AdminResource(Resource):
     def logout(**kwargs):
         """ Retrieve a admin account by id """
         return auth.logout()
+    
+    
+    @staticmethod
+    def verify_email(token=None):
+        user_id = validation.verify_token(token)
+        print(user_id)
+        admin_user = AdminModel.query.filter_by(id=user_id).first()
+        print(admin_user)
+        if admin_user:
+            admin_user.email_verified = True
+            admin_user.save()
+            return jsonify({
+                "code": 200,
+                "status": "Account verified"
+            }), 200
+        
+        return ({
+            "code": 400,
+            "status": "Invalid Token!"
+        }), 400
+        
