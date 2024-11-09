@@ -14,15 +14,21 @@ from flask_login import LoginManager, login_user, logout_user
 from .. import config
 from ..models import AdminModel, UserModel
 
-# from . import NetworkDateTime
-
 
 class Auth:
     """ This class defines all auth funcions """
     
     SECRET_KEY = config.secret_key
+    __instance = None
     
-    def __init__(self, app, db):
+    
+    def __new__(cls, *args, **kwargs):
+        if cls.__instance is None:
+            cls.__instance = super(Auth, cls).__new__(cls)
+        return cls.__instance
+    
+    
+    def init_app(self, app=None, db=None):
         self.login_manager = LoginManager()
         self.login_manager.init_app(app)
         
@@ -59,6 +65,11 @@ class Auth:
     def login(self, user: AdminModel | UserModel):
         """Authenticate user and set token in cookies if successful"""
         if user:
+            if user.email_verified is False:
+                return jsonify({
+                    "code": 403,
+                    "status": "Account not verified"
+                }), 403
             token = self.generate_token(user.get_id())
             response = make_response(jsonify({"message": "Login succesful"}))
             response.set_cookie("auth_token", token)
@@ -89,3 +100,6 @@ class Auth:
             kwargs['user_id'] = user_id
             return f(*args, **kwargs)
         return decorated
+
+
+auth = Auth()
