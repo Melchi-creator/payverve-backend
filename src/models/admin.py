@@ -35,6 +35,7 @@ class AdminModel(db.Model, BaseModel, UserMixin, metaclass=MetaBaseModel):
     zipcode = db.Column(db.Integer, nullable=True)
     country = db.Column(db.String(), nullable=True)
     photo = db.Column(db.String(), nullable=True)
+    email_verified = db.Column(db.Boolean, default=False)
 
     created_at = db.Column(db.DateTime(), default=NetworkDateTime.network_datetime(), nullable=False)
     updated_at = db.Column(db.DateTime(), onupdate=NetworkDateTime.network_datetime(), nullable=True)

@@ -11,8 +11,8 @@ from sqlalchemy.exc import (DataError, DisconnectionError, IntegrityError,
                             SQLAlchemyError)
 
 from ..middlewares import NetworkDateTime
+from ..middlewares.auth import auth
 from ..models import CurrencyModel, UserModel, WalletModel
-from ..server import auth
 from ..utilities import RandomGenerator, parse_params
 
 
