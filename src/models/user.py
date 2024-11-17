@@ -40,6 +40,7 @@ class UserModel(db.Model, BaseModel, UserMixin, metaclass=MetaBaseModel):
     photo = db.Column(db.String(), nullable=True)
     deleted = db.Column(db.Boolean(), nullable=False, default=False)
     deleted_date = db.Column(db.DateTime(), nullable=True)
+    email_verified = db.Column(db.Boolean, default=False)
 
     created_at = db.Column(db.DateTime(), default=NetworkDateTime.network_datetime(), nullable=False)
     updated_at = db.Column(db.DateTime(), onupdate=NetworkDateTime.network_datetime(), nullable=True)

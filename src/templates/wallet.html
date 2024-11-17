@@ -2,15 +2,17 @@
 block content %}
 <div class="bg-white p-8 rounded-lg shadow-md w-96">
   <h1 class="text-2xl text-blue-500 font-bold mb-6">
-    New Wallet Created: {wallet_id}
+    New Wallet Created: {{wallet_id}}
   </h1>
 
-  <p>Dear {username},</p>
-  <p>Congratulations on creating a new wallet! Wallet Details:</p>
+  <p>Dear {{username}},</p>
+  <p>Congratulations on creating a new {{currency}} wallet!</p>
+    
+  <p>Wallet Details:</p>
 
   <ul class="font-semibold mt-6 mb-2">
-    <li>Wallet ID: {wallet_id}</li>
-    <li>Creation Date: {wallet_created_at}</li>
+    <li>Wallet ID: {{wallet_id}}</li>
+    <li>Creation Date: {{wallet_created_at}}</li>
   </ul>
 
   <p>You can now use this wallet to send, receive, and store funds.</p>

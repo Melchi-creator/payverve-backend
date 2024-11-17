@@ -28,6 +28,7 @@ migrate = Migrate(server, db)
 
 with server.app_context():
     auth.init_app(app=server, db=db)
+    from . import error_handlers
 
 allowed_origins = [
     config.mobile_app_path

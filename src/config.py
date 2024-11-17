@@ -33,5 +33,4 @@ mobile_app_path = os.getenv('MOBILE_APP_PATH')
 mail_api_key = os.getenv('MAIL_API_KEY')
 mail_default_sender = os.getenv('MAIL_DEFAULT_SENDER')
 
-mj_apikey_public = os.getenv('MJ_APIKEY_PUBLIC')
-mj_apikey_private = os.getenv('MJ_APIKEY_PRIVATE')
+base_url = os.getenv('BASE_URL')

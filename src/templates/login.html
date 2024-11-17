@@ -1,14 +1,15 @@
-{% extends "base.html" %} {% block title %}Login Alert: {date}{time}{% endblock
-%} {% block content %}
+{% extends "base.html" %}
+{% block title %}Login Alert: {{date}} {{time}}{% endblock %} 
+{% block content %}
 <div class="bg-white p-8 rounded-lg shadow-md w-96">
   <h1 class="text-2xl text-blue-500 font-bold mb-6">PayVerve</h1>
   <p>We noticed a login attempt to your Payverve account</p>
   <ul class="font-semibold my-6">
-    <li>IP address:</li>
-    <li>Date:</li>
-    <li>Time:</li>
-    <li>Device:</li>
-    <li>Location:</li>
+    <li>IP address:  {{ip_address}}</li>
+    <li>Date:  {{date}}</li>
+    <li>Time:  {{time}}</li>
+    <li>Device:  {{device}}</li>
+    <li>Location:  {{location}}</li>
   </ul>
   <p>
     If it was you, you don't need to do anything. If not, click here to reset

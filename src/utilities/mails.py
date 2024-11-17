@@ -6,8 +6,6 @@ from .. import config
 
 
 class EmailHandler:
-    api_secrete = config.mj_apikey_private
-    api_key = config.mj_apikey_public
     default_sender = config.mail_default_sender
     api_key = config.mail_api_key
     mail_from = {
@@ -32,7 +30,7 @@ class EmailHandler:
         mailer.set_plaintext_content(plainText, mail_body)
         
         res = mailer.send(message=mail_body)
-        print(res)
+        return res
 
 
     def sendBulkMail(self, recipients=[], subject='', plainText='', template=None):
@@ -47,8 +45,9 @@ class EmailHandler:
             "text": plainText,
             "html": template,
         } for recipient in recipients]
-        print(mailer.send_bulk(mail_list))
-        
+
+
     def bulkStatus(self, id):
+        """Checks status of sent bulk mails"""
         mailer = emails.NewEmail(self.api_key)
-        print(mailer.get_bulk_status_by_id(id))
+        return mailer.get_bulk_status_by_id(id)
