@@ -3,19 +3,15 @@ user.py
 
 Defines all functions for users especially CRUD
 """
-from flask import jsonify
+from flask import jsonify, render_template, request, url_for
 from flask_restful import Resource
 from flask_restful.reqparse import Argument
-from sqlalchemy.exc import DataError, \
-    DisconnectionError, \
-    IntegrityError, \
-    InternalError, \
-    OperationalError, \
-    ProgrammingError, SQLAlchemyError
 
-from ..middlewares import NetworkDateTime
+from .. import config
+from ..middlewares import NetworkDateTime, location
+from ..middlewares.auth import auth
 from ..models import CurrencyModel, UserModel, WalletModel
-from ..utilities import parse_params, RandomGenerator
+from ..utilities import RandomGenerator, emailHandler, parse_params, validation
 
 
 class UserResource(Resource):
@@ -38,93 +34,80 @@ class UserResource(Resource):
         user_email = user_model.filter_by(email_address=email_address).first()
         user_number = user_model.filter_by(mobile_number=mobile_number).first()
 
-        try:
-            if user_email:
-                return jsonify({
-                    'code': 409,
-                    'code_status': 'conflict',
-                    'data': 'email address already has an account'
-                }), 409
-
-            if user_number:
-                return jsonify({
-                    'code': 409,
-                    'code_status': 'conflict',
-                    'data': 'mobile number already has an account'
-                }), 409
-
-            # age = NetworkDateTime.network_datetime() - date_of_birth
-            #
-            # if age < 17:
-            #     return jsonify({
-            #         'code': 400,
-            #         'code_status': 'bad request',
-            #         'data': 'you must be 17 years and above'
-            #     }), 400
-
-            # noinspection PyArgumentList
-            new_user = UserModel(
-                first_name=first_name,
-                last_name=last_name,
-                email_address=email_address,
-                mobile_number=mobile_number,
-                gender=gender,
-                date_of_birth=date_of_birth
-            )
-            new_user.set_password(password)
-            new_user.save()
-
-            naira_currency = CurrencyModel.query.filter_by(short_code='ngn').first()
-
-            # noinspection PyArgumentList
-            new_wallet = WalletModel(
-                fund=0,
-                account_number=RandomGenerator.wallet_account_number(),
-                user=new_user.id,
-                currency=naira_currency.id
-            )
-            new_wallet.save()
-
-            return jsonify({
-                'code': 201,
-                'code_status': 'created',
-                'data': 'account was successfully created'
-            }), 201
-
-        except IntegrityError:
+        if user_email:
             return jsonify({
                 'code': 409,
-                'code_status': 'conflict - integrity error',
-                'data': 'account already has an account'
+                'code_status': 'conflict',
+                'data': 'email address already has an account'
             }), 409
 
-        except DataError:
+        if user_number:
             return jsonify({
-                'code': 400,
-                'code_status': 'bad request - data error',
-                'data': 'ensure input data are correct'
-            }), 400
+                'code': 409,
+                'code_status': 'conflict',
+                'data': 'mobile number already has an account'
+            }), 409
 
-        except InternalError:
-            return jsonify({
-                'code': 500,
-                'code_status': 'internal server - internal server error',
-                'data': 'could not fetch data'
-            }), 500
+        # noinspection PyArgumentList
+        new_user = UserModel(
+            first_name=first_name,
+            last_name=last_name,
+            email_address=email_address,
+            mobile_number=mobile_number,
+            gender=gender,
+            date_of_birth=date_of_birth
+        )
+        new_user.set_password(password)
+        new_user.save()
 
-        except (OperationalError, DisconnectionError, SQLAlchemyError):
-            return jsonify({
-                'code': 500,
-                'code_status': 'database error - operation, sqlalchemy and disconnection error',
-                'data': 'could not fetch data'
-            }), 500
+        naira_currency = CurrencyModel.query.filter_by(short_code='ngn').first()
 
-        except ProgrammingError:
-            return jsonify({
-                'code': 500,
-                'code_status': 'database error - programming error',
-                'data': 'could not fetch table'
-            }), 500
+        # noinspection PyArgumentList
+        new_wallet = WalletModel(
+            fund=0,
+            account_number=RandomGenerator.wallet_account_number(),
+            user=new_user.id,
+            currency=naira_currency.id
+        )
+        new_wallet.save()
+        
+        # function to generate account validation token
+        token = validation.generate_token(new_user.get_id())
+        verification_url = config.base_url + url_for('user.verify_email', token=token)
+        verification_template = render_template('welcome.html', first_name=new_user.first_name, token=verification_url)
+        verification_data = {
+            'recipient':new_user.email_address,
+            'subject': 'Welcome to PayVerve',
+            'template': verification_template
+        }
+        
+        context = {
+            'wallet_id':new_wallet.account_number,
+            'username': new_user.first_name,
+            'wallet_created_at': new_wallet.created_at.strftime('%a %d %b %Y, %I:%M%p'),
+            'currency': naira_currency.name
+        }
+        account_template = render_template('wallet.html', **context)
+        data = {
+            'recipient':new_user.email_address,
+            'subject': 'New Wallet Created',
+            'template': account_template
+        }
+        
+        print("context >>> ", context)
+        
+        # Mail sending should be handled as background task
+        # TODO: Integrete with Celery/Redis for task scheduling
+        emailHandler.sendMail(**verification_data)
+        emailHandler.sendMail(**data)
+
+        return jsonify({
+            'code': 201,
+            'code_status': 'created',
+            'data': 'account was successfully created',
+            'token':token
+        }), 201
+
 
     @staticmethod
     def read_all():
@@ -132,87 +115,22 @@ class UserResource(Resource):
 
         users = UserModel.query.all()
 
-        try:
-            if not users:
-                return jsonify({
-                    'code': 404,
-                    'code_status': 'data not found',
-                    'data': 'no user account was found'
-                }), 404
-
-            data = []
-
-            for user in users:
-                data.append({
-                    'id': user.id,
-                    'first_name': user.first_name,
-                    'last_name': user.last_name,
-                    'middle_name': user.middle_name,
-                    'username': user.username,
-                    'email_address': user.email_address,
-                    'mobile_number': user.mobile_number,
-                    'password': user.password,
-                    'auth_pin': user.auth_pin,
-                    'transaction_pin': user.transaction_pin,
-                    'gender': user.gender,
-                    'date_of_birth': user.date_of_birth,
-                    'house_number': user.house_number,
-                    'street_name': user.street_name,
-                    'city': user.city,
-                    'state': user.state,
-                    'zipcode': user.zipcode,
-                    'country': user.country,
-                    'photo': user.photo,
-                    'deleted': user.deleted,
-                })
-
+        if not users:
             return jsonify({
-                'code': 200,
-                'code_status': 'success',
-                'data': data
-            }), 200
+                'code': 404,
+                'code_status': 'data not found',
+                'data': 'no user account was found'
+            }), 404
 
-        except InternalError:
-            return jsonify({
-                'code': 500,
-                'code_status': 'internal server - internal server error',
-                'data': 'could not fetch data'
-            }), 500
+        data = []
 
-        except (OperationalError, DisconnectionError):
-            return jsonify({
-                'code': 500,
-                'code_status': 'database error - operation and disconnection error',
-                'data': 'could not fetch data'
-            }), 500
-
-        except ProgrammingError:
-            return jsonify({
-                'code': 500,
-                'code_status': 'database error - programming error',
-                'data': 'could not fetch table'
-            }), 500
-
-    @staticmethod
-    def read_one(id=None):
-        """ Retrieve a user account by id """
-
-        user = UserModel.query.filter_by(id=id).first()
-
-        try:
-            if not user:
-                return jsonify({
-                    'code': 404,
-                    'code_status': 'data not found',
-                    'data': 'no user account was found'
-                }), 404
-
-            data = {
+        for user in users:
+            data.append({
                 'id': user.id,
                 'first_name': user.first_name,
                 'last_name': user.last_name,
                 'middle_name': user.middle_name,
-                'username': user.username,
+                'username': user.username,	
                 'email_address': user.email_address,
                 'mobile_number': user.mobile_number,
                 'password': user.password,
@@ -228,35 +146,58 @@ class UserResource(Resource):
                 'country': user.country,
                 'photo': user.photo,
                 'deleted': user.deleted,
-            }
+            })
 
+        return jsonify({
+            'code': 200,
+            'code_status': 'success',
+            'data': data
+        }), 200
+
+
+    @staticmethod
+    def read_one(id=None):
+        """ Retrieve a user account by id """
+
+        user = UserModel.query.filter_by(id=id).first()
+
+        if not user:
             return jsonify({
-                'code': 200,
-                'code_status': 'success',
-                'data': data
-            }), 200
+                'code': 404,
+                'code_status': 'data not found',
+                'data': 'no user account was found'
+            }), 404
 
-        except InternalError:
-            return jsonify({
-                'code': 500,
-                'code_status': 'internal server - internal server error',
-                'data': 'could not fetch data'
-            }), 500
+        data = {
+            'id': user.id,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'middle_name': user.middle_name,
+            'username': user.username,
+            'email_address': user.email_address,
+            'mobile_number': user.mobile_number,
+            'password': user.password,
+            'auth_pin': user.auth_pin,
+            'transaction_pin': user.transaction_pin,
+            'gender': user.gender,
+            'date_of_birth': user.date_of_birth,
+            'house_number': user.house_number,
+            'street_name': user.street_name,
+            'city': user.city,
+            'state': user.state,
+            'zipcode': user.zipcode,
+            'country': user.country,
+            'photo': user.photo,
+            'deleted': user.deleted,
+        }
 
-        except (OperationalError, DisconnectionError):
-            return jsonify({
-                'code': 500,
-                'code_status': 'database error - operation and disconnection error',
-                'data': 'could not fetch data'
-            }), 500
+        return jsonify({
+            'code': 200,
+            'code_status': 'success',
+            'data': data
+        }), 200
 
-        except ProgrammingError:
-            return jsonify({
-                'code': 500,
-                'code_status': 'database error - programming error',
-                'data': 'could not fetch table'
-            }), 500
-
+        
     @staticmethod
     @parse_params(
         Argument("first_name", location="json"),
@@ -284,122 +225,101 @@ class UserResource(Resource):
 
         user = UserModel.query.filter_by(id=id).first()
 
-        try:
-            if not user:
-                return jsonify({
-                    'code': 404,
-                    'code_status': 'data not found',
-                    'data': 'no user account was found'
-                }), 404
-
-            if 'first_name' in fields and fields['first_name'] is not None:
-                user.first_name = fields['first_name']
-
-            if 'last_name' in fields and fields['last_name'] is not None:
-                user.last_name = fields['last_name']
-
-            if 'middle_name' in fields and fields['middle_name'] is not None:
-                user.middle_name = fields['middle_name']
-
-            if 'username' in fields and fields['username'] is not None:
-                user.username = fields['username']
-
-            if 'email_address' in fields and fields['email_address'] is not None:
-                user.email_address = fields['email_address']
-
-            if 'mobile_number' in fields and fields['mobile_number'] is not None:
-                user.mobile_number = fields['mobile_number']
-
-            if 'password' in fields and fields['password'] is not None:
-                user.set_password(fields['password'])
-
-            if 'auth_pin' in fields and fields['auth_pin'] is not None:
-                user.set_auth_pin(fields['auth_pin'])
-
-            if 'transaction_pin' in fields and fields['transaction_pin'] is not None:
-                user.set_transaction_pin(fields['transaction_pin'])
-
-            if 'gender' in fields and fields['gender'] is not None:
-                user.gender = fields['gender']
-
-            if 'date_of_birth' in fields and fields['date_of_birth'] is not None:
-                user.date_of_birth = fields['date_of_birth']
-
-            if 'house_number' in fields and fields['house_number'] is not None:
-                user.house_number = fields['house_number']
-
-            if 'street_name' in fields and fields['street_name'] is not None:
-                user.street_name = fields['street_name']
-
-            if 'city' in fields and fields['city'] is not None:
-                user.city = fields['city']
-
-            if 'state' in fields and fields['state'] is not None:
-                user.state = fields['state']
-
-            if 'zipcode' in fields and fields['zipcode'] is not None:
-                user.zipcode = fields['zipcode']
-
-            if 'country' in fields and fields['country'] is not None:
-                user.country = fields['country']
-
-            if 'photo' in fields and fields['photo'] is not None:
-                user.photo = fields['photo']
-
-            if 'deleted' in fields and fields['deleted'] is not None:
-                user.deleted = fields['deleted']
-
-            user.save()
-
-            data = {
-                'id': user.id,
-                'first_name': user.first_name,
-                'last_name': user.last_name,
-                'middle_name': user.middle_name,
-                'username': user.username,
-                'email_address': user.email_address,
-                'mobile_number': user.mobile_number,
-                'password': user.password,
-                'auth_pin': user.auth_pin,
-                'transaction_pin': user.transaction_pin,
-                'gender': user.gender,
-                'date_of_birth': user.date_of_birth,
-                'house_number': user.house_number,
-                'street_name': user.street_name,
-                'city': user.city,
-                'state': user.state,
-                'zipcode': user.zipcode,
-                'country': user.country,
-                'photo': user.photo,
-                'deleted': user.deleted,
-            }
-
+        if not user:
             return jsonify({
-                'code': 200,
-                'code_status': 'success',
-                'data': data
-            }), 200
+                'code': 404,
+                'code_status': 'data not found',
+                'data': 'no user account was found'
+            }), 404
 
-        except InternalError:
-            return jsonify({
-                'code': 500,
-                'code_status': 'internal server - internal server error',
-                'data': 'could not fetch data'
-            }), 500
+        if 'first_name' in fields and fields['first_name'] is not None:
+            user.first_name = fields['first_name']
 
-        except (OperationalError, DisconnectionError):
-            return jsonify({
-                'code': 500,
-                'code_status': 'database error - operation and disconnection error',
-                'data': 'could not fetch data'
-            }), 500
+        if 'last_name' in fields and fields['last_name'] is not None:
+            user.last_name = fields['last_name']
 
-        except ProgrammingError:
-            return jsonify({
-                'code': 500,
-                'code_status': 'database error - programming error',
-                'data': 'could not fetch table'
-            }), 500
+        if 'middle_name' in fields and fields['middle_name'] is not None:
+            user.middle_name = fields['middle_name']
+
+        if 'username' in fields and fields['username'] is not None:
+            user.username = fields['username']
+
+        if 'email_address' in fields and fields['email_address'] is not None:
+            user.email_address = fields['email_address']
+
+        if 'mobile_number' in fields and fields['mobile_number'] is not None:
+            user.mobile_number = fields['mobile_number']
+
+        if 'password' in fields and fields['password'] is not None:
+            user.set_password(fields['password'])
+
+        if 'auth_pin' in fields and fields['auth_pin'] is not None:
+            user.set_auth_pin(fields['auth_pin'])
+
+        if 'transaction_pin' in fields and fields['transaction_pin'] is not None:
+            user.set_transaction_pin(fields['transaction_pin'])
+
+        if 'gender' in fields and fields['gender'] is not None:
+            user.gender = fields['gender']
+
+        if 'date_of_birth' in fields and fields['date_of_birth'] is not None:
+            user.date_of_birth = fields['date_of_birth']
+
+        if 'house_number' in fields and fields['house_number'] is not None:
+            user.house_number = fields['house_number']
+
+        if 'street_name' in fields and fields['street_name'] is not None:
+            user.street_name = fields['street_name']
+
+        if 'city' in fields and fields['city'] is not None:
+            user.city = fields['city']
+
+        if 'state' in fields and fields['state'] is not None:
+            user.state = fields['state']
+
+        if 'zipcode' in fields and fields['zipcode'] is not None:
+            user.zipcode = fields['zipcode']
+
+        if 'country' in fields and fields['country'] is not None:
+            user.country = fields['country']
+
+        if 'photo' in fields and fields['photo'] is not None:
+            user.photo = fields['photo']
+
+        if 'deleted' in fields and fields['deleted'] is not None:
+            user.deleted = fields['deleted']
+
+        user.save()
+
+        data = {
+            'id': user.id,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'middle_name': user.middle_name,
+            'username': user.username,
+            'email_address': user.email_address,
+            'mobile_number': user.mobile_number,
+            'password': user.password,
+            'auth_pin': user.auth_pin,
+            'transaction_pin': user.transaction_pin,
+            'gender': user.gender,
+            'date_of_birth': user.date_of_birth,
+            'house_number': user.house_number,
+            'street_name': user.street_name,
+            'city': user.city,
+            'state': user.state,
+            'zipcode': user.zipcode,
+            'country': user.country,
+            'photo': user.photo,
+            'deleted': user.deleted,
+        }
+
+        return jsonify({
+            'code': 200,
+            'code_status': 'success',
+            'data': data
+        }), 200
+
 
     @staticmethod
     def delete(id=None):
@@ -407,48 +327,169 @@ class UserResource(Resource):
 
         user = UserModel.query.filter_by(id=id).first()
 
-        try:
-            if not user:
-                return jsonify({
-                    'code': 404,
-                    'code_status': 'data not found',
-                    'data': 'no user account was found'
-                }), 404
+        if not user:
+            return jsonify({
+                'code': 404,
+                'code_status': 'data not found',
+                'data': 'no user account was found'
+            }), 404
 
-            if user.deleted is True:
-                return jsonify({
-                    'code': 400,
-                    'code_status': 'bad request',
-                    'data': 'account is already staged for deleting'
-                }), 400
+        if user.deleted is True:
+            return jsonify({
+                'code': 400,
+                'code_status': 'bad request',
+                'data': 'account is already staged for deleting'
+            }), 400
 
-            user.deleted = True
-            user.deleted_date = NetworkDateTime.network_datetime()
+        user.deleted = True
+        user.deleted_date = NetworkDateTime.network_datetime()
+        user.save()
+
+        return jsonify({
+            'code': 200,
+            'code_status': 'success',
+            'data': 'account has been staged for deleting'
+        }), 200
+
+
+    @staticmethod
+    @parse_params(
+        Argument("email_address", location="json", required=True),
+        Argument("password", location="json", required=True),
+    )
+    def login(email_address, password):
+        """ Retrieve a user account by id """
+
+        user = UserModel.query.filter_by(email_address=email_address).first()
+
+        if not user:
+            return jsonify({
+                'code': 404,
+                'code_status': 'data not found',
+                'data': 'no account was found'
+            }), 404
+
+        if user and user.check_password(password=password):
+            return auth.login(user=user)
+
+        return jsonify({
+            'code': 401,
+            'code_status': 'Invalid credentials',
+        }), 401
+
+
+    @staticmethod
+    @auth.login_required
+    def logout(**kwargs):
+        """ Logs out the user account"""
+        return auth.logout()
+
+
+    @staticmethod
+    def verify_email(token=None):
+        user_id = validation.verify_token(token)
+        user = UserModel.query.filter_by(id=user_id).first()
+        if user:
+            user.email_verified = True
             user.save()
-
             return jsonify({
-                'code': 200,
-                'code_status': 'success',
-                'data': 'account has been staged for deleting'
+                "code": 200,
+                "status": "Account verified"
             }), 200
+        
+        return ({
+            "code": 400,
+            "status": "Invalid Token!"
+        }), 400
 
-        except InternalError:
-            return jsonify({
-                'code': 500,
-                'code_status': 'internal server - internal server error',
-                'data': 'could not fetch data'
-            }), 500
 
-        except (OperationalError, DisconnectionError):
-            return jsonify({
-                'code': 500,
-                'code_status': 'database error - operation and disconnection error',
-                'data': 'could not fetch data'
-            }), 500
+    
+    @staticmethod
+    @parse_params(
+        Argument("email_address", location="json", required=True),
+    )
+    def request_password_reset(email_address):
+        user = UserModel.query.filter_by(email_address=email_address).first()
 
-        except ProgrammingError:
+        if not user:
             return jsonify({
-                'code': 500,
-                'code_status': 'database error - programming error',
-                'data': 'could not fetch table'
-            }), 500
+                'code': 404,
+                'code_status': 'data not found',
+                'data': 'no account with that email'
+            }), 404
+            
+        token = validation.generate_token(user.get_id(), context='reset-password')
+        # request url should be deeplink to app
+        reset_url = config.mobile_app_path + url_for('user.verify_reset_token', token=token)
+        date_time = NetworkDateTime.network_datetime().strftime('%a %d %b %Y, %I:%M%p')
+        date, time = date_time.split(', ')
+        
+        context = {
+            'first_name': user.first_name,
+            'reset_link': reset_url,
+            'date': date,
+            'time': time
+        }
+        print(context)
+        
+        reset_template = render_template('resetpassword.html', **context)
+        reset_data = {
+            'recipient':user.email_address,
+            'subject': 'Account Login',
+            'template': reset_template
+        }
+        
+        # Mail sending should be handled as background task
+        # TODO: Integrete with Celery/Redis for task scheduling
+        emailHandler.sendMail(**reset_data)
+
+        return jsonify({
+                'code': 200,
+                'code_status': 'email sent',
+                'data': 'reset link sent to registered email',
+                'url': reset_url
+            }), 200
+    
+
+    @staticmethod
+    def verify_reset_token():
+        token = request.args.get('token')
+        user_id = validation.verify_token(token=token, context='reset-password')
+        user = UserModel.query.filter_by(id=user_id).first()
+        
+        if not user:
+            return jsonify({
+                'code': 401,
+                'data': "Token is invalid or expired!"
+            }), 401
+
+        return jsonify({
+            'code': 202,
+            'data': 'Token is valid',
+        }), 202
+
+    
+    @staticmethod
+    @parse_params(
+        Argument("new_password", location="json", required=True),
+        Argument("token", location="json", required=True),
+    )
+    def reset_password(new_password=None, token=None):
+        token = token if request.method == 'POST' else request.args.get('token')
+        user_id = validation.verify_token(token=token, context='reset-password')
+        user = UserModel.query.filter_by(id=user_id).first()
+        
+        if not user:
+            return jsonify({
+                'code': 401,
+                'data': "Token is invalid or expired!"
+            }), 401
+
+        user.set_password(password=new_password)
+        user.save()
+
+        return jsonify({
+                'code': 200,
+                'data': 'password reset successful',
+            }), 200
+            

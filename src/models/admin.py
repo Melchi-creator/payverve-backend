@@ -5,15 +5,16 @@ Defines the model structure for admins
 """
 from uuid import uuid4
 
+from flask_login import UserMixin
 from sqlalchemy import UUID
 from werkzeug.security import check_password_hash, generate_password_hash
 
+from ..middlewares import NetworkDateTime
 from . import db
 from .abc import BaseModel, MetaBaseModel
-from ..middlewares import NetworkDateTime
 
 
-class AdminModel(db.Model, BaseModel, metaclass=MetaBaseModel):
+class AdminModel(db.Model, BaseModel, UserMixin, metaclass=MetaBaseModel):
     """ Admin Model """
 
     __tablename__ = 'admins'
@@ -34,6 +35,7 @@ class AdminModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     zipcode = db.Column(db.Integer, nullable=True)
     country = db.Column(db.String(), nullable=True)
     photo = db.Column(db.String(), nullable=True)
+    email_verified = db.Column(db.Boolean, default=False)
 
     created_at = db.Column(db.DateTime(), default=NetworkDateTime.network_datetime(), nullable=False)
     updated_at = db.Column(db.DateTime(), onupdate=NetworkDateTime.network_datetime(), nullable=True)
