@@ -8,9 +8,9 @@ from uuid import uuid4
 from sqlalchemy import UUID
 from werkzeug.security import check_password_hash, generate_password_hash
 
+from ..middlewares import NetworkDateTime
 from . import db
 from .abc import BaseModel, MetaBaseModel
-from ..middlewares import NetworkDateTime
 
 
 class UserModel(db.Model, BaseModel, metaclass=MetaBaseModel):
@@ -39,6 +39,7 @@ class UserModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     photo = db.Column(db.String(), nullable=True)
     deleted = db.Column(db.Boolean(), nullable=False, default=False)
     deleted_date = db.Column(db.DateTime(), nullable=True)
+    email_verified = db.Column(db.Boolean, default=False)
 
     created_at = db.Column(db.DateTime(), default=NetworkDateTime.network_datetime(), nullable=False)
     updated_at = db.Column(db.DateTime(), onupdate=NetworkDateTime.network_datetime(), nullable=True)

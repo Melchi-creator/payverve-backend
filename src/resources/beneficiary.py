@@ -1,65 +1,77 @@
 """
-currency.py
+beneficiary.py
 
-Defines all functions for currency especially CRUD
+Defines all functions for beneficiaries especially CRUD
 """
 from flask import jsonify
 from flask_restful import Resource
 from flask_restful.reqparse import Argument
-from sqlalchemy.exc import DataError, \
-    DisconnectionError, \
-    IntegrityError, \
-    InternalError, \
-    OperationalError, \
-    SQLAlchemyError, ProgrammingError
+from sqlalchemy.exc import (DataError, DisconnectionError, IntegrityError,
+                            InternalError, OperationalError, ProgrammingError,
+                            SQLAlchemyError)
 
-from ..models import CurrencyModel
+from ..models import BeneficiaryModel, UserModel
 from ..utilities import parse_params
 
 
-class CurrencyResource(Resource):
-    """ This class is concern with User Resources """
+class BeneficiaryResource(Resource):
+    """Class definition for Beneficiary Resources """
 
     @staticmethod
     @parse_params(
+        Argument("user", location="json", required=True),
         Argument("name", location="json", required=True),
-        Argument("short_code", location="json", required=True),
+        Argument("account_number", location="json", required=True),
+        Argument("bank", location="json", required=True),
         Argument("country", location="json", required=True),
     )
-    def create(name, short_code, country):
-        """ Adds a new currency """
+    def create(user, name, account_number, bank, country):
+        """ Adds new beneficiary to User """
 
-        currencies = CurrencyModel.query.all()
+        _user = UserModel.query.filter_by(id=user).first()
+        _beneficiary = BeneficiaryModel.query.filter_by(user=user, account_number=account_number).first()
 
         try:
-            for currency in currencies:
-                if name in currency.name or short_code in currency.short_code or country in currency.country:
-                    return jsonify({
-                        'code': 409,
-                        'code_status': 'conflict',
-                        'data': 'this currency has already been listed'
-                    }), 409
+            if not _user:
+                return jsonify({
+                    'code': 404,
+                    'code_status': 'data not found',
+                    'data': 'no user account was found'
+                }), 404
+
+            if _beneficiary:
+                return jsonify({
+                    'code': 409,
+                    'code_status': 'conflict',
+                    'data': 'You already have this account as a beneficiary'
+                }), 409
 
             # noinspection PyArgumentList
-            new_currency = CurrencyModel(
-                name=name.lower(),
-                short_code=short_code.lower(),
-                country=country.lower()
+            new_beneficiary = BeneficiaryModel(
+                name=name,
+                account_number=account_number,
+                bank=bank,
+                country=country,
+                user=_user.id
             )
-            new_currency.save()
+            new_beneficiary.save()
+
+            data = {
+                "id": new_beneficiary.id,
+                "user": new_beneficiary.user,
+                "name": new_beneficiary.name,
+                "account_number": new_beneficiary.account_number,
+                "bank": new_beneficiary.bank,
+                "country": new_beneficiary.country
+            }
 
             return jsonify({
                 'code': 201,
                 'code_status': 'created',
-                'data': 'currency was successfully added'
-            }), 201
+                # 'data': 'beneficiary was succefully added',
+                'data': data                # 'data': 'beneficiary was succefully added',
 
-        except IntegrityError:
-            return jsonify({
-                'code': 409,
-                'code_status': 'conflict - integrity error',
-                'data': 'this currency has already been listed'
-            }), 409
+            }), 201
 
         except DataError:
             return jsonify({
@@ -68,53 +80,59 @@ class CurrencyResource(Resource):
                 'data': 'ensure input data are correct'
             }), 400
 
+        except IntegrityError:
+            return jsonify({
+                'code': 409,
+                'code_status': 'conflict - integrity error',
+                'data': 'this beneficiary has already been listed'
+            }), 409
+
         except InternalError:
             return jsonify({
                 'code': 500,
-                'code_status': 'internal server - internal server error',
-                'data': 'could not fetch data'
-            }), 500
-
-        except (OperationalError, DisconnectionError, SQLAlchemyError):
-            return jsonify({
-                'code': 500,
-                'code_status': 'database error - operation, sqlalchemy and disconnection error',
+                'code_status': 'Internal server - internal server error',
                 'data': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - programming error',
+                'code_status': 'databaser error - programming error',
                 'data': 'could not fetch table'
+            }), 500
+
+        except (OperationalError, DisconnectionError, SQLAlchemyError):
+            return jsonify({
+                'code': 500,
+                'code_status': 'database error - operation, sqlalchemy and disconnection error',
+                'data': 'could not reach data'
             }), 500
 
     @staticmethod
     def read_all():
-        """ Retrieve all currencies """
+        """ Retrieves all beneficiaries """
 
-        currencies = CurrencyModel.query.all()
+        __beneficiaries = BeneficiaryModel.query.all()
+
+        data = []
 
         try:
-            if not currencies:
+            if not __beneficiaries:
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'data': 'no currency was found'
+                    'data': 'no beneficiary was found'
                 }), 404
 
-            data = []
-
-            for currency in currencies:
+            for beneficiary in __beneficiaries:
                 data.append({
-                    'id': currency.id,
-                    'name': currency.name,
-                    'short_code': currency.short_code,
-                    'country': currency.country,
-                    'created_at': currency.created_at,
-                    'updated_at': currency.updated_at
+                    "id": beneficiary.id,
+                    "user": beneficiary.user,
+                    "name": beneficiary.name,
+                    "account_number": beneficiary.account_number,
+                    "bank": beneficiary.bank,
+                    "country": beneficiary.country
                 })
-
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
@@ -144,25 +162,25 @@ class CurrencyResource(Resource):
 
     @staticmethod
     def read_one(id=None):
-        """ Retrieve a currency by id """
+        """ Retrieves a beneficiary by id """
 
-        currency = CurrencyModel.query.filter_by(id=id).first()
+        beneficiary = BeneficiaryModel.query.filter_by(id=id).first()
 
         try:
-            if not currency:
+            if not beneficiary:
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'data': 'no currency was found'
+                    'data': 'no beneficiary was found'
                 }), 404
 
             data = {
-                'id': currency.id,
-                'name': currency.name,
-                'short_code': currency.short_code,
-                'country': currency.country,
-                'created_at': currency.created_at,
-                'updated_at': currency.updated_at
+                "id": beneficiary.id,
+                "user": beneficiary.user,
+                "name": beneficiary.name,
+                "account_number": beneficiary.account_number,
+                "bank": beneficiary.bank,
+                "country": beneficiary.country
             }
 
             return jsonify({
@@ -195,40 +213,36 @@ class CurrencyResource(Resource):
     @staticmethod
     @parse_params(
         Argument("name", location="json"),
-        Argument("short_code", location="json"),
+        Argument("account_number", location="json"),
+        Argument("bank", location="json"),
         Argument("country", location="json"),
     )
     def update(id=None, **fields):
-        """ Updates a currency by id """
+        """ Updates a beneficiary by id """
 
-        currency = CurrencyModel.query.filter_by(id=id).first()
+        beneficiary = BeneficiaryModel.query.filter_by(id=id).first()
 
         try:
-            if not currency:
+            if not beneficiary:
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'data': 'no currency was found'
+                    'data': 'no benficiary was found'
                 }), 404
 
-            if 'name' in fields and fields['name'] is not None:
-                currency.name = fields['name'].lower()
+            for key, value in fields.items():
+                if value:
+                    setattr(beneficiary, key, value)
 
-            if 'short_code' in fields and fields['short_code'] is not None:
-                currency.short_code = fields['short_code'].lower()
-
-            if 'country' in fields and fields['country'] is not None:
-                currency.country = fields['country'].lower()
-
-            currency.save()
+            beneficiary.save()
 
             data = {
-                'id': currency.id,
-                'name': currency.name,
-                'short_code': currency.short_code,
-                'country': currency.country,
-                'created_at': currency.created_at,
-                'updated_at': currency.updated_at
+                "id": beneficiary.id,
+                "user": beneficiary.user,
+                "name": beneficiary.name,
+                "account_number": beneficiary.account_number,
+                "bank": beneficiary.bank,
+                "country": beneficiary.country
             }
 
             return jsonify({
@@ -236,6 +250,7 @@ class CurrencyResource(Resource):
                 'code_status': 'success',
                 'data': data
             }), 200
+
 
         except InternalError:
             return jsonify({
@@ -260,24 +275,24 @@ class CurrencyResource(Resource):
 
     @staticmethod
     def delete(id=None):
-        """ Retrieve and delete a currency by id """
+        """ Updates a beneficiary by id """
 
-        currency = CurrencyModel.query.filter_by(id=id).first()
+        beneficiay = BeneficiaryModel.query.filter_by(id=id).first()
 
         try:
-            if not currency:
+            if not beneficiay:
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'data': 'no user account was found'
+                    'data': 'no beneficiary was found'
                 }), 404
 
-            currency.delete()
+            beneficiay.delete()
 
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': 'currency was deleted successfully'
+                'data': 'beneficiary was deleted successfully'
             }), 200
 
         except InternalError:

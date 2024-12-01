@@ -1,8 +1,8 @@
-"""feat: created initial tables
+"""feat: db reset
 
-Revision ID: 424149d5097f
+Revision ID: f2527bdcf858
 Revises: 
-Create Date: 2024-10-23 16:19:46.902517
+Create Date: 2024-12-01 12:43:47.636153
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '424149d5097f'
+revision = 'f2527bdcf858'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -22,7 +22,7 @@ def upgrade():
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('role', sa.String(), nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('currencies',
@@ -31,16 +31,16 @@ def upgrade():
     sa.Column('short_code', sa.String(), nullable=False),
     sa.Column('country', sa.String(), nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('exchange_rates',
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('base_currency', sa.String(), nullable=False),
     sa.Column('target_currency', sa.String(), nullable=False),
-    sa.Column('rate', sa.Integer(), nullable=False),
+    sa.Column('rate', sa.Float(), nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('users',
@@ -65,8 +65,9 @@ def upgrade():
     sa.Column('photo', sa.String(), nullable=True),
     sa.Column('deleted', sa.Boolean(), nullable=False),
     sa.Column('deleted_date', sa.DateTime(), nullable=True),
+    sa.Column('email_verified', sa.Boolean(), nullable=True),
     sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('email_address'),
     sa.UniqueConstraint('mobile_number')
@@ -88,8 +89,9 @@ def upgrade():
     sa.Column('zipcode', sa.Integer(), nullable=True),
     sa.Column('country', sa.String(), nullable=True),
     sa.Column('photo', sa.String(), nullable=True),
+    sa.Column('email_verified', sa.Boolean(), nullable=True),
     sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.Column('admin_role', sa.UUID(), nullable=False),
     sa.ForeignKeyConstraint(['admin_role'], ['admin_roles.id'], ),
     sa.PrimaryKeyConstraint('id'),
@@ -99,13 +101,13 @@ def upgrade():
     op.create_table('bank_accounts',
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('bank_name', sa.String(), nullable=False),
-    sa.Column('account_number', sa.Integer(), nullable=False),
+    sa.Column('account_number', sa.BigInteger(), nullable=False),
     sa.Column('bank_swift', sa.String(), nullable=False),
     sa.Column('account_first_name', sa.String(), nullable=False),
     sa.Column('account_last_name', sa.String(), nullable=False),
     sa.Column('country', sa.String(), nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.Column('user', sa.UUID(), nullable=False),
     sa.Column('currency', sa.UUID(), nullable=False),
     sa.ForeignKeyConstraint(['currency'], ['currencies.id'], ),
@@ -115,11 +117,12 @@ def upgrade():
     op.create_table('beneficiaries',
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('name', sa.String(), nullable=False),
-    sa.Column('account_number', sa.Integer(), nullable=False),
+    sa.Column('account_number', sa.BigInteger(), nullable=False),
     sa.Column('bank', sa.String(), nullable=False),
     sa.Column('country', sa.String(), nullable=False),
+    sa.Column('where', sa.String(), nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.Column('user', sa.UUID(), nullable=False),
     sa.ForeignKeyConstraint(['user'], ['users.id'], ),
     sa.PrimaryKeyConstraint('id')
@@ -129,35 +132,41 @@ def upgrade():
     sa.Column('base_currency', sa.String(), nullable=False),
     sa.Column('target_currency', sa.String(), nullable=False),
     sa.Column('amount', sa.Float(), nullable=False),
+    sa.Column('transaction_type', sa.String(), nullable=False),
+    sa.Column('currency_pair', sa.String(), nullable=False),
+    sa.Column('amount_received', sa.Float(), nullable=False),
+    sa.Column('reference', sa.String(), nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.Column('user', sa.UUID(), nullable=False),
     sa.ForeignKeyConstraint(['user'], ['users.id'], ),
-    sa.PrimaryKeyConstraint('id')
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('reference')
     )
     op.create_table('wallets',
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('fund', sa.Float(), nullable=False),
-    sa.Column('account_number', sa.Integer(), nullable=False),
+    sa.Column('account_number', sa.BigInteger(), nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.Column('user', sa.UUID(), nullable=False),
     sa.Column('currency', sa.UUID(), nullable=False),
     sa.ForeignKeyConstraint(['currency'], ['currencies.id'], ),
     sa.ForeignKeyConstraint(['user'], ['users.id'], ),
-    sa.PrimaryKeyConstraint('id')
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('account_number')
     )
     op.create_table('foreign_transfers',
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('amount', sa.Float(), nullable=False),
     sa.Column('narration', sa.String(), nullable=True),
-    sa.Column('account', sa.Integer(), nullable=False),
+    sa.Column('account', sa.BigInteger(), nullable=False),
     sa.Column('swift_code', sa.Integer(), nullable=False),
     sa.Column('name', sa.String(), nullable=False),
     sa.Column('bank', sa.String(), nullable=False),
     sa.Column('country', sa.String(), nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.Column('user', sa.UUID(), nullable=False),
     sa.Column('wallet', sa.UUID(), nullable=False),
     sa.ForeignKeyConstraint(['user'], ['users.id'], ),
@@ -168,11 +177,13 @@ def upgrade():
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('amount', sa.Float(), nullable=False),
     sa.Column('narration', sa.String(), nullable=True),
-    sa.Column('account', sa.Integer(), nullable=False),
+    sa.Column('account', sa.BigInteger(), nullable=False),
     sa.Column('name', sa.String(), nullable=False),
     sa.Column('bank', sa.String(), nullable=False),
+    sa.Column('rference_number', sa.String(), nullable=False),
+    sa.Column('transfer_type', sa.String(), nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.Column('user', sa.UUID(), nullable=False),
     sa.Column('wallet', sa.UUID(), nullable=False),
     sa.ForeignKeyConstraint(['user'], ['users.id'], ),
@@ -183,14 +194,18 @@ def upgrade():
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('amount', sa.Float(), nullable=False),
     sa.Column('narration', sa.String(), nullable=True),
-    sa.Column('account', sa.Integer(), nullable=False),
+    sa.Column('account', sa.BigInteger(), nullable=False),
+    sa.Column('reference', sa.String(), nullable=False),
+    sa.Column('transaction_type', sa.String(), nullable=False),
+    sa.Column('transfer_pair', sa.String(), nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.Column('user', sa.UUID(), nullable=False),
     sa.Column('wallet', sa.UUID(), nullable=False),
     sa.ForeignKeyConstraint(['user'], ['users.id'], ),
     sa.ForeignKeyConstraint(['wallet'], ['wallets.id'], ),
-    sa.PrimaryKeyConstraint('id')
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('reference')
     )
     # ### end Alembic commands ###
 

@@ -1,89 +1,60 @@
-"""
-wallet.py
-
-Defines all functions for wallet especially CRUD
-"""
-from flask import jsonify
 from flask_restful import Resource
 from flask_restful.reqparse import Argument
-from sqlalchemy.exc import (DataError, DisconnectionError, IntegrityError,
-                            InternalError, OperationalError, ProgrammingError,
-                            SQLAlchemyError)
+from sqlalchemy.exc import DataError, \
+    DisconnectionError, \
+    IntegrityError, \
+    InternalError, \
+    OperationalError, \
+    SQLAlchemyError, ProgrammingError
+from flask import jsonify
+from ..models import BankAccountModel
+from ..utilities import parse_params
 
-from ..models import CurrencyModel, WalletModel
-# from ..utilities import RandomGenerator, emailHandler, parse_params
-from ..utilities import RandomGenerator, parse_params
-
-
-class WalletResource(Resource):
-    """ This class is concern with Wallet Resources """
-
+class BankAccountResource(Resource):
     @staticmethod
     @parse_params(
-        Argument("user", location="json", required=True),
-        Argument("currency", location="json", required=True),
+        Argument("bankname", location="json", required=True),
+        Argument("account_number", location="json", required=True),
+        Argument("bank_swift", location="json", required=True),
+        Argument("account_first_name", location="json", required=True),
+        Argument("account_last_name", location="json", required=True),
+        Argument("country", location="json", required=True),
     )
-    def create(user, currency):
-        """ Adds a new wallet """
+    def create(bankname, account_number, bank_swift, account_first_name, account_last_name, country):
+        """ Adds a new bank account """
 
-        all_wallets = WalletModel.query.all()
-        wallets = WalletModel.query.filter_by(user=user).all()
+        bank_accounts = BankAccountModel.query.all()
 
         try:
-            for wallet in wallets:
-                if currency in str(wallet.currency):
+            for account in bank_accounts:
+                if bankname in account.bank_name or account_number in account.account_number:
                     return jsonify({
                         'code': 409,
                         'code_status': 'conflict',
-                        'data': 'you already own a wallet with this currency'
+                        'data': 'this bank account exists'
                     }), 409
 
-            account_number = RandomGenerator.wallet_account_number()
-
-            for one_wallet in all_wallets:
-                if int(one_wallet.account_number) == int(account_number):
-                    account_number = RandomGenerator.wallet_account_number()
-
             # noinspection PyArgumentList
-            new_wallet = WalletModel(
-                fund=0,
-                account_number=account_number,
-                user=user,
-                currency=currency
+            new_bank_account = BankAccountModel(
+                bankname = bankname.lower(),
+                account_number = account_number,
+                bank_swift = bank_swift,
+                account_first_name = account_first_name.lower(),
+                account_last_name = account_last_name.lower(),
+                country = country.lower(),
             )
-            new_wallet.save()
-
-            # _user = UserModel.query.filter_by(id=user).first()
-            # _currency = CurrencyModel.query.filter_by(id=new_wallet.currency).first()
-            #
-            # context = {
-            #     'wallet_id':new_wallet.account_number,
-            #     'username': _user.first_name,
-            #     'wallet_created_at': new_wallet.created_at,
-            #     'currency': _currency.name
-            # }
-            # template = render_template('wallet.html', **context)
-            # data = {
-            #     'recipient':_user.email_address,
-            #     'subject': 'New Wallet Created',
-            #     'template': template
-            # }
-            #
-            # # Mail sending should be handled as background task
-            # # TODO: Integrete with Celery/Redis for task scheduling
-            # emailHandler.sendMail(**data)
+            new_bank_account.save()
 
             return jsonify({
                 'code': 201,
                 'code_status': 'created',
-                'data': 'wallet was successfully created'
+                'data': 'bank account was successfully added'
             }), 201
-
         except IntegrityError:
             return jsonify({
                 'code': 409,
                 'code_status': 'conflict - integrity error',
-                'data': 'a wallet with this currency has already been listed'
+                'data': 'this currency has already been listed'
             }), 409
 
         except DataError:
@@ -116,34 +87,29 @@ class WalletResource(Resource):
 
     @staticmethod
     def read_all():
-        """ Retrieve all wallets """
+        """ Retrieve all currencies """
 
-        wallets = WalletModel.query.all()
+        bank_accounts = BankAccountModel.query.all()
 
         try:
-            if not wallets:
+            if not bank_accounts:
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'data': 'no wallet was found'
+                    'data': 'no account was found'
                 }), 404
 
             data = []
 
-            for wallet in wallets:
-                currency = CurrencyModel.query.filter_by(id=wallet.currency).first()
+            for bank_account in bank_accounts:
                 data.append({
-                    'id': wallet.id,
-                    'fund': wallet.fund,
-                    'account_number': wallet.account_number,
-                    'user': wallet.user,
-                    'currency': wallet.currency,
-                    'currency_extras': {
-                        'currency_shortcode': currency.short_code,
-                        'currency_full_name': currency.name,
-                    },
-                    'created_at': wallet.created_at,
-                    'updated_at': wallet.updated_at
+                    'id': bank_account.id,
+                    'bankname': bank_account.bankname,
+                    'account_number': bank_account.account_number,
+                    'bank_swifts': bank_account.bank_swift,
+                    'account_first_name': bank_account.account_first_name,
+                    'account_last_name': bank_account.account_last_name,
+                    'country': bank_account.country,
                 })
 
             return jsonify({
@@ -175,31 +141,26 @@ class WalletResource(Resource):
 
     @staticmethod
     def read_one(id=None):
-        """ Retrieve a wallet by id """
+        """ Retrieve a bank account by id """
 
-        wallet = WalletModel.query.filter_by(id=id).first()
+        bank_accounts = BankAccountModel.query.filter_by(id=id).first()
 
         try:
-            if not wallet:
+            if not bank_accounts:
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'data': 'no wallet was found'
+                    'data': 'no account was found'
                 }), 404
 
-            currency = CurrencyModel.query.filter_by(id=wallet.currency).first()
             data = {
-                'id': wallet.id,
-                'fund': wallet.fund,
-                'account_number': wallet.account_number,
-                'user': wallet.user,
-                'currency': wallet.currency,
-                'currency_extras': {
-                    'currency_shortcode': currency.short_code,
-                    'currency_full_name': currency.name,
-                },
-                'created_at': wallet.created_at,
-                'updated_at': wallet.updated_at
+                'id': bank_accounts.id,
+                'bankname': bank_accounts.bankname,
+                'account_number': bank_accounts.account_number,
+                'bank_swifts': bank_accounts.bank_swift,
+                'account_first_name': bank_accounts.account_first_name,
+                'account_last_name': bank_accounts.account_last_name,
+                'country': bank_accounts.country,
             }
 
             return jsonify({
@@ -228,42 +189,55 @@ class WalletResource(Resource):
                 'code_status': 'database error - programming error',
                 'data': 'could not fetch table'
             }), 500
-
+        
+        
     @staticmethod
     @parse_params(
-        Argument("fund", location="json"),
+        Argument("bankname", location="json", required=True),
+        Argument("account_number", location="json", required=True),
+        Argument("bank_swift", location="json", required=True),
+        Argument("account_first_name", location="json", required=True),
+        Argument("account_last_name", location="json", required=True),
+        Argument("country", location="json", required=True),
     )
     def update(id=None, **fields):
-        """ Updates a wallet by id """
+        """ Updates a bank account detail by id """
 
-        wallet = WalletModel.query.filter_by(id=id).first()
+        bank_accounts = BankAccountModel.query.filter_by(id=id).first()
 
         try:
-            if not wallet:
+            if not bank_accounts:
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'data': 'no wallet was found'
+                    'data': 'no bank account was found'
                 }), 404
 
-            if 'fund' in fields and fields['fund'] is not None:
-                wallet.fund = fields['fund']
+            if 'bankname' in fields and fields['bankname'] is not None:
+                bank_accounts.bankname = fields['bankname'].lower()
 
-            wallet.save()
+            if 'account_number' in fields and fields['account_number'] is not None:
+                bank_accounts.account_number = fields['account_number']
 
-            currency = CurrencyModel.query.filter_by(id=wallet.currency).first()
+            if 'account_first_name' in fields and fields['account_first_name'] is not None:
+                bank_accounts.account_first_name = fields['account_first_name'].lower()
+
+            if 'account_last_name' in fields and fields['account_last_name'] is not None:
+                bank_accounts.account_las_namet = fields['account_last_name'].lower()
+
+            if 'country' in fields and fields['country'] is not None:
+                bank_accounts.country = fields['country'].lower()
+
+            bank_accounts.save()
+
             data = {
-                'id': wallet.id,
-                'fund': wallet.fund,
-                'account_number': wallet.account_number,
-                'user': wallet.user,
-                'currency': wallet.currency,
-                'currency_extras': {
-                    'currency_shortcode': currency.short_code,
-                    'currency_full_name': currency.name,
-                },
-                'created_at': wallet.created_at,
-                'updated_at': wallet.updated_at
+                'id': bank_accounts.id,
+                'bankname': bank_accounts.bankname,
+                'account_number': bank_accounts.account_number,
+                'bank_swifts': bank_accounts.bank_swift,
+                'account_first_name': bank_accounts.account_first_name,
+                'account_last_name': bank_accounts.account_last_name,
+                'country': bank_accounts.country,
             }
 
             return jsonify({
@@ -295,43 +269,24 @@ class WalletResource(Resource):
 
     @staticmethod
     def delete(id=None):
-        """ Retrieve and delete a wallet by id """
+        """ Retrieve and delete a currency by id """
 
-        wallet = WalletModel.query.filter_by(id=id).first()
-        user_wallets = WalletModel.query.filter_by(user=wallet.user).all()
-
-        currency = CurrencyModel.query.filter_by(id=wallet.currency).first()
+        bank_accounts = BankAccountModel.query.filter_by(id=id).first()
 
         try:
-            if not wallet:
+            if not bank_accounts:
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
                     'data': 'no user account was found'
                 }), 404
 
-            if currency.short_code == 'ngn':
-                return jsonify({
-                    'code': 403,
-                    'code_status': 'forbidden',
-                    'data': 'you can\'t delete your default wallet'
-                }), 403
-
-            if wallet.fund > 0:
-                for user_wallet in user_wallets:
-                    currency = CurrencyModel.query.filter_by(short_code='ngn').first()
-                    if str(user_wallet.currency) == str(currency.id):
-                        # TODO: Doghor - remember to include conversion rate when adding funds to naira account
-                        user_wallet.fund += wallet.fund
-                        user_wallet.save()
-                        break
-
-            wallet.delete()
+            bank_accounts.delete()
 
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': 'wallet was deleted successfully'
+                'data': 'account was deleted successfully'
             }), 200
 
         except InternalError:
@@ -354,3 +309,5 @@ class WalletResource(Resource):
                 'code_status': 'database error - programming error',
                 'data': 'could not fetch table'
             }), 500
+
+

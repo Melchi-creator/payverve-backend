@@ -13,7 +13,7 @@ from .admin_roles import AdminRoleModel
 from .bank_account import BankAccountModel
 from .beneficiary import BeneficiaryModel
 from .currency import CurrencyModel
-from .exchange_rate import ExchnageRateModel
+from .exchange_rate import ExchangeRateModel
 from .foreign_transfer import ForeignTransferModel
 from .local_transfer import LocalTransferModel
 from .payverve_transfer import PayverveTransferModel

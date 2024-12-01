@@ -19,7 +19,7 @@ class WalletModel(db.Model, BaseModel, metaclass=MetaBaseModel):
 
     id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     fund = db.Column(db.Float(), nullable=False, default=0)
-    account_number = db.Column(db.BigInteger, nullable=False)
+    account_number = db.Column(db.BigInteger, nullable=False, unique=True)
 
     created_at = db.Column(db.DateTime(), default=NetworkDateTime.network_datetime(), nullable=False)
     updated_at = db.Column(db.DateTime(), onupdate=NetworkDateTime.network_datetime(), nullable=True)

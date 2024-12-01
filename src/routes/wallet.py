@@ -1,7 +1,7 @@
 """
 wallet.py
 
-Defines all api routes for users resources especially CRUD
+Defines all api routes for wallets resources especially CRUD
 """
 
 from flask import Blueprint

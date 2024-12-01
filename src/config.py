@@ -29,3 +29,8 @@ database_uri = f"postgresql://{database_username}:{database_paswword}@{database_
 database_tracker = False
 
 mobile_app_path = os.getenv('MOBILE_APP_PATH')
+
+mail_api_key = os.getenv('MAIL_API_KEY')
+mail_default_sender = os.getenv('MAIL_DEFAULT_SENDER')
+
+base_url = os.getenv('BASE_URL')
