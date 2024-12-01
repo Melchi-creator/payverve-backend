@@ -4,8 +4,8 @@ Hold all resources import
 """
 
 from .admin import AdminResource
-from .admin_roles import AdminRolesResource
-from .bankaccount import BankAccountResource
+from .admin_role import AdminRoleResource
+from .bank_account import BankAccountResource
 from .beneficiary import BeneficiaryResource
 from .currency import CurrencyResource
 from .exchange_rate import ExchangeRateResource

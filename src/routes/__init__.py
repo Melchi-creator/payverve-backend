@@ -4,7 +4,7 @@ Hold all routed import
 """
 
 from .admin import AdminBlueprint
-from .admin_roles import AdminRoleBlueprint
+from .admin_role import AdminRoleBlueprint
 # from .bankaccount import BankaccountBlueprint
 from .beneficiary import BeneficiaryBlueprint
 from .currency import CurrencyBlueprint

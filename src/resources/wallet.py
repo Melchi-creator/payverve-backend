@@ -3,15 +3,16 @@ wallet.py
 
 Defines all functions for wallet especially CRUD
 """
-from flask import jsonify, render_template
+from flask import jsonify
 from flask_restful import Resource
 from flask_restful.reqparse import Argument
 from sqlalchemy.exc import (DataError, DisconnectionError, IntegrityError,
                             InternalError, OperationalError, ProgrammingError,
                             SQLAlchemyError)
 
-from ..models import CurrencyModel, UserModel, WalletModel
-from ..utilities import RandomGenerator, emailHandler, parse_params
+from ..models import CurrencyModel, WalletModel
+# from ..utilities import RandomGenerator, emailHandler, parse_params
+from ..utilities import RandomGenerator, parse_params
 
 
 class WalletResource(Resource):
@@ -51,26 +52,26 @@ class WalletResource(Resource):
                 currency=currency
             )
             new_wallet.save()
-            
-            _user = UserModel.query.filter_by(id=user).first()
-            _currency = CurrencyModel.query.filter_by(id=new_wallet.currency).first()
-            
-            context = {
-                'wallet_id':new_wallet.account_number,
-                'username': _user.first_name,
-                'wallet_created_at': new_wallet.created_at,
-                'currency': _currency.name
-            }
-            template = render_template('wallet.html', **context)
-            data = {
-                'recipient':_user.email_address,
-                'subject': 'New Wallet Created',
-                'template': template
-            }
-            
-            # Mail sending should be handled as background task
-            # TODO: Integrete with Celery/Redis for task scheduling
-            emailHandler.sendMail(**data)
+
+            # _user = UserModel.query.filter_by(id=user).first()
+            # _currency = CurrencyModel.query.filter_by(id=new_wallet.currency).first()
+            #
+            # context = {
+            #     'wallet_id':new_wallet.account_number,
+            #     'username': _user.first_name,
+            #     'wallet_created_at': new_wallet.created_at,
+            #     'currency': _currency.name
+            # }
+            # template = render_template('wallet.html', **context)
+            # data = {
+            #     'recipient':_user.email_address,
+            #     'subject': 'New Wallet Created',
+            #     'template': template
+            # }
+            #
+            # # Mail sending should be handled as background task
+            # # TODO: Integrete with Celery/Redis for task scheduling
+            # emailHandler.sendMail(**data)
 
             return jsonify({
                 'code': 201,

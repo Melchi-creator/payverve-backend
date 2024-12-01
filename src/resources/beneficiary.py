@@ -16,7 +16,7 @@ from ..utilities import parse_params
 
 class BeneficiaryResource(Resource):
     """Class definition for Beneficiary Resources """
-    
+
     @staticmethod
     @parse_params(
         Argument("user", location="json", required=True),
@@ -27,10 +27,10 @@ class BeneficiaryResource(Resource):
     )
     def create(user, name, account_number, bank, country):
         """ Adds new beneficiary to User """
-        
+
         _user = UserModel.query.filter_by(id=user).first()
         _beneficiary = BeneficiaryModel.query.filter_by(user=user, account_number=account_number).first()
-        
+
         try:
             if not _user:
                 return jsonify({
@@ -38,15 +38,15 @@ class BeneficiaryResource(Resource):
                     'code_status': 'data not found',
                     'data': 'no user account was found'
                 }), 404
-                
+
             if _beneficiary:
                 return jsonify({
-                  'code': 409,
-                  'code_status': 'conflict',
-                  'data': 'You already have this account as a beneficiary'
+                    'code': 409,
+                    'code_status': 'conflict',
+                    'data': 'You already have this account as a beneficiary'
                 }), 409
-                
-            
+
+            # noinspection PyArgumentList
             new_beneficiary = BeneficiaryModel(
                 name=name,
                 account_number=account_number,
@@ -55,75 +55,75 @@ class BeneficiaryResource(Resource):
                 user=_user.id
             )
             new_beneficiary.save()
-            
+
             data = {
-                    "id": new_beneficiary.id,
-                    "user": new_beneficiary.user,
-                    "name": new_beneficiary.name,
-                    "account_number": new_beneficiary.account_number,
-                    "bank": new_beneficiary.bank,
-                    "country": new_beneficiary.country
-                }
-            
+                "id": new_beneficiary.id,
+                "user": new_beneficiary.user,
+                "name": new_beneficiary.name,
+                "account_number": new_beneficiary.account_number,
+                "bank": new_beneficiary.bank,
+                "country": new_beneficiary.country
+            }
+
             return jsonify({
                 'code': 201,
                 'code_status': 'created',
-                'data': 'beneficiary was succefully added',
-                'data': data
+                # 'data': 'beneficiary was succefully added',
+                'data': data                # 'data': 'beneficiary was succefully added',
+
             }), 201
-        
+
         except DataError:
             return jsonify({
                 'code': 400,
                 'code_status': 'bad request - data error',
                 'data': 'ensure input data are correct'
             }), 400
-            
+
         except IntegrityError:
             return jsonify({
                 'code': 409,
                 'code_status': 'conflict - integrity error',
                 'data': 'this beneficiary has already been listed'
             }), 409
-                
+
         except InternalError:
             return jsonify({
                 'code': 500,
                 'code_status': 'Internal server - internal server error',
                 'data': 'could not fetch data'
             }), 500
-            
+
         except ProgrammingError:
             return jsonify({
                 'code': 500,
                 'code_status': 'databaser error - programming error',
                 'data': 'could not fetch table'
             }), 500
-            
+
         except (OperationalError, DisconnectionError, SQLAlchemyError):
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - operation, sqlalchemy and disconnection error',
                 'data': 'could not reach data'
             }), 500
-            
-            
+
     @staticmethod
     def read_all():
         """ Retrieves all beneficiaries """
-        
+
         __beneficiaries = BeneficiaryModel.query.all()
-        
+
         data = []
-        
+
         try:
             if not __beneficiaries:
-                 return jsonify({
+                return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
                     'data': 'no beneficiary was found'
-                }), 404 
-            
+                }), 404
+
             for beneficiary in __beneficiaries:
                 data.append({
                     "id": beneficiary.id,
@@ -138,7 +138,7 @@ class BeneficiaryResource(Resource):
                 'code_status': 'success',
                 'data': data
             }), 200
-        
+
         except InternalError:
             return jsonify({
                 'code': 500,
@@ -160,37 +160,35 @@ class BeneficiaryResource(Resource):
                 'data': 'could not fetch table'
             }), 500
 
-    
-    
     @staticmethod
     def read_one(id=None):
         """ Retrieves a beneficiary by id """
-        
+
         beneficiary = BeneficiaryModel.query.filter_by(id=id).first()
-        
+
         try:
             if not beneficiary:
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
                     'data': 'no beneficiary was found'
-                }), 404  
-                
+                }), 404
+
             data = {
-                    "id": beneficiary.id,
-                    "user": beneficiary.user,
-                    "name": beneficiary.name,
-                    "account_number": beneficiary.account_number,
-                    "bank": beneficiary.bank,
-                    "country": beneficiary.country
-                }
-                
+                "id": beneficiary.id,
+                "user": beneficiary.user,
+                "name": beneficiary.name,
+                "account_number": beneficiary.account_number,
+                "bank": beneficiary.bank,
+                "country": beneficiary.country
+            }
+
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
                 'data': data
             }), 200
-        
+
         except InternalError:
             return jsonify({
                 'code': 500,
@@ -211,9 +209,7 @@ class BeneficiaryResource(Resource):
                 'code_status': 'database error - programming error',
                 'data': 'could not fetch table'
             }), 500
-            
-            
-    
+
     @staticmethod
     @parse_params(
         Argument("name", location="json"),
@@ -223,9 +219,9 @@ class BeneficiaryResource(Resource):
     )
     def update(id=None, **fields):
         """ Updates a beneficiary by id """
-   
+
         beneficiary = BeneficiaryModel.query.filter_by(id=id).first()
-        
+
         try:
             if not beneficiary:
                 return jsonify({
@@ -233,29 +229,29 @@ class BeneficiaryResource(Resource):
                     'code_status': 'data not found',
                     'data': 'no benficiary was found'
                 }), 404
-            
+
             for key, value in fields.items():
                 if value:
                     setattr(beneficiary, key, value)
-            
-            beneficiary.save() 
-                
+
+            beneficiary.save()
+
             data = {
-                    "id": beneficiary.id,
-                    "user": beneficiary.user,
-                    "name": beneficiary.name,
-                    "account_number": beneficiary.account_number,
-                    "bank": beneficiary.bank,
-                    "country": beneficiary.country
-                }
-                
+                "id": beneficiary.id,
+                "user": beneficiary.user,
+                "name": beneficiary.name,
+                "account_number": beneficiary.account_number,
+                "bank": beneficiary.bank,
+                "country": beneficiary.country
+            }
+
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
                 'data': data
             }), 200
-        
-                
+
+
         except InternalError:
             return jsonify({
                 'code': 500,
@@ -276,15 +272,13 @@ class BeneficiaryResource(Resource):
                 'code_status': 'database error - programming error',
                 'data': 'could not fetch table'
             }), 500
-            
-            
-    
+
     @staticmethod
     def delete(id=None):
         """ Updates a beneficiary by id """
-        
+
         beneficiay = BeneficiaryModel.query.filter_by(id=id).first()
-        
+
         try:
             if not beneficiay:
                 return jsonify({
@@ -292,15 +286,15 @@ class BeneficiaryResource(Resource):
                     'code_status': 'data not found',
                     'data': 'no beneficiary was found'
                 }), 404
-                
+
             beneficiay.delete()
-            
+
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
                 'data': 'beneficiary was deleted successfully'
             }), 200
-                
+
         except InternalError:
             return jsonify({
                 'code': 500,
@@ -321,4 +315,3 @@ class BeneficiaryResource(Resource):
                 'code_status': 'database error - programming error',
                 'data': 'could not fetch table'
             }), 500
-    

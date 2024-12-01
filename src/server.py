@@ -12,7 +12,7 @@ from flask_migrate import Migrate
 from flask_talisman import Talisman
 
 from . import config, routes
-from .middlewares.auth import auth
+# from .middlewares.auth import auth
 from .models import db
 
 server = Flask(__name__)
@@ -26,9 +26,9 @@ db.init_app(server)
 db.app = server
 migrate = Migrate(server, db)
 
-with server.app_context():
-    auth.init_app(app=server, db=db)
-    from . import error_handlers
+# with server.app_context():
+#     auth.init_app(app=server, db=db)
+#     from . import error_handlers
 
 allowed_origins = [
     config.mobile_app_path
