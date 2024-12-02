@@ -3,6 +3,8 @@ user.py
 
 Defines all functions for users especially CRUD
 """
+from datetime import date, datetime
+
 from flask import jsonify
 from flask_restful import Resource
 from flask_restful.reqparse import Argument
@@ -15,7 +17,10 @@ from sqlalchemy.exc import DataError, \
 
 from ..middlewares import NetworkDateTime
 from ..models import CurrencyModel, UserModel, WalletModel
-from ..utilities import parse_params, RandomGenerator
+from ..utilities import RandomGenerator, parse_params
+
+
+# OopCompanion:suppressRename
 
 
 class UserResource(Resource):
@@ -52,6 +57,16 @@ class UserResource(Resource):
                     'code_status': 'conflict',
                     'data': 'mobile number already has an account'
                 }), 409
+
+            parsed_date_of_birth = datetime.strptime(date_of_birth, '%Y-%m-%d').year
+            age = NetworkDateTime.network_datetime().year - parsed_date_of_birth
+
+            if age < 17:
+                return jsonify({
+                    'code': 400,
+                    'code_status': 'bad request',
+                    'data': 'you must be 17 years and above'
+                }), 400
 
             # noinspection PyArgumentList
             new_user = UserModel(
@@ -416,6 +431,8 @@ class UserResource(Resource):
             user.deleted = True
             user.deleted_date = NetworkDateTime.network_datetime()
             user.save()
+
+            # user.delete()
 
             return jsonify({
                 'code': 200,

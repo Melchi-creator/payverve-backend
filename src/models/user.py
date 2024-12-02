@@ -13,6 +13,9 @@ from . import db
 from .abc import BaseModel, MetaBaseModel
 
 
+# OopCompanion:suppressRename
+
+
 class UserModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     """ User Model """
 
