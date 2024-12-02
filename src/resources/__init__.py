@@ -5,6 +5,7 @@ Hold all resources import
 
 from .admin import AdminResource
 from .admin_role import AdminRoleResource
+from .authentication_authorisation import AuthResource
 from .bank_account import BankAccountResource
 from .beneficiary import BeneficiaryResource
 from .currency import CurrencyResource

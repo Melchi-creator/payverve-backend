@@ -5,6 +5,7 @@ Hold all routed import
 
 from .admin import AdminBlueprint
 from .admin_role import AdminRoleBlueprint
+from .authentication_authorisation import LoginBlueprint
 # from .bankaccount import BankaccountBlueprint
 from .beneficiary import BeneficiaryBlueprint
 from .currency import CurrencyBlueprint
