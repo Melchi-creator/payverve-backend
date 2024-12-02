@@ -8,6 +8,9 @@ from datetime import datetime, timezone
 import ntplib
 
 
+# OopCompanion:suppressRename
+
+
 class NetworkDateTime:
     """ Defines functions for internet time date """
 
