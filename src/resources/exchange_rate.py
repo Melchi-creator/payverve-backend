@@ -1,11 +1,13 @@
 """
-exchange_rate.py
-
-Defines all functions for exchnage rate especially CRUD
+src/resources/exchange_rate.py
+This module defines the ExchangeRateResource class, which provides methods to create, read,
+and manage exchange rates. It interacts with the ExchangeRateModel to handle currency pairs,
 """
-from flask import jsonify
+from datetime import datetime
+
+import requests
+from flask import jsonify, request
 from flask_restful import Resource
-from flask_restful.reqparse import Argument
 from sqlalchemy.exc import DataError, \
     DisconnectionError, \
     IntegrityError, \
@@ -14,57 +16,73 @@ from sqlalchemy.exc import DataError, \
     ProgrammingError, \
     SQLAlchemyError
 
-from ..models import CurrencyModel, ExchangeRateModel
-from ..utilities import parse_params
+import config
+from ..models import ExchangeRateModel
 
 
 class ExchangeRateResource(Resource):
-    """ This class is concern with Exchange Rate Resources """
+    """ Exchange Rate Resource """
 
     @staticmethod
-    @parse_params(
-        Argument("base_currency", location="json", required=True),
-        Argument("target_currency", location="json", required=True),
-        Argument("rate", location="json", required=True),
-    )
-    def create(base_currency, target_currency, rate):
-        """ Adds a new exchange rate """
-
-        exchange_rate = ExchangeRateModel.query.filter_by(
-            base_currency=base_currency,
-            target_currency=target_currency).all()
+    def create():
+        """ Create a new exchange rate for a currency pair """
 
         try:
-            if exchange_rate:
-                return jsonify({
-                    'code': 409,
-                    'code_status': 'conflict',
-                    'data': 'the currency pair already exist'
-                }), 409
 
-            check_base_currency = CurrencyModel.query.filter_by(short_code=base_currency).first()
-            check_target_currency = CurrencyModel.query.filter_by(short_code=target_currency).first()
+            base_currency = request.json.get('base_currency')
+            target_currency = request.json.get('target_currency')
+            access_token = request.json.get('access_token')
 
-            if not check_base_currency or not check_target_currency:
-                return jsonify({
-                    'code': 404,
-                    'code_status': 'data not found',
-                    'data': 'base or target currency was not found'
-                }), 404
+            check_today_pair = ExchangeRateModel.query.filter_by(base_currency=base_currency,
+                                                                 target_currency=target_currency).order_by(
+                ExchangeRateModel.created_at.desc()).first()
 
-            # noinspection PyArgumentList
-            new_exchange_rate = ExchangeRateModel(
-                base_currency=base_currency,
-                target_currency=target_currency,
-                rate=rate,
-            )
-            new_exchange_rate.save()
+            today_rate = None
+            confirm_is_today = None
+
+            if check_today_pair:
+                confirm_is_today = check_today_pair.created_at.date() == datetime.now().date()
+
+                if confirm_is_today:
+                    today_rate = check_today_pair.rate
+
+            if confirm_is_today is None:
+                payload = {
+                    'base_currency': base_currency,
+                    'target_currency': target_currency
+                }
+
+                headers = {
+                    "Authorization": f"Bearer {access_token}"
+                }
+
+                response = requests.request("POST",
+                                            f"{config.app_path}/exchange-rates-api",
+                                            headers=headers,
+                                            json=payload)
+
+                if response.status_code != 200:
+                    return jsonify({
+                        'code': response.status_code,
+                        'code_status': 'error',
+                        'data': 'could not fetch exchange rate'
+                    }), response.status_code
+
+                today_rate = float(response.text)
+
+                # noinspection PyArgumentList
+                new_exchange_rate = ExchangeRateModel(
+                    base_currency=base_currency,
+                    target_currency=target_currency,
+                    rate=today_rate,
+                )
+                new_exchange_rate.save()
 
             return jsonify({
-                'code': 201,
-                'code_status': 'created',
-                'data': 'currency pair was successfully added'
-            }), 201
+                'code': 200,
+                'code_status': 'successful',
+                'data': today_rate
+            }), 200
 
         except IntegrityError:
             return jsonify({
@@ -181,115 +199,6 @@ class ExchangeRateResource(Resource):
                 'code': 200,
                 'code_status': 'success',
                 'data': data
-            }), 200
-
-        except InternalError:
-            return jsonify({
-                'code': 500,
-                'code_status': 'internal server - internal server error',
-                'data': 'could not fetch data'
-            }), 500
-
-        except (OperationalError, DisconnectionError):
-            return jsonify({
-                'code': 500,
-                'code_status': 'database error - operation and disconnection error',
-                'data': 'could not fetch data'
-            }), 500
-
-        except ProgrammingError:
-            return jsonify({
-                'code': 500,
-                'code_status': 'database error - programming error',
-                'data': 'could not fetch table'
-            }), 500
-
-    @staticmethod
-    @parse_params(
-        Argument("base_currency", location="json"),
-        Argument("target_currency", location="json"),
-        Argument("rate", location="json"),
-    )
-    def update(id=None, **fields):
-        """ Updates a wallet by id """
-
-        exchange_rate = ExchangeRateModel.query.filter_by(id=id).first()
-
-        try:
-            if not exchange_rate:
-                return jsonify({
-                    'code': 404,
-                    'code_status': 'data not found',
-                    'data': 'no currency pair was found'
-                }), 404
-
-            if 'base_currency' in fields and fields['base_currency'] is not None:
-                exchange_rate.base_currency = fields['base_currency']
-
-            if 'target_currency' in fields and fields['target_currency'] is not None:
-                exchange_rate.target_currency = fields['target_currency']
-
-            if 'rate' in fields and fields['rate'] is not None:
-                exchange_rate.rate = fields['rate']
-
-            exchange_rate.save()
-
-            data = {
-                'id': exchange_rate.id,
-                'base_currency': exchange_rate.base_currency,
-                'target_currency': exchange_rate.target_currency,
-                'rate': exchange_rate.rate,
-                'created_at': exchange_rate.created_at,
-                'updated_at': exchange_rate.updated_at
-            }
-
-            return jsonify({
-                'code': 200,
-                'code_status': 'success',
-                'data': data
-            }), 200
-
-        except InternalError:
-            return jsonify({
-                'code': 500,
-                'code_status': 'internal server - internal server error',
-                'data': 'could not fetch data'
-            }), 500
-
-        except (OperationalError, DisconnectionError):
-            return jsonify({
-                'code': 500,
-                'code_status': 'database error - operation and disconnection error',
-                'data': 'could not fetch data'
-            }), 500
-
-        except ProgrammingError:
-            return jsonify({
-                'code': 500,
-                'code_status': 'database error - programming error',
-                'data': 'could not fetch table'
-            }), 500
-
-    @staticmethod
-    def delete(id=None):
-        """ Retrieve and delete a wallet by id """
-
-        exchange_rate = ExchangeRateModel.query.filter_by(id=id).first()
-
-        try:
-            if not exchange_rate:
-                return jsonify({
-                    'code': 404,
-                    'code_status': 'data not found',
-                    'data': 'no currency pair was found'
-                }), 404
-
-            exchange_rate.delete()
-
-            return jsonify({
-                'code': 200,
-                'code_status': 'success',
-                'data': 'wallet was deleted successfully'
             }), 200
 
         except InternalError:

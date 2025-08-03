@@ -1,24 +1,24 @@
 {% extends "base.html" %}
-{% block title %}Login Alert: {{date}} {{time}}{% endblock %} 
+{% block title %}Login Alert: {{date}} {{time}}{% endblock %}
 {% block content %}
 <div class="bg-white p-8 rounded-lg shadow-md w-96">
-  <h1 class="text-2xl text-blue-500 font-bold mb-6">PayVerve</h1>
-  <p>We noticed a login attempt to your Payverve account</p>
-  <ul class="font-semibold my-6">
-    <li>IP address:  {{ip_address}}</li>
-    <li>Date:  {{date}}</li>
-    <li>Time:  {{time}}</li>
-    <li>Device:  {{device}}</li>
-    <li>Location:  {{location}}</li>
-  </ul>
-  <p>
-    If it was you, you don't need to do anything. If not, click here to reset
-    your password and secure your account.
-  </p>
-  <button
-    class="my-4 w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 focus:outline-none focus:bg-blue-600"
-  >
-    Reset Password
-  </button>
+    <h1 class="text-2xl text-blue-500 font-bold mb-6">PayVerve</h1>
+    <p>We noticed a login attempt to your Payverve account</p>
+    <ul class="font-semibold my-6">
+        <li>IP address: {{ip_address}}</li>
+        <li>Date: {{date}}</li>
+        <li>Time: {{time}}</li>
+        <li>Device: {{device}}</li>
+        <li>Location: {{location}}</li>
+    </ul>
+    <p>
+        If it was you, you don't need to do anything. If not, click here to reset
+        your password and secure your account.
+    </p>
+    <button
+            class="my-4 w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 focus:outline-none focus:bg-blue-600"
+    >
+        Reset Password
+    </button>
 </div>
 {% endblock %}

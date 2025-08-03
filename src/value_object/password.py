@@ -15,7 +15,8 @@ class PasswordValidation:
             raise ValueError("Password must be at least 8 characters long")
 
         if not self.password_strength(password):
-            raise ValueError("Password must contain at least one uppercase letter, one lowercase letter, one digit, and one special character")
+            raise ValueError(
+                "Password must contain at least one uppercase letter, one lowercase letter, one digit, and one special character")
 
         self.password = password
 

@@ -1,32 +1,32 @@
 {% extends "base.html" %} {% block title %}Transaction Status{% endblock %} {%
 block content %}
 <div class="bg-white p-8 rounded-lg shadow-md w-96">
-  <h1 class="text-2xl text-blue-500 font-bold mb-6">
-    Transaction Confirmtion: {transaction_id}
-  </h1>
+    <h1 class="text-2xl text-blue-500 font-bold mb-6">
+        Transaction Confirmtion: {transaction_id}
+    </h1>
 
-  <p class="my-3">Dear {username},</p>
-  <p>Your recent currency swap transaction has been successfully completed.</p>
-  <ul class="font-semibold my-6">
-    <li>Details: {transaction_details}</li>
-    <li>Transaction ID: {transaction_id}</li>
-    <li>Date: {date}</li>
-    <li>Time: {time}</li>
-    <li>Currency: {currency}</li>
-    <li>Amount Swapped: {amount}</li>
-  </ul>
+    <p class="my-3">Dear {username},</p>
+    <p>Your recent currency swap transaction has been successfully completed.</p>
+    <ul class="font-semibold my-6">
+        <li>Details: {transaction_details}</li>
+        <li>Transaction ID: {transaction_id}</li>
+        <li>Date: {date}</li>
+        <li>Time: {time}</li>
+        <li>Currency: {currency}</li>
+        <li>Amount Swapped: {amount}</li>
+    </ul>
 
-  <p>
-    If you have any questions, please don't hesitate to contact our support team
-    at
-    <a href="mailto:payvervesupport@gmail.com" class="text-blue-500"
-      >payvervesupport@gmail.com</a
-    >. Thank you for chooosing PayVerve.
-  </p>
+    <p>
+        If you have any questions, please don't hesitate to contact our support team
+        at
+        <a class="text-blue-500" href="mailto:payvervesupport@gmail.com"
+        >payvervesupport@gmail.com</a
+        >. Thank you for chooosing PayVerve.
+    </p>
 
-  <footer class="my-4">
-    <p>Best Regards,</p>
-    <p>The PayVerve Team</p>
-  </footer>
+    <footer class="my-4">
+        <p>Best Regards,</p>
+        <p>The PayVerve Team</p>
+    </footer>
 </div>
 {% endblock %}

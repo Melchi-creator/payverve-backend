@@ -11,10 +11,11 @@ from sqlalchemy.exc import DataError, \
     IntegrityError, \
     InternalError, \
     OperationalError, \
-    SQLAlchemyError, ProgrammingError
+    ProgrammingError, \
+    SQLAlchemyError
 
-from ..models import CurrencyModel
-from ..utilities import parse_params
+from ..models import CurrencyModel, PayverveWalletModel
+from ..utilities import Cryptographer, parse_params
 
 
 class CurrencyResource(Resource):
@@ -93,7 +94,7 @@ class CurrencyResource(Resource):
     def read_all():
         """ Retrieve all currencies """
 
-        currencies = CurrencyModel.query.all()
+        currencies = CurrencyModel.query.order_by(CurrencyModel.name.asc()).all()
 
         try:
             if not currencies:
@@ -114,6 +115,15 @@ class CurrencyResource(Resource):
                     'created_at': currency.created_at,
                     'updated_at': currency.updated_at
                 })
+
+            payverve_wallet = PayverveWalletModel.query.first()
+
+            if not payverve_wallet:
+                # noinspection PyArgumentList
+                new_payverve_wallet = PayverveWalletModel(
+                    fund=Cryptographer.encrypt('0.0')
+                )
+                new_payverve_wallet.save()
 
             return jsonify({
                 'code': 200,
@@ -222,19 +232,10 @@ class CurrencyResource(Resource):
 
             currency.save()
 
-            data = {
-                'id': currency.id,
-                'name': currency.name,
-                'short_code': currency.short_code,
-                'country': currency.country,
-                'created_at': currency.created_at,
-                'updated_at': currency.updated_at
-            }
-
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': data
+                'data': "currency was updated successfully"
             }), 200
 
         except InternalError:
@@ -269,7 +270,7 @@ class CurrencyResource(Resource):
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'data': 'no user account was found'
+                    'data': 'currency not found'
                 }), 404
 
             currency.delete()

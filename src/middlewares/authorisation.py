@@ -9,8 +9,8 @@ import jwt
 from flask import jsonify, request
 
 from config import access_secret_key
-from ..utilities import decode_token
 from ..models import AdminModel, UserModel
+from ..utilities import decode_token
 
 
 def jwt_required(f):
@@ -24,6 +24,7 @@ def jwt_required(f):
             if auth_header.startswith('Bearer '):
                 try:
                     token = auth_header.split(' ')[1].encode('utf-8')
+
                 except IndexError:
                     return jsonify({
                         "code": 401,

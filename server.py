@@ -1,8 +1,8 @@
 """
-server.py
-
-Application Entry Point During Development
-Hold all connections and configurations
+src/server.py
+This module initializes the Flask application, sets up configurations, and registers blueprints.
+It also configures CORS, database migrations, and security features.
+It serves as the entry point for the application, allowing it to run in development mode.
 """
 
 from flask import Flask
@@ -13,7 +13,6 @@ from flask_talisman import Talisman
 
 from src import routes
 import config
-# from .middlewares.auth import auth
 from src.models import db
 
 server = Flask(__name__)

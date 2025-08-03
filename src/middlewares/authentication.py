@@ -3,7 +3,7 @@
 """
 from datetime import datetime, timedelta
 
-from flask import jsonify, request
+from flask import jsonify, make_response, request
 from flask_restful.reqparse import Argument
 from psycopg2 import DataError, InternalError, OperationalError, ProgrammingError
 from sqlalchemy.exc import DBAPIError, DisconnectionError
@@ -16,7 +16,6 @@ from ..value_object import EmailCheck
 
 class Authentication:
     """ """
-
 
     @staticmethod
     @parse_params(
@@ -62,7 +61,8 @@ class Authentication:
             access_token = encode_token(extra_payload, config.access_token_time, config.access_secret_key)
             refresh_token = encode_token(extra_payload, config.refresh_token_time, config.refresh_secret_key)
 
-            return jsonify({
+            # Build response body
+            response_body = {
                 'code': 200,
                 'code_message': 'successful',
                 'data': {
@@ -75,7 +75,30 @@ class Authentication:
                     'id': str(check_user.id),
                     'message': f'{check_user.first_name} logged in successfully'
                 }
-            })
+            }
+
+            # Create a response object
+            response = make_response(jsonify(response_body))
+
+            # Set secure HTTP-only cookie for access token
+            response.set_cookie(
+                'access_token', access_token,
+                httponly=False if config.debug is True else True,
+                secure=False if config.debug is True else True,  # Only over HTTPS
+                samesite='None',  # Prevent CSRF
+                max_age=config.access_token_time
+            )
+
+            # Set secure HTTP-only cookie for refresh token
+            response.set_cookie(
+                'refresh_token', refresh_token,
+                httponly=False if config.debug is True else True,
+                secure=False if config.debug is True else True,
+                samesite='None',
+                max_age=config.refresh_token_time
+            )
+
+            return response
 
         except DataError:
             return jsonify({
@@ -235,7 +258,8 @@ class Authentication:
             access_token = encode_token(extra_payload, config.access_token_time, config.access_secret_key)
             refresh_token = encode_token(extra_payload, config.refresh_token_time, config.refresh_secret_key)
 
-            return jsonify({
+            # Build response body
+            response_body = {
                 'code': 200,
                 'code_message': 'successful',
                 'data': {
@@ -246,7 +270,30 @@ class Authentication:
                             datetime.now() + timedelta(seconds=config.refresh_token_time)).strftime(
                         '%B %d, %Y at %I:%M %p')
                 }
-            })
+            }
+
+            # Create a response object
+            response = make_response(jsonify(response_body))
+
+            # Set secure HTTP-only cookie for access token
+            response.set_cookie(
+                'access_token', access_token,
+                httponly=False if config.debug is True else True,
+                secure=False if config.debug is True else True,  # Only over HTTPS
+                samesite='None',  # Prevent CSRF
+                max_age=config.access_token_time
+            )
+
+            # Set secure HTTP-only cookie for refresh token
+            response.set_cookie(
+                'refresh_token', refresh_token,
+                httponly=False if config.debug is True else True,
+                secure=False if config.debug is True else True,
+                samesite='None',
+                max_age=config.refresh_token_time
+            )
+
+            return response
 
 
         except (ProgrammingError, DBAPIError, DisconnectionError, InternalError, OperationalError):

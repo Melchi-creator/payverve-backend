@@ -4,11 +4,11 @@ This module defines the MinimumBalance class, which is used to validate minimum 
 It ensures that the value is a positive number.
 """
 
+
 class MinimumBalance:
     """ MinimumBalance class validates that the balance is a positive number. """
 
     def __init__(self, value: float):
-
         if not self.minimum_value(value):
             raise ValueError("must be a positive number.")
 

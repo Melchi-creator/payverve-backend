@@ -6,13 +6,14 @@ related to database operations.
 """
 from flask import jsonify, request
 from flask_restful import Resource
+from flask_restful.reqparse import Argument
 from sqlalchemy.exc import (DataError, DisconnectionError, IntegrityError,
                             InternalError, OperationalError, ProgrammingError,
                             SQLAlchemyError)
 
 from ..models import WalletModel
 # from ..utilities import RandomGenerator, emailHandler, parse_params
-from ..utilities import Cryptographer, RandomGenerator
+from ..utilities import Cryptographer, RandomGenerator, parse_params
 from ..value_object import MinimumBalance
 
 
@@ -98,7 +99,7 @@ class WalletResource(Resource):
     def read_all():
         """ Retrieve all wallets """
 
-        wallets = WalletModel.query.all()
+        wallets = WalletModel.query.order_by(WalletModel.user_id.desc()).all()
 
         try:
             if not wallets:
@@ -116,6 +117,7 @@ class WalletResource(Resource):
                     'fund': float(Cryptographer.decrypt(wallet.fund)),
                     'wallet_identifier': wallet.wallet_identifier,
                     'user_id': wallet.user_id,
+                    'user_name': wallet.users.first_name + ' ' + wallet.users.last_name,
                     'currency_id': wallet.currency_id,
                     'currency_extras': {
                         'currency_shortcode': wallet.currencies.short_code,
@@ -171,6 +173,7 @@ class WalletResource(Resource):
                 'fund': float(Cryptographer.decrypt(wallet.fund)),
                 'wallet_identifier': wallet.wallet_identifier,
                 'user_id': wallet.user_id,
+                'user_name': wallet.users.first_name + ' ' + wallet.users.last_name,
                 'currency_id': wallet.currency_id,
                 'currency_extras': {
                     'currency_shortcode': wallet.currencies.short_code,
@@ -229,6 +232,7 @@ class WalletResource(Resource):
                     'fund': float(Cryptographer.decrypt(wallet.fund)),
                     'wallet_identifier': wallet.wallet_identifier,
                     'user_id': wallet.user_id,
+                    'user_name': wallet.users.first_name + ' ' + wallet.users.last_name,
                     'currency_id': wallet.currency_id,
                     'currency_extras': {
                         'currency_shortcode': wallet.currencies.short_code,
@@ -255,6 +259,74 @@ class WalletResource(Resource):
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - operation and disconnection error',
+                'data': 'could not fetch data'
+            }), 500
+
+        except ProgrammingError:
+            return jsonify({
+                'code': 500,
+                'code_status': 'database error - programming error',
+                'data': 'could not fetch table'
+            }), 500
+
+    @staticmethod
+    @parse_params(
+        Argument('fund', type=int, required=True, location='json'),
+    )
+    def update(fund, id=None):
+        """ Update a wallet's fund """
+
+        try:
+
+            wallet = WalletModel.query.filter_by(id=id).first()
+
+            if not wallet:
+                return jsonify({
+                    'code': 404,
+                    'code_status': 'data not found',
+                    'data': 'no wallet was found'
+                }), 404
+
+            MinimumBalance(fund)
+            decrypt_fund = Cryptographer.decrypt(wallet.fund)
+
+            fund = float(decrypt_fund) + fund
+            encrypt_fund = Cryptographer.encrypt(fund)
+
+            wallet.fund = encrypt_fund
+            wallet.save()
+
+            return jsonify({
+                'code': 200,
+                'code_status': 'success',
+                'data': 'wallet was successfully updated'
+            }), 200
+
+        except IntegrityError:
+            return jsonify({
+                'code': 409,
+                'code_status': 'conflict - integrity error',
+                'data': 'a wallet with this currency has already been listed'
+            }), 409
+
+        except DataError:
+            return jsonify({
+                'code': 400,
+                'code_status': 'bad request - data error',
+                'data': 'ensure input data are correct'
+            }), 400
+
+        except InternalError:
+            return jsonify({
+                'code': 500,
+                'code_status': 'internal server - internal server error',
+                'data': 'could not fetch data'
+            }), 500
+
+        except (OperationalError, DisconnectionError, SQLAlchemyError):
+            return jsonify({
+                'code': 500,
+                'code_status': 'database error - operation, sqlalchemy and disconnection error',
                 'data': 'could not fetch data'
             }), 500
 

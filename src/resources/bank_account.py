@@ -1,3 +1,4 @@
+from flask import jsonify
 from flask_restful import Resource
 from flask_restful.reqparse import Argument
 from sqlalchemy.exc import DataError, \
@@ -5,10 +6,12 @@ from sqlalchemy.exc import DataError, \
     IntegrityError, \
     InternalError, \
     OperationalError, \
-    SQLAlchemyError, ProgrammingError
-from flask import jsonify
+    ProgrammingError, \
+    SQLAlchemyError
+
 from ..models import BankAccountModel
 from ..utilities import parse_params
+
 
 class BankAccountResource(Resource):
     @staticmethod
@@ -36,12 +39,12 @@ class BankAccountResource(Resource):
 
             # noinspection PyArgumentList
             new_bank_account = BankAccountModel(
-                bankname = bankname.lower(),
-                account_number = account_number,
-                bank_swift = bank_swift,
-                account_first_name = account_first_name.lower(),
-                account_last_name = account_last_name.lower(),
-                country = country.lower(),
+                bankname=bankname.lower(),
+                account_number=account_number,
+                bank_swift=bank_swift,
+                account_first_name=account_first_name.lower(),
+                account_last_name=account_last_name.lower(),
+                country=country.lower(),
             )
             new_bank_account.save()
 
@@ -189,8 +192,7 @@ class BankAccountResource(Resource):
                 'code_status': 'database error - programming error',
                 'data': 'could not fetch table'
             }), 500
-        
-        
+
     @staticmethod
     @parse_params(
         Argument("bankname", location="json", required=True),
@@ -309,5 +311,3 @@ class BankAccountResource(Resource):
                 'code_status': 'database error - programming error',
                 'data': 'could not fetch table'
             }), 500
-
-

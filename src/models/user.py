@@ -13,7 +13,6 @@ from . import db
 from .abc import BaseModel, MetaBaseModel
 
 
-
 class UserModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     """ UserModel represents a user in the application."""
 

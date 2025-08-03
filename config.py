@@ -34,7 +34,8 @@ mobile_app_path = os.getenv('MOBILE_APP_PATH')
 mail_api_key = os.getenv('MAIL_API_KEY')
 mail_default_sender = os.getenv('MAIL_DEFAULT_SENDER')
 
-base_url = os.getenv('BASE_URL')
+exchange_rate_api_url = os.getenv('EXCHANGERATE_API_URL')
+exchange_rate_api_key = os.getenv('EXCHANGERATE_API_KEY')
 
 mailtrap_base_url = os.getenv('MAILTRAP_BASE_URL')
 mailtrap_api_key = os.getenv('MAILTRAP_API_KEY')

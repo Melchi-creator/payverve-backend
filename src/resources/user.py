@@ -6,6 +6,7 @@ as well as handling errors related to database operations.
 """
 import secrets
 from datetime import datetime, timedelta
+from secrets import compare_digest
 
 import requests
 from flask import jsonify, render_template
@@ -23,7 +24,6 @@ from ..models import CurrencyModel, UserModel
 from ..models.token_verification import TokenVerificationModel
 from ..utilities import Cryptographer, MailtrapHelper, parse_params
 from ..value_object import EmailCheck, PasswordValidation
-from secrets import compare_digest
 
 
 class UserResource(Resource):
@@ -764,7 +764,6 @@ class UserResource(Resource):
                     'code_status': 'data not found',
                     'data': 'no user account was found'
                 }), 404
-
 
             old_password_check = user.check_password(old_password)
 

@@ -1,5 +1,4 @@
-from flask import current_app as app
-from flask import jsonify
+from flask import current_app as app, jsonify
 from sqlalchemy.exc import (DataError, DisconnectionError, IntegrityError,
                             InternalError, OperationalError, ProgrammingError,
                             SQLAlchemyError)
@@ -7,8 +6,8 @@ from sqlalchemy.exc import (DataError, DisconnectionError, IntegrityError,
 
 @app.errorhandler(400)
 def bad_request_handler(e):
-    message = e.data['message'] if  getattr(e, 'data', None) else e.description.split(':')[0]
-    
+    message = e.data['message'] if getattr(e, 'data', None) else e.description.split(':')[0]
+
     return jsonify({
         'code': 400,
         'message': 'bad request',
@@ -39,7 +38,7 @@ def server_error_handler(e):
         'message': 'something went wrong!'
     }), 500
 
-    
+
 @app.errorhandler(InternalError)
 def internal_error_handler(e):
     return jsonify({
@@ -56,17 +55,17 @@ def operational_error_handler(e):
         'code_status': 'database error - operation error',
         'data': 'could not fetch data'
     }), 500
-    
-    
+
+
 @app.errorhandler(SQLAlchemyError)
 def SQLAlchemy_error_handler(e):
     return jsonify({
-            'code': 500,
-            'code_status': 'database error - sqlalchemy error',
-            'data': 'could not fetch data'
+        'code': 500,
+        'code_status': 'database error - sqlalchemy error',
+        'data': 'could not fetch data'
     }), 500
-    
-    
+
+
 @app.errorhandler(DisconnectionError)
 def disconnection_error_handler(e):
     return jsonify({
@@ -83,8 +82,8 @@ def programming_error_handler(e):
         'code_status': 'database error - programming error',
         'data': 'could not fetch table'
     }), 500
-    
-    
+
+
 @app.errorhandler(IntegrityError)
 def intergrity_error_handler(e):
     return jsonify({
@@ -101,5 +100,3 @@ def data_error_handler(e):
         'code_status': 'bad request - data error',
         'data': 'ensure input data are correct'
     }), 400
-
-

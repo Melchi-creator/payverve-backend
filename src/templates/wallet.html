@@ -1,33 +1,33 @@
 {% extends "base.html" %} {% block title %}Wallet Creation{% endblock %} {%
 block content %}
 <div class="bg-white p-8 rounded-lg shadow-md w-96">
-  <h1 class="text-2xl text-blue-500 font-bold mb-6">
-    New Wallet Created: {{wallet_id}}
-  </h1>
+    <h1 class="text-2xl text-blue-500 font-bold mb-6">
+        New Wallet Created: {{wallet_id}}
+    </h1>
 
-  <p>Dear {{username}},</p>
-  <p>Congratulations on creating a new {{currency}} wallet!</p>
-    
-  <p>Wallet Details:</p>
+    <p>Dear {{username}},</p>
+    <p>Congratulations on creating a new {{currency}} wallet!</p>
 
-  <ul class="font-semibold mt-6 mb-2">
-    <li>Wallet ID: {{wallet_id}}</li>
-    <li>Creation Date: {{wallet_created_at}}</li>
-  </ul>
+    <p>Wallet Details:</p>
 
-  <p>You can now use this wallet to send, receive, and store funds.</p>
+    <ul class="font-semibold mt-6 mb-2">
+        <li>Wallet ID: {{wallet_id}}</li>
+        <li>Creation Date: {{wallet_created_at}}</li>
+    </ul>
 
-  <p class="mt-8">
-    If you have any questions or need assistance, please don't hesitate to
-    contact our support team at
-    <a href="mailto:payvervesupport@gmail.com" class="text-blue-500"
-      >payvervesupport@gmail.com</a
-    >. Thank you for choosing PayVerve.
-  </p>
+    <p>You can now use this wallet to send, receive, and store funds.</p>
 
-  <footer class="my-4">
-    <p>Best Regards,</p>
-    <p>The PayVerve Team</p>
-  </footer>
+    <p class="mt-8">
+        If you have any questions or need assistance, please don't hesitate to
+        contact our support team at
+        <a class="text-blue-500" href="mailto:payvervesupport@gmail.com"
+        >payvervesupport@gmail.com</a
+        >. Thank you for choosing PayVerve.
+    </p>
+
+    <footer class="my-4">
+        <p>Best Regards,</p>
+        <p>The PayVerve Team</p>
+    </footer>
 </div>
 {% endblock %}

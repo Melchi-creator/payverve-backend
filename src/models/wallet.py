@@ -1,7 +1,8 @@
 """
-wallet.py
-
-Defines the model structure for wallets
+src/models/wallet.py
+This module defines the WalletModel class, which represents a user's wallet in the database.
+It includes fields for the fund, wallet identifier, timestamps for creation and updates,
+and establishes foreign key relationships with the users and currencies tables.
 """
 from datetime import datetime
 from uuid import uuid4
