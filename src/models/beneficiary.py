@@ -3,13 +3,13 @@ beneficiary.py
 
 Defines the model structure for users beneficiaries
 """
+from datetime import datetime
 from uuid import uuid4
 
 from sqlalchemy import UUID
 
 from . import db
 from .abc import BaseModel, MetaBaseModel
-from ..middlewares import NetworkDateTime
 
 
 class BeneficiaryModel(db.Model, BaseModel, metaclass=MetaBaseModel):
@@ -24,9 +24,9 @@ class BeneficiaryModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     country = db.Column(db.String(), nullable=False)
     where = db.Column(db.String(), nullable=False)
 
-    created_at = db.Column(db.DateTime(), default=NetworkDateTime.network_datetime(), nullable=False)
-    updated_at = db.Column(db.DateTime(), onupdate=NetworkDateTime.network_datetime(), nullable=True)
+    created_at = db.Column(db.DateTime(), default=datetime.now(), nullable=False)
+    updated_at = db.Column(db.DateTime(), onupdate=datetime.now(), nullable=True)
 
     # foreign keys
 
-    user = db.Column(UUID(as_uuid=True), db.ForeignKey('users.id'), nullable=False)
+    user_id = db.Column(UUID(as_uuid=True), db.ForeignKey('users.id'), nullable=False)

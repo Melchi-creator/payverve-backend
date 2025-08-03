@@ -3,6 +3,7 @@ admin.py
 
 Defines the model structure for admins
 """
+from datetime import datetime
 from uuid import uuid4
 
 from sqlalchemy import UUID
@@ -10,7 +11,6 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from . import db
 from .abc import BaseModel, MetaBaseModel
-from ..middlewares import NetworkDateTime
 
 
 class AdminModel(db.Model, BaseModel, metaclass=MetaBaseModel):
@@ -36,12 +36,12 @@ class AdminModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     photo = db.Column(db.String(), nullable=True)
     email_verified = db.Column(db.Boolean, default=False)
 
-    created_at = db.Column(db.DateTime(), default=NetworkDateTime.network_datetime(), nullable=False)
-    updated_at = db.Column(db.DateTime(), onupdate=NetworkDateTime.network_datetime(), nullable=True)
+    created_at = db.Column(db.DateTime(), default=datetime.now(), nullable=False)
+    updated_at = db.Column(db.DateTime(), onupdate=datetime.now(), nullable=True)
 
     # foreign keys
 
-    admin_role = db.Column(UUID(as_uuid=True), db.ForeignKey('admin_roles.id'), nullable=False)
+    admin_role_id = db.Column(UUID(as_uuid=True), db.ForeignKey('admin_roles.id'), nullable=False)
 
     def set_password(self, password):
         """ hashes user password """

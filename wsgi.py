@@ -5,7 +5,7 @@ web server gateway interface
 Application Entry Point in Production
 """
 
-from . import config
+import config
 from .server import server as payverve
 
 if __name__ == '__main__':

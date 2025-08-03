@@ -1,7 +1,7 @@
 """
-currency.py
-
-Defines all functions for currency especially CRUD
+src/resources/currency.py
+This module defines the CurrencyResource class, which provides RESTful endpoints for managing currencies.
+It includes methods for creating, reading, updating, and deleting currencies, with appropriate error handling and
 """
 from flask import jsonify
 from flask_restful import Resource
@@ -18,7 +18,7 @@ from ..utilities import parse_params
 
 
 class CurrencyResource(Resource):
-    """ This class is concern with User Resources """
+    """ Currency Resource """
 
     @staticmethod
     @parse_params(
@@ -27,13 +27,13 @@ class CurrencyResource(Resource):
         Argument("country", location="json", required=True),
     )
     def create(name, short_code, country):
-        """ Adds a new currency """
+        """ Create a new currency """
 
         currencies = CurrencyModel.query.all()
 
         try:
             for currency in currencies:
-                if name in currency.name or short_code in currency.short_code or country in currency.country:
+                if name.lower() in currency.name or short_code.lower() in currency.short_code or country.lower() in currency.country:
                     return jsonify({
                         'code': 409,
                         'code_status': 'conflict',

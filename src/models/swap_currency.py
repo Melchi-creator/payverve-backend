@@ -3,13 +3,13 @@ swap_currency.py
 
 Defines the model structure for swapping currencies
 """
+from datetime import datetime
 from uuid import uuid4
 
 from sqlalchemy import UUID
 
 from . import db
 from .abc import BaseModel, MetaBaseModel
-from ..middlewares import NetworkDateTime
 
 
 class SwapCurrencyModel(db.Model, BaseModel, metaclass=MetaBaseModel):
@@ -26,8 +26,8 @@ class SwapCurrencyModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     amount_received = db.Column(db.Float(), nullable=False)
     reference = db.Column(db.String(), nullable=False, unique=True)
 
-    created_at = db.Column(db.DateTime(), default=NetworkDateTime.network_datetime(), nullable=False)
-    updated_at = db.Column(db.DateTime(), onupdate=NetworkDateTime.network_datetime(), nullable=True)
+    created_at = db.Column(db.DateTime(), default=datetime.now(), nullable=False)
+    updated_at = db.Column(db.DateTime(), onupdate=datetime.now(), nullable=True)
 
     # foreign keys
 

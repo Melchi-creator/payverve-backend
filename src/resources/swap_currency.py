@@ -14,7 +14,7 @@ from sqlalchemy.exc import DataError, \
     ProgrammingError, \
     SQLAlchemyError
 
-from .. import config
+import config
 from ..models import CurrencyModel, ExchangeRateModel, SwapCurrencyModel, WalletModel
 from ..utilities import RandomGenerator, parse_params
 

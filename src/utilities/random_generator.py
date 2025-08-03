@@ -1,7 +1,8 @@
 """
-random_generator.py
-
-Defines functions to generate random codes
+src/utilities/random_generator.py
+This module provides a RandomGenerator class that contains static methods for generating various random identifiers.
+It includes methods for generating wallet identifiers, swap reference numbers, Payverve transfer reference numbers,
+and local transfer reference numbers.
 """
 
 import secrets
@@ -10,27 +11,29 @@ from flask import jsonify
 
 
 class RandomGenerator:
-    """ This class defines random generators """
+    """ RandomGenerator class provides static methods for generating random identifiers. """
 
     @staticmethod
-    def wallet_account_number():
-        """ Wallet Account Number Generator """
+    def wallet_identifier():
+        """ Wallet Identifier Generator """
 
         try:
             randomiser = secrets.randbelow(10 ** 10)
-            account_number = str(randomiser).zfill(10)
-            return account_number
+            wallet_identifier = str(randomiser).zfill(10)
+            return wallet_identifier
+
         except ArithmeticError:
             return jsonify({
                 'code': 500,
                 'code_status': 'arithmetic error',
-                'data': 'could not generate account number'
+                'data': 'could not generate wallet identifier'
             }), 500
+
         except RecursionError:
             return jsonify({
                 'code': 500,
                 'code_status': 'recursion error',
-                'data': 'could not generate account number'
+                'data': 'could not generate wallet identifier'
             }), 500
 
     @staticmethod

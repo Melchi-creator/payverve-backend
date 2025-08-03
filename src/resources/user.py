@@ -1,30 +1,32 @@
 """
-user.py
-
-Defines all functions for users especially CRUD
+src/resources/user.py
+This module defines the UserResource class, which provides CRUD operations for user accounts.
+It includes methods for creating, reading, updating, and deleting user accounts,
+as well as handling errors related to database operations.
 """
-from datetime import date, datetime
+import secrets
+from datetime import datetime, timedelta
 
-from flask import jsonify
+import requests
+from flask import jsonify, render_template
 from flask_restful import Resource
 from flask_restful.reqparse import Argument
-from sqlalchemy.exc import DataError, \
+from sqlalchemy.exc import DBAPIError, DataError, \
     DisconnectionError, \
     IntegrityError, \
     InternalError, \
     OperationalError, \
     ProgrammingError, SQLAlchemyError
 
-from ..middlewares import NetworkDateTime
-from ..models import CurrencyModel, UserModel, WalletModel
-from ..utilities import RandomGenerator, parse_params
-
-
-# OopCompanion:suppressRename
+import config
+from ..models import CurrencyModel, UserModel
+from ..models.token_verification import TokenVerificationModel
+from ..utilities import Cryptographer, MailtrapHelper, parse_params
+from ..value_object import EmailCheck, PasswordValidation
 
 
 class UserResource(Resource):
-    """ This class is concern with User Resources """
+    """ This class is concerned with User Resources """
 
     @staticmethod
     @parse_params(
@@ -39,11 +41,24 @@ class UserResource(Resource):
     def create(first_name, last_name, email_address, mobile_number, password, gender, date_of_birth):
         """ Creates users account """
 
-        user_model = UserModel.query
-        user_email = user_model.filter_by(email_address=email_address).first()
-        user_number = user_model.filter_by(mobile_number=mobile_number).first()
-
         try:
+
+            EmailCheck(email_address)
+            PasswordValidation(password)
+
+            gender_check = ["male", "female"]
+
+            if gender.lower() not in gender_check:
+                return jsonify({
+                    'code': 400,
+                    'code_status': 'bad request',
+                    'data': "gender must be either 'male' or 'female'"
+                }), 400
+
+            user_model = UserModel.query
+            user_email = user_model.filter_by(email_address=email_address).first()
+            user_number = user_model.filter_by(mobile_number=mobile_number).first()
+
             if user_email:
                 return jsonify({
                     'code': 409,
@@ -59,7 +74,7 @@ class UserResource(Resource):
                 }), 409
 
             parsed_date_of_birth = datetime.strptime(date_of_birth, '%Y-%m-%d').year
-            age = NetworkDateTime.network_datetime().year - parsed_date_of_birth
+            age = int(datetime.now().year) - int(parsed_date_of_birth)
 
             if age < 17:
                 return jsonify({
@@ -80,22 +95,108 @@ class UserResource(Resource):
             new_user.set_password(password)
             new_user.save()
 
-            naira_currency = CurrencyModel.query.filter_by(short_code='ngn').first()
+            payload = {
+                'user_id': str(new_user.id),
+                'currency_id': str(CurrencyModel.query.filter_by(short_code='ngn').first().id)
+            }
+
+            response = requests.request("POST", f'{config.app_path}/wallets', json=payload)
+
+            if response.status_code != 201:
+                user_to_delete = UserModel.query.filter_by(id=new_user.id).first()
+                user_to_delete.delete()
+
+                return jsonify({
+                    'code': response.status_code,
+                    'code_status': response.json().get('code_status', 'error'),
+                    'data': response.json().get('data', 'an error occurred while creating wallet')
+                }), response.status_code
+
+            # send verification and welcome email
+
+            # verification email
+
+            verification_code = str(secrets.randbelow(1000000)).zfill(6)
 
             # noinspection PyArgumentList
-            new_wallet = WalletModel(
-                fund=0,
-                account_number=RandomGenerator.wallet_account_number(),
-                user=new_user.id,
-                currency=naira_currency.id
+            new_verification_code = TokenVerificationModel(
+                channel='email',
+                channel_contact=new_user.email_address,
+                code_sent=Cryptographer.encrypt(verification_code),
+                expiration_time=300,
+                timestamp=datetime.now(),
+                status='pending'
             )
-            new_wallet.save()
+
+            new_verification_code.save()
+
+            expiry_time = new_verification_code.timestamp + timedelta(seconds=new_verification_code.expiration_time)
+
+            current_year = datetime.now().year
+
+            endpoint = '/send'
+            receipient = [
+                {"email": new_user.email_address,
+                 "name": f"{new_user.first_name} {new_user.last_name}"},
+            ]
+            subject = f"{new_user.first_name} Confirm your Account"
+            mail_message = render_template(
+                'customer/email_verification.html',
+                first_name=new_user.first_name,
+                last_name=new_user.last_name,
+                verification_code=verification_code,
+                user_email_address=new_user.email_address,
+                current_year=current_year,
+                expiry_time=expiry_time.strftime("%I:%M %p"),
+            )
+
+            MailtrapHelper.mailtrap_email_sender(endpoint,
+                                                 receipient,
+                                                 subject,
+                                                 mail_message)
+
+            # welcome email
+
+            current_year = datetime.now().year
+
+            endpoint = '/send'
+            receipient = [
+                {"email": new_user.email_address,
+                 "name": f"{new_user.first_name} {new_user.last_name}"},
+            ]
+            subject = f"Welcome to Payverve, {new_user.first_name} – Your Boardless Journey Starts Here 🌱"
+            mail_message = render_template(
+                'customer/email_welcome.html',
+                first_name=new_user.first_name,
+                last_name=new_user.last_name,
+                user_email_address=new_user.email_address,
+                current_year=current_year,
+            )
+
+            MailtrapHelper.mailtrap_email_sender(endpoint,
+                                                 receipient,
+                                                 subject,
+                                                 mail_message)
 
             return jsonify({
                 'code': 201,
                 'code_status': 'created',
                 'data': 'account was successfully created'
             }), 201
+
+        except ValueError as e:
+            return jsonify({
+                'code': 400,
+                'code_status': 'bad request - value error',
+                'data': str(e)
+            }), 400
+
+        except TypeError as e:
+            return jsonify({
+                'code': 400,
+                'code_status': 'bad request - type error',
+                'data': str(e)
+            }), 400
 
         except IntegrityError:
             return jsonify({
@@ -130,6 +231,228 @@ class UserResource(Resource):
                 'code': 500,
                 'code_status': 'database error - programming error',
                 'data': 'could not fetch table'
+            }),
+
+    @staticmethod
+    @parse_params(
+        Argument("email_address", location="json", required=True),
+        Argument("verification_code", location="json", required=True),
+    )
+    def email_otp_base_verification(verification_code: str, email_address: str):
+        """ this method is used to verify the email address of a user """
+
+        try:
+
+            EmailCheck(email_address)
+
+            if len(verification_code) != 6:
+                return jsonify({
+                    'code': 400,
+                    'code_message': 'bad request',
+                    'data': 'verification code must be 6 digits'
+                }), 400
+
+            customer = UserModel.query.filter_by(email_address=email_address).first()
+
+            if not customer:
+                return jsonify({
+                    'code': 404,
+                    'code_message': 'not found',
+                    'data': f'no account with {email_address} was found'
+                }), 404
+
+            if customer.email_verified:
+                return jsonify({
+                    'code': 400,
+                    'code_message': 'bad request',
+                    'data': 'this user is already verified'
+                }), 400
+
+            confirmation = TokenVerificationModel.query.filter_by(
+                channel="email",
+                channel_contact=email_address,
+            ).order_by(TokenVerificationModel.created_at.desc()).first()
+
+            if not confirmation:
+                return jsonify({
+                    'code': 404,
+                    'code_message': 'not found',
+                    'data': 'verification code not found'
+                }), 400
+
+            confirmation_code = confirmation.code_sent
+            decrypt_confirmation_code = Cryptographer.decrypt(confirmation_code)
+
+            if decrypt_confirmation_code != verification_code:
+                return jsonify({
+                    'code': 400,
+                    'code_message': 'bad request',
+                    'data': 'verification code does not match, try again'
+                }), 400
+
+            expected_expiry = confirmation.timestamp + timedelta(seconds=confirmation.expiration_time)
+
+            if expected_expiry < datetime.now():
+                confirmation.status = 'expired'
+                confirmation.save()
+
+                return jsonify({
+                    'code': 403,
+                    'code_message': 'forbidden',
+                    'data': 'this code has expired'
+                }), 403
+
+            if confirmation.status == "verified":
+                return jsonify({
+                    'code': 400,
+                    'code_message': 'bad request',
+                    'data': 'this code has been verified'
+                }), 400
+
+            confirmation.status = 'verified'
+            confirmation.save()
+
+            customer.email_verified = True
+            customer.save()
+
+            return jsonify({
+                'code': 200,
+                'code_status': 'successful',
+                'data': 'verification was successful'
+            }), 200
+
+        except ValueError as e:
+            return jsonify({
+                'code': 500,
+                'code_message': 'value error',
+                'data': f'an incorrect value was inputted: {str(e)}',
+            }), 500
+
+        except DataError:
+            return jsonify({
+                'code': 400,
+                'code_message': 'bad request',
+                'data': 'this error is a datatype error',
+            }), 400
+
+        except (ProgrammingError, DBAPIError, DisconnectionError, InternalError, OperationalError):
+            return jsonify({
+                "code": 500,
+                'code_message': 'database error',
+                "data": "this error is a database error",
+            }), 500
+
+    @staticmethod
+    @parse_params(
+        Argument("email_address", location="json", required=True),
+    )
+    def resend_email_otp_base_verification(email_address: str):
+        """ this method is used to resend the email verification token """
+
+        try:
+
+            EmailCheck(email_address)
+
+            customer = UserModel.query.filter_by(email_address=email_address).first()
+
+            if not customer:
+                return jsonify({
+                    'code': 404,
+                    'code_message': 'not found',
+                    'data': f'no account with {email_address} was found'
+                }), 404
+
+            if customer.email_verified:
+                return jsonify({
+                    'code': 400,
+                    'code_message': 'bad request',
+                    'data': 'this user is already verified'
+                }), 400
+
+            confirmation = TokenVerificationModel.query.filter_by(
+                channel="email",
+                channel_contact=email_address,
+                status='pending',
+            ).order_by(TokenVerificationModel.created_at.desc()).first()
+
+            if confirmation:
+                expected_expiry = confirmation.timestamp + timedelta(seconds=confirmation.expiration_time)
+
+                if expected_expiry > datetime.now():
+                    return jsonify({
+                        'code': 400,
+                        'code_message': 'bad request',
+                        'data': 'the previous code has not expire yet'
+                    }), 400
+
+            confirmation.status = 'expired'
+            confirmation.save()
+
+            # resend verification email
+
+            verification_code = str(secrets.randbelow(1000000)).zfill(6)
+
+            # noinspection PyArgumentList
+            new_verification_code = TokenVerificationModel(
+                channel='email',
+                channel_contact=email_address,
+                code_sent=Cryptographer.encrypt(verification_code),
+                expiration_time=300,
+                timestamp=datetime.now(),
+                status='pending'
+            )
+
+            new_verification_code.save()
+
+            expiry_time = new_verification_code.timestamp + timedelta(seconds=new_verification_code.expiration_time)
+
+            current_year = datetime.now().year
+
+            endpoint = '/send'
+            receipient = [
+                {"email": email_address, "name": f"{customer.first_name} {customer.last_name}"},
+            ]
+            subject = f"{customer.first_name} Verify your Account"
+            mail_message = render_template(
+                'customer/email_verification.html',
+                first_name=customer.first_name,
+                last_name=customer.last_name,
+                verification_code=verification_code,
+                user_email_address=email_address,
+                current_year=current_year,
+                expiry_time=expiry_time.strftime("%I:%M %p"),
+            )
+
+            MailtrapHelper.mailtrap_email_sender(endpoint,
+                                                 receipient,
+                                                 subject,
+                                                 mail_message)
+
+            return jsonify({
+                'code': 200,
+                'code_status': 'successful',
+                'data': 'verification code sent successfully'
+            }), 200
+
+        except ValueError as e:
+            return jsonify({
+                'code': 500,
+                'code_message': 'value error',
+                'data': f'an incorrect value was inputted: {str(e)}',
+            }), 500
+
+        except DataError:
+            return jsonify({
+                'code': 400,
+                'code_message': 'bad request',
+                'data': 'this error is a datatype error',
+            }), 400
+
+        except (ProgrammingError, DBAPIError, DisconnectionError, InternalError, OperationalError):
+            return jsonify({
+                "code": 500,
+                'code_message': 'database error',
+                "data": "this error is a database error",
             }), 500
 
     @staticmethod
@@ -421,18 +744,18 @@ class UserResource(Resource):
                     'data': 'no user account was found'
                 }), 404
 
-            if user.deleted is True:
+            if user.deleted:
                 return jsonify({
                     'code': 400,
                     'code_status': 'bad request',
                     'data': 'account is already staged for deleting'
                 }), 400
 
-            user.deleted = True
-            user.deleted_date = NetworkDateTime.network_datetime()
-            user.save()
+            # user.deleted = True
+            # user.deleted_date = datetime.now()
+            # user.save()
 
-            # user.delete()
+            user.delete()
 
             return jsonify({
                 'code': 200,
@@ -476,7 +799,6 @@ class UserResource(Resource):
 #     OperationalError, \
 #     ProgrammingError, SQLAlchemyError
 #
-# from ..middlewares import NetworkDateTime
 # # from ..middlewares.auth import auth
 # from ..models import CurrencyModel, UserModel, WalletModel
 # # from ..utilities import RandomGenerator, emailHandler, parse_params, validation
@@ -517,7 +839,7 @@ class UserResource(Resource):
 #                 'data': 'mobile number already has an account'
 #             }), 409
 #
-#         # age = NetworkDateTime.network_datetime() - date_of_birth
+#         # age = datetime.now() - date_of_birth
 #         #
 #         # if age < 17:
 #         #     return jsonify({
@@ -651,7 +973,7 @@ class UserResource(Resource):
 #     #     token = validation.generate_token(user.get_id(), context='reset-password')
 #     #     # request url should be deeplink to app
 #     #     reset_url = config.mobile_app_path + url_for('user.verify_reset_token', token=token)
-#     #     date_time = NetworkDateTime.network_datetime().strftime('%a %d %b %Y, %I:%M%p')
+#     #     date_time = datetime.now().strftime('%a %d %b %Y, %I:%M%p')
 #     #     date, time = date_time.split(', ')
 #     #
 #     #     context = {

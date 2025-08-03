@@ -7,7 +7,7 @@ data from https://exchangerate-api.com
 
 import requests
 
-from .. import config
+import config
 
 
 class ExchangeRate:

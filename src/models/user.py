@@ -1,23 +1,21 @@
 """
-user.py
-
-Defines the model structure for users
+src/models/user.py
+This module defines the UserModel class, which represents a user in the application.
+It includes fields for user information, relationships with other models, and methods for password and PIN management
 """
+from datetime import datetime
 from uuid import uuid4
 
 from sqlalchemy import UUID
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from ..middlewares import NetworkDateTime
 from . import db
 from .abc import BaseModel, MetaBaseModel
 
 
-# OopCompanion:suppressRename
-
 
 class UserModel(db.Model, BaseModel, metaclass=MetaBaseModel):
-    """ User Model """
+    """ UserModel represents a user in the application."""
 
     __tablename__ = 'users'
 
@@ -44,8 +42,8 @@ class UserModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     deleted_date = db.Column(db.DateTime(), nullable=True)
     email_verified = db.Column(db.Boolean, default=False)
 
-    created_at = db.Column(db.DateTime(), default=NetworkDateTime.network_datetime(), nullable=False)
-    updated_at = db.Column(db.DateTime(), onupdate=NetworkDateTime.network_datetime(), nullable=True)
+    created_at = db.Column(db.DateTime(), default=datetime.now(), nullable=False)
+    updated_at = db.Column(db.DateTime(), onupdate=datetime.now(), nullable=True)
 
     # relationships
 
