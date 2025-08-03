@@ -38,6 +38,7 @@ class UserModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     zipcode = db.Column(db.Integer, nullable=True)
     country = db.Column(db.String(), nullable=True)
     photo = db.Column(db.String(), nullable=True)
+    account_active = db.Column(db.Boolean(), nullable=False, default=False)
     deleted = db.Column(db.Boolean(), nullable=False, default=False)
     deleted_date = db.Column(db.DateTime(), nullable=True)
     email_verified = db.Column(db.Boolean, default=False)
@@ -68,7 +69,7 @@ class UserModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     def set_auth_pin(self, auth_pin):
         """ hashes user transaction pin """
 
-        self.password = generate_password_hash(auth_pin)
+        self.auth_pin = generate_password_hash(auth_pin)
 
     def check_auth_pin(self, auth_pin):
         """ verify hashed user transaction pin """
@@ -78,7 +79,7 @@ class UserModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     def set_transaction_pin(self, transaction_pin):
         """ hashes user transaction pin """
 
-        self.password = generate_password_hash(transaction_pin)
+        self.transaction_pin = generate_password_hash(transaction_pin)
 
     def check_transaction_pin(self, transaction_pin):
         """ verify hashed user transaction pin """

@@ -3,14 +3,14 @@
 """
 from datetime import datetime, timedelta
 
-from flask import jsonify
+from flask import jsonify, request
 from flask_restful.reqparse import Argument
 from psycopg2 import DataError, InternalError, OperationalError, ProgrammingError
 from sqlalchemy.exc import DBAPIError, DisconnectionError
 
 import config
 from ..models import AdminModel, UserModel
-from ..utilities import encode_token, parse_params
+from ..utilities import decode_token, encode_token, parse_params
 from ..value_object import EmailCheck
 
 
@@ -156,6 +156,98 @@ class Authentication:
                 'code_message': 'bad request',
                 "data": "this error is a datatype error",
             }), 400
+
+        except (ProgrammingError, DBAPIError, DisconnectionError, InternalError, OperationalError):
+            return jsonify({
+                "code": 500,
+                'code_message': 'database error',
+                "data": "this error is a database error",
+            }), 500
+
+    @staticmethod
+    def refresh_token():
+        """
+        Generate a new access token using a valid refresh token from cookies
+
+        Returns:
+            Flask response with new access token or error message
+        """
+        try:
+            # Get refresh token from cookie
+
+            refresh_token = request.cookies.get('refresh_token')
+
+            if request.is_json and request.content_length and request.content_length > 0:
+                refresh_token = request.get_json().get('refresh_token')
+
+            if not refresh_token:
+                return jsonify({
+                    "code": 401,
+                    "code_message": "unauthorized",
+                    "data": "Refresh token is missing"
+                }), 401
+
+            # Decode and verify the refresh token
+            decoded_token = decode_token(refresh_token, config.refresh_secret_key)
+
+            if "status" in decoded_token and decoded_token["status"] in ["invalid"]:
+                return jsonify({
+                    "code": 401,
+                    "code_message": "unauthorized",
+                    "data": "Invalid refresh token"
+                }), 401
+
+            if "status" in decoded_token and decoded_token["status"] in ["expired"]:
+                return jsonify({
+                    "code": 401,
+                    "code_message": "unauthorized",
+                    "data": "Expired refresh token"
+                }), 401
+
+            # Get user ID from the decoded refresh token
+            user_id = decoded_token['sub']
+
+            # Fetch the user to get their current role and status
+            user = UserModel.query.filter_by(id=user_id).first()
+
+            if not user:
+                return jsonify({
+                    "code": 404,
+                    'code_message': 'not found',
+                    "data": "The requested customer was not found",
+                }), 404
+
+            if not user.account_active:
+                return jsonify({
+                    'code': 400,
+                    'code_message': 'bad request',
+                    'data': 'User account is not active'
+                }), 400
+
+            # Create payload for the new access token
+            extra_payload = {
+                'sub': str(user.id),
+                'given_name': user.first_name,
+                'family_name': user.last_name,
+            }
+
+            # Generate new access token
+            access_token = encode_token(extra_payload, config.access_token_time, config.access_secret_key)
+            refresh_token = encode_token(extra_payload, config.refresh_token_time, config.refresh_secret_key)
+
+            return jsonify({
+                'code': 200,
+                'code_message': 'successful',
+                'data': {
+                    'access_token': access_token,
+                    'refresh_token': refresh_token,
+                    'expires': (datetime.now() + timedelta(seconds=config.access_token_time)).strftime('%I:%M %p'),
+                    'refresh_token_expires': (
+                            datetime.now() + timedelta(seconds=config.refresh_token_time)).strftime(
+                        '%B %d, %Y at %I:%M %p')
+                }
+            })
+
 
         except (ProgrammingError, DBAPIError, DisconnectionError, InternalError, OperationalError):
             return jsonify({

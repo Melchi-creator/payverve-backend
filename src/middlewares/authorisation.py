@@ -93,6 +93,20 @@ def jwt_required(f):
                     "data": "User is not verified"
                 }), 403
 
+            if not checked_user.account_active:
+                return jsonify({
+                    "code": 403,
+                    "code_message": "forbidden",
+                    "data": "Your account is not active"
+                }), 403
+
+            if checked_user.deleted:
+                return jsonify({
+                    "code": 403,
+                    "code_message": "forbidden",
+                    "data": "Your account has been deleted"
+                }), 403
+
             # Add the current user to the request context
             request.current_user = current_user
 

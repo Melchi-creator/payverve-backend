@@ -1,7 +1,9 @@
 """
-payverve_transfer.py
-
-Defines the model structure for payverve transfer
+src/models/payverve_transfer.py
+This module defines the PayverveTransferModel class, which represents a transfer made through Payverve.
+It includes fields for the transfer amount, narration, account details, reference, transaction type,
+and transfer pair, along with timestamps for creation and updates. It also establishes foreign key relationships
+with the users and wallets tables.
 """
 from datetime import datetime
 from uuid import uuid4
@@ -18,11 +20,11 @@ class PayverveTransferModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     __tablename__ = 'payverve_transfers'
 
     id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    amount = db.Column(db.Float(), nullable=False)
+    amount = db.Column(db.Text, nullable=False)
     narration = db.Column(db.String(), nullable=True)
     account = db.Column(db.BigInteger, nullable=False)
     reference = db.Column(db.String(), nullable=False, unique=True)
-    transaction_type = db.Column(db.String(), nullable=False, default="wallet tranfer")
+    transaction_type = db.Column(db.String(), nullable=False, default="wallet_tranfer")
     transfer_pair = db.Column(db.String(), nullable=False)
 
     created_at = db.Column(db.DateTime(), default=datetime.now(), nullable=False)

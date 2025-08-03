@@ -12,3 +12,4 @@ LoginBlueprint = Blueprint("login", __name__)
 
 LoginBlueprint.route("/admin-login", methods=['POST'])(Authentication.admin_authentication)
 LoginBlueprint.route("/user-login", methods=['POST'])(Authentication.user_authentication)
+LoginBlueprint.route("/user-refresh-token", methods=['POST'])(Authentication.refresh_token)
