@@ -49,3 +49,7 @@ access_token_time = int(os.getenv('ACCESS_TOKEN_TIME'))
 access_secret_key = os.getenv('ACCESS_SECRET_KEY')
 refresh_token_time = int(os.getenv('REFRESH_TOKEN_TIME'))
 refresh_secret_key = os.getenv('REFRESH_SECRET_KEY')
+
+paystack_secret_key = os.getenv('PAYSTACK_SECRET_KEY')
+paystack_public_key = os.getenv('PAYSTACK_PUBLIC_KEY')
+paystack_base_url = os.getenv('PAYSTACK_BASE_URL')

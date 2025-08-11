@@ -1,7 +1,5 @@
 """
-local_transfer.py
 
-Defines all functions for swapping currency especially CRUD
 """
 from flask import jsonify
 from flask_restful import Resource
@@ -32,7 +30,7 @@ class LocalTransferResource(Resource):
         Argument("wallet", location="json", required=True),
     )
     def create(amount, narration, account, name, bank, user, wallet):
-        """ Swap Currency """
+        """ """
 
         try:
             local_transfers = LocalTransferModel.query.all()

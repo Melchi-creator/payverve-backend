@@ -15,10 +15,10 @@ from sqlalchemy.exc import DataError, \
     IntegrityError, \
     InternalError, \
     OperationalError, \
-    ProgrammingError
+    ProgrammingError, SQLAlchemyError
 
 import config
-from ..models import PayverveTransferModel, PayverveWalletModel, UserModel, WalletModel
+from ..models import PayverveTransferModel, PayverveWalletModel, WalletModel
 from ..utilities import Cryptographer, RandomGenerator, parse_params
 from ..value_object import MinimumBalance
 
@@ -114,10 +114,11 @@ class PayverveTransferResource(Resource):
 
                 transfer_amount = ((float(amount)) - (float(amount) * float(payverve_charge))) * float(exchange_rate)
 
-                payverve_charge_amount = float(amount) * float(payverve_charge)
-
                 payverve_balance = PayverveWalletModel.query.first()
-                payverve_balance.fund += Cryptographer.encrypt(payverve_charge_amount)
+                payverve_charge_amount = (float(amount) * float(payverve_charge)) + float(Cryptographer.decrypt(
+                    payverve_balance.fund))
+
+                payverve_balance.fund = Cryptographer.encrypt(payverve_charge_amount)
                 payverve_balance.save()
 
             decrypted_sender_funds = float(Cryptographer.decrypt(sender.fund))
@@ -271,7 +272,6 @@ class PayverveTransferResource(Resource):
                     'code_status': 'data not found',
                     'data': 'no payverve transfer was found'
                 }), 404
-
 
             data = {
                 'id': payverve_transfer.id,
