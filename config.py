@@ -31,15 +31,17 @@ database_tracker = False
 
 mobile_app_path = os.getenv('MOBILE_APP_PATH')
 
-mail_api_key = os.getenv('MAIL_API_KEY')
-mail_default_sender = os.getenv('MAIL_DEFAULT_SENDER')
-
 exchange_rate_api_url = os.getenv('EXCHANGERATE_API_URL')
 exchange_rate_api_key = os.getenv('EXCHANGERATE_API_KEY')
 
 mailtrap_base_url = os.getenv('MAILTRAP_BASE_URL')
 mailtrap_api_key = os.getenv('MAILTRAP_API_KEY')
-mailtrap_payverve_email = os.getenv('MAILTRAP_PAYVERVE_EMAIL')
+mailtrap_payverve_helpdesk_name = os.getenv('MAILTRAP_PAYVERVE_HELPDESK_NAME')
+mailtrap_payverve_helpdesk_email = os.getenv('MAILTRAP_PAYVERVE_HELPDESK_EMAIL')
+mailtrap_payverve_eva_name = os.getenv('MAILTRAP_PAYVERVE_EVA_NAME')
+mailtrap_payverve_eva_email = os.getenv('MAILTRAP_PAYVERVE_EVA_EMAIL')
+mailtrap_payverve_security_name = os.getenv('MAILTRAP_PAYVERVE_SECURITY_NAME')
+mailtrap_payverve_security_email = os.getenv('MAILTRAP_PAYVERVE_SECURITY_EMAIL')
 
 fernet_key_one = os.getenv('FERNET_KEY_ONE')
 fernet_key_two = os.getenv('FERNET_KEY_TWO')

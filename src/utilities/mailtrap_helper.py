@@ -13,7 +13,7 @@ class MailtrapHelper:
     """ A helper class for sending emails using Mailtrap """
 
     @staticmethod
-    def mailtrap_email_sender(endpoint: str, receipient: list, subject: str, mail_message, attachments: list = None):
+    def mailtrap_email_sender(sender_name:str, sender_email:str, endpoint: str, receipient: list, subject: str, mail_message, attachments: list = None):
         """ This method sends an email using Mailtrap API."""
 
         try:
@@ -22,13 +22,13 @@ class MailtrapHelper:
 
             payload = {
                 "from": {
-                    "name": "Payverve",
-                    "email": "hello@demomailtrap.co"
+                    "name": sender_name,
+                    "email": sender_email
                 },
                 "to": receipient,
                 "reply_to": {
-                    "name": "Payverve",
-                    "email": "hello@demomailtrap.co"
+                    "name": config.mailtrap_payverve_helpdesk_name,
+                    "email": config.mailtrap_payverve_helpdesk_email
                 },
                 "subject": subject,
                 "html": mail_message,

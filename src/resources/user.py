@@ -151,7 +151,9 @@ class UserResource(Resource):
                 expiry_time=expiry_time.strftime("%I:%M %p"),
             )
 
-            MailtrapHelper.mailtrap_email_sender(endpoint,
+            MailtrapHelper.mailtrap_email_sender(config.mailtrap_payverve_security_name,
+                                                 config.mailtrap_payverve_security_email,
+                                                 endpoint,
                                                  receipient,
                                                  subject,
                                                  mail_message)
@@ -174,7 +176,9 @@ class UserResource(Resource):
                 current_year=current_year,
             )
 
-            MailtrapHelper.mailtrap_email_sender(endpoint,
+            MailtrapHelper.mailtrap_email_sender(config.mailtrap_payverve_eva_name,
+                                                 config.mailtrap_payverve_eva_email,
+                                                 endpoint,
                                                  receipient,
                                                  subject,
                                                  mail_message)
@@ -712,7 +716,9 @@ class UserResource(Resource):
                 expiry_time=expiry_time.strftime("%I:%M %p"),
             )
 
-            MailtrapHelper.mailtrap_email_sender(endpoint,
+            MailtrapHelper.mailtrap_email_sender(config.mailtrap_payverve_security_name,
+                                                 config.mailtrap_payverve_security_email,
+                                                 endpoint,
                                                  receipient,
                                                  subject,
                                                  mail_message)
