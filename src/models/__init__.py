@@ -17,6 +17,7 @@ from .exchange_rate import ExchangeRateModel
 from .foreign_transfer import ForeignTransferModel
 from .local_transfer import LocalTransferModel
 from .payverve_transfer import PayverveTransferModel
+from .payverve_wallet import PayverveWalletModel
 from .swap_currency import SwapCurrencyModel
 from .user import UserModel
 from .wallet import WalletModel

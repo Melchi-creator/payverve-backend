@@ -1,7 +1,5 @@
 """
-local_transfer.py
 
-Defines all functions for swapping currency especially CRUD
 """
 from flask import jsonify
 from flask_restful import Resource
@@ -14,8 +12,7 @@ from sqlalchemy.exc import DataError, \
     ProgrammingError, \
     SQLAlchemyError
 
-from .. import config
-from ..models import CurrencyModel, ExchangeRateModel, LocalTransferModel, WalletModel
+from ..models import CurrencyModel, LocalTransferModel, WalletModel
 from ..utilities import RandomGenerator, parse_params
 
 
@@ -33,7 +30,7 @@ class LocalTransferResource(Resource):
         Argument("wallet", location="json", required=True),
     )
     def create(amount, narration, account, name, bank, user, wallet):
-        """ Swap Currency """
+        """ """
 
         try:
             local_transfers = LocalTransferModel.query.all()

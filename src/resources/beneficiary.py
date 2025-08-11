@@ -69,7 +69,7 @@ class BeneficiaryResource(Resource):
                 'code': 201,
                 'code_status': 'created',
                 # 'data': 'beneficiary was succefully added',
-                'data': data                # 'data': 'beneficiary was succefully added',
+                'data': data  # 'data': 'beneficiary was succefully added',
 
             }), 201
 

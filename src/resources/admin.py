@@ -314,7 +314,7 @@ class AdminResource(Resource):
     #     token = validation.generate_token(admin.get_id(), context='reset-password')
     #     # request url should be deeplink to app
     #     reset_url = config.mobile_app_path + url_for('admin.verify_reset_token', token=token)
-    #     date_time = NetworkDateTime.network_datetime().strftime('%a %d %b %Y, %I:%M%p')
+    #     date_time = datetime.now().strftime('%a %d %b %Y, %I:%M%p')
     #     date, time = date_time.split(', ')
     #
     #     context = {

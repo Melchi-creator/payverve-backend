@@ -1,7 +1,7 @@
 """
-currency.py
-
-Defines all functions for currency especially CRUD
+src/resources/currency.py
+This module defines the CurrencyResource class, which provides RESTful endpoints for managing currencies.
+It includes methods for creating, reading, updating, and deleting currencies, with appropriate error handling and
 """
 from flask import jsonify
 from flask_restful import Resource
@@ -11,14 +11,15 @@ from sqlalchemy.exc import DataError, \
     IntegrityError, \
     InternalError, \
     OperationalError, \
-    SQLAlchemyError, ProgrammingError
+    ProgrammingError, \
+    SQLAlchemyError
 
-from ..models import CurrencyModel
-from ..utilities import parse_params
+from ..models import CurrencyModel, PayverveWalletModel
+from ..utilities import Cryptographer, parse_params
 
 
 class CurrencyResource(Resource):
-    """ This class is concern with User Resources """
+    """ Currency Resource """
 
     @staticmethod
     @parse_params(
@@ -27,13 +28,13 @@ class CurrencyResource(Resource):
         Argument("country", location="json", required=True),
     )
     def create(name, short_code, country):
-        """ Adds a new currency """
+        """ Create a new currency """
 
         currencies = CurrencyModel.query.all()
 
         try:
             for currency in currencies:
-                if name in currency.name or short_code in currency.short_code or country in currency.country:
+                if name.lower() in currency.name or short_code.lower() in currency.short_code or country.lower() in currency.country:
                     return jsonify({
                         'code': 409,
                         'code_status': 'conflict',
@@ -93,7 +94,7 @@ class CurrencyResource(Resource):
     def read_all():
         """ Retrieve all currencies """
 
-        currencies = CurrencyModel.query.all()
+        currencies = CurrencyModel.query.order_by(CurrencyModel.name.asc()).all()
 
         try:
             if not currencies:
@@ -114,6 +115,15 @@ class CurrencyResource(Resource):
                     'created_at': currency.created_at,
                     'updated_at': currency.updated_at
                 })
+
+            payverve_wallet = PayverveWalletModel.query.first()
+
+            if not payverve_wallet:
+                # noinspection PyArgumentList
+                new_payverve_wallet = PayverveWalletModel(
+                    fund=Cryptographer.encrypt('0.0')
+                )
+                new_payverve_wallet.save()
 
             return jsonify({
                 'code': 200,
@@ -222,19 +232,10 @@ class CurrencyResource(Resource):
 
             currency.save()
 
-            data = {
-                'id': currency.id,
-                'name': currency.name,
-                'short_code': currency.short_code,
-                'country': currency.country,
-                'created_at': currency.created_at,
-                'updated_at': currency.updated_at
-            }
-
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': data
+                'data': "currency was updated successfully"
             }), 200
 
         except InternalError:
@@ -269,7 +270,7 @@ class CurrencyResource(Resource):
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'data': 'no user account was found'
+                    'data': 'currency not found'
                 }), 404
 
             currency.delete()

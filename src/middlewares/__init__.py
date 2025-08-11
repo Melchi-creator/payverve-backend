@@ -1,6 +1,8 @@
 """
-middlewares
-Hold all third-party import
+src/middlewares/__init__.py
+This module initializes the middlewares package.
 """
 
-from .network_time import NetworkDateTime
+from .authentication import Authentication
+from .authorisation import jwt_required
+from .exchange_rate_api import ExchangeRate

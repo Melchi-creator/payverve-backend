@@ -1,23 +1,30 @@
 """
-exchange_rate_api.py
-
-Defines a function to fetch currencies exchange rate
-data from https://exchangerate-api.com
+src/middlewares/exchange_rate_api.py
+This module defines the ExchangeRate class, which provides methods to fetch exchange rates
+from an external API. It includes a method to get the exchange rate between two currencies.
+It handles connection errors and returns appropriate JSON responses.
 """
 
 import requests
+from flask import jsonify, request
 
-from .. import config
+import config
 
 
 class ExchangeRate:
-    """ Defines functions for internet time date """
+    """ Exchange Rate Middleware"""
 
     @staticmethod
-    def exchange_pair(base_currency, target_currency):
-        """ Fetches datetime from the internet """
+    def exchange_pair():
+        """ Fetch exchange rate for a currency pair."""
 
         try:
+
+            base_currency = request.json.get('base_currency')
+            target_currency = request.json.get('target_currency')
+
+            base_currency = base_currency.lower().strip()
+            target_currency = target_currency.lower().strip()
 
             base_url = config.exchange_rate_api_url
             api_key = config.exchange_rate_api_key
@@ -27,7 +34,27 @@ class ExchangeRate:
             response = requests.get(request_url)
             data = response.json()
 
-            return data
+            if data.get("result") == "success":
+                conversion_rate = data.get("conversion_rate")
 
-        except ConnectionError:
-            return
+                return str(conversion_rate)
+
+            return jsonify({
+                'code': 500,
+                'code_message': 'exchange failed',
+                'data': f'Failed to fetch exchange rate for {base_currency} to {target_currency}'
+            }), 500
+
+        except ConnectionError as e:
+            return jsonify({
+                'code': 503,
+                'code_message': 'exchange rate service unavailable',
+                'data': str(e)
+            }), 503
+
+        except Exception as e:
+            return jsonify({
+                'code': 500,
+                'code_message': 'interal server error',
+                'data': str(e)
+            }), 500

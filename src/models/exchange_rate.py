@@ -3,13 +3,13 @@ exchange_rate.py
 
 Defines the model structure for exchange rates
 """
+from datetime import datetime
 from uuid import uuid4
 
 from sqlalchemy import UUID
 
 from . import db
 from .abc import BaseModel, MetaBaseModel
-from ..middlewares import NetworkDateTime
 
 
 class ExchangeRateModel(db.Model, BaseModel, metaclass=MetaBaseModel):
@@ -22,5 +22,5 @@ class ExchangeRateModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     target_currency = db.Column(db.String(), nullable=False)
     rate = db.Column(db.Float(), nullable=False)
 
-    created_at = db.Column(db.DateTime(), default=NetworkDateTime.network_datetime(), nullable=False)
-    updated_at = db.Column(db.DateTime(), onupdate=NetworkDateTime.network_datetime(), nullable=True)
+    created_at = db.Column(db.DateTime(), default=datetime.now(), nullable=False)
+    updated_at = db.Column(db.DateTime(), onupdate=datetime.now(), nullable=True)
