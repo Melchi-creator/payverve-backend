@@ -273,6 +273,9 @@ class UserResource(Resource):
                     'country': user.country,
                     'photo': user.photo,
                     'deleted': user.deleted,
+                    'deleted_date': user.deleted_date,
+                    'email_verified': user.email_verified,
+                    'account_active': user.account_active,
                 })
 
             return jsonify({
