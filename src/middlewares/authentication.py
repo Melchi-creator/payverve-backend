@@ -73,7 +73,9 @@ class Authentication:
                             datetime.now() + timedelta(seconds=config.refresh_token_time)).strftime(
                         '%B %d, %Y at %I:%M %p'),
                     'id': str(check_user.id),
-                    'message': f'{check_user.first_name} logged in successfully'
+                    'message': f'{check_user.first_name} logged in successfully',
+                    'email_verified': check_user.email_verified,
+                    'account_active': check_user.account_active,
                 }
             }
 
@@ -169,7 +171,9 @@ class Authentication:
                             datetime.now() + timedelta(seconds=config.refresh_token_time)).strftime(
                         '%B %d, %Y at %I:%M %p'),
                     'id': str(check_admin.id),
-                    'message': f'{check_admin.first_name} logged in successfully'
+                    'message': f'{check_admin.first_name} logged in successfully',
+                    'email_verified': check_admin.email_verified,
+                    'account_active': check_admin.account_active,
                 }
             })
 
@@ -268,7 +272,9 @@ class Authentication:
                     'expires': (datetime.now() + timedelta(seconds=config.access_token_time)).strftime('%I:%M %p'),
                     'refresh_token_expires': (
                             datetime.now() + timedelta(seconds=config.refresh_token_time)).strftime(
-                        '%B %d, %Y at %I:%M %p')
+                        '%B %d, %Y at %I:%M %p'),
+                    'email_verified': user.email_verified,
+                    'account_active': user.account_active,
                 }
             }
 
