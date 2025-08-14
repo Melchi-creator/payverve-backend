@@ -11,7 +11,7 @@ from sqlalchemy.exc import (DataError, DisconnectionError, IntegrityError,
                             InternalError, OperationalError, ProgrammingError,
                             SQLAlchemyError)
 
-from ..models import WalletModel
+from ..models import UserModel, WalletModel
 # from ..utilities import RandomGenerator, emailHandler, parse_params
 from ..utilities import Cryptographer, RandomGenerator, parse_params
 from ..value_object import MinimumBalance
@@ -26,6 +26,24 @@ class WalletResource(Resource):
 
         user_id = request.json.get('user_id')
         currency_id = request.json.get('currency_id')
+        email_address = request.json.get('email_address')
+        created_by_payverve = request.json.get('created_by_payverve')
+
+        customer_confirmation = UserModel.query.filter_by(id=user_id, email_address=email_address).first()
+
+        if not customer_confirmation:
+            return jsonify({
+                'code': 404,
+                'code_status': 'not found',
+                'data': 'user not found'
+            }), 404
+
+        if not created_by_payverve:
+            return jsonify({
+                'code': 403,
+                'code_status': 'forbidden',
+                'data': 'you are not allowed to create a wallet'
+            }), 403
 
         wallets = WalletModel.query.filter_by(user_id=user_id).all()
 
