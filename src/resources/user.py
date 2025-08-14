@@ -98,7 +98,9 @@ class UserResource(Resource):
 
             payload = {
                 'user_id': str(new_user.id),
-                'currency_id': str(CurrencyModel.query.filter_by(short_code='ngn').first().id)
+                'currency_id': str(CurrencyModel.query.filter_by(short_code='ngn').first().id),
+                'created_by_payverve': True,
+                'email_address': new_user.email_address,
             }
 
             response = requests.request("POST", f'{config.app_path}/wallets', json=payload)
