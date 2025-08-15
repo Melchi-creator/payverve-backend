@@ -1,6 +1,5 @@
 """
-resources
-Hold all resources import
+
 """
 
 from .admin import AdminResource
@@ -12,6 +11,7 @@ from .exchange_rate import ExchangeRateResource
 from .local_transfer import LocalTransferResource
 from .payverve_transfer import PayverveTransferResource
 from .payverve_wallet import PayverveWalletResource
+from .referral import ReferralResource
 from .server import ServerResource
 from .swap_currency import SwapCurrencyResource
 from .user import UserResource

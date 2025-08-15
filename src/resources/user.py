@@ -5,6 +5,7 @@ It includes methods for creating, reading, updating, and deleting user accounts,
 as well as handling errors related to database operations.
 """
 import secrets
+import string
 from datetime import datetime, timedelta
 from secrets import compare_digest
 
@@ -20,7 +21,7 @@ from sqlalchemy.exc import DBAPIError, DataError, \
     ProgrammingError, SQLAlchemyError
 
 import config
-from ..models import CurrencyModel, UserModel
+from ..models import CurrencyModel, UserModel, WalletModel
 from ..models.token_verification import TokenVerificationModel
 from ..utilities import Cryptographer, MailtrapHelper, parse_params
 from ..value_object import EmailCheck, PasswordValidation
@@ -38,8 +39,9 @@ class UserResource(Resource):
         Argument("password", location="json", required=True),
         Argument("gender", location="json", required=True),
         Argument("date_of_birth", location="json", required=True),
+        Argument("referral_code", location="json"),
     )
-    def create(first_name, last_name, email_address, mobile_number, password, gender, date_of_birth):
+    def create(first_name, last_name, email_address, mobile_number, password, gender, date_of_birth, referral_code):
         """ Creates users account """
 
         try:
@@ -84,6 +86,9 @@ class UserResource(Resource):
                     'data': 'you must be 17 years and above'
                 }), 400
 
+            alphabet = string.ascii_letters + string.digits
+            user_code = ''.join(secrets.choice(alphabet) for _ in range(11))
+
             # noinspection PyArgumentList
             new_user = UserModel(
                 first_name=first_name,
@@ -91,7 +96,8 @@ class UserResource(Resource):
                 email_address=email_address,
                 mobile_number=mobile_number,
                 gender=gender,
-                date_of_birth=date_of_birth
+                date_of_birth=date_of_birth,
+                user_code=user_code
             )
             new_user.set_password(password)
             new_user.save()
@@ -114,6 +120,41 @@ class UserResource(Resource):
                     'code_status': response.json().get('code_status', 'error'),
                     'data': response.json().get('data', 'an error occurred while creating wallet')
                 }), response.status_code
+
+
+            if referral_code:
+                referral_confirmation = UserModel.query.filter_by(user_code=referral_code).first()
+
+                if not referral_confirmation:
+                    return jsonify({
+                        'code': 404,
+                        'code_status': 'not found',
+                        'data': 'there is no user with that referral code'
+                    })
+
+                payload = {
+                    'referral_id': str(referral_confirmation.id),
+                    'referral_code': referral_confirmation.user_code,
+                    'referred_id': str(new_user.id),
+                    'referred_code': new_user.user_code,
+                    'created_by_payverve': True,
+                    'email_address': new_user.email_address,
+                }
+
+                response = requests.request("POST", f'{config.app_path}/referrals', json=payload)
+
+                if response.status_code != 201:
+                    user_to_delete = UserModel.query.filter_by(id=new_user.id).first()
+                    user_to_delete.delete()
+
+                    user_wallet_to_delete = WalletModel.query.filter_by(user_id=new_user.id).first()
+                    user_wallet_to_delete.delete()
+
+                    return jsonify({
+                        'code': response.status_code,
+                        'code_status': response.json().get('code_status', 'error'),
+                        'data': response.json().get('data', 'an error occurred registering referrals')
+                    }), response.status_code
 
             # send verification and welcome email
 

@@ -1,6 +1,5 @@
 """
-routes
-Hold all routed import
+
 """
 
 from .admin import AdminBlueprint
@@ -13,6 +12,7 @@ from .exchange_rate import ExchangeRateBlueprint
 from .local_transfer import LocalTransferBlueprint
 from .payverve_transfer import PayverveTransferBlueprint
 from .payverve_wallet import PayverveWalletBlueprint
+from .referral import ReferralBlueprint
 from .server import ServerBlueprint
 from .swap_currency import SwapCurrencyBlueprint
 from .user import UserBlueprint
