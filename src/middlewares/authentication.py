@@ -45,6 +45,20 @@ class Authentication:
                     'data': 'email not verified'
                 }), 403
 
+            if not check_user.account_active:
+                return jsonify({
+                    'code': 403,
+                    'code_message': 'forbidden',
+                    'data': 'user account is inactive, contact admin'
+                }), 403
+
+            if check_user.deleted:
+                return jsonify({
+                    'code': 403,
+                    'code_message': 'forbidden',
+                    'data': 'user account has been deleted, contact admin'
+                }), 403
+
             if not check_user.check_password(password):
                 return jsonify({
                     'code': 401,
@@ -76,6 +90,7 @@ class Authentication:
                     'message': f'{check_user.first_name} logged in successfully',
                     'email_verified': check_user.email_verified,
                     'account_active': check_user.account_active,
+                    'account_deleted': check_user.deleted
                 }
             }
 
@@ -144,6 +159,20 @@ class Authentication:
                     'data': 'email not verified'
                 }), 403
 
+            if not check_admin.account_active:
+                return jsonify({
+                    'code': 403,
+                    'code_message': 'forbidden',
+                    'data': 'admin account is inactive, contact super admin'
+                }), 403
+
+            if check_admin.deleted:
+                return jsonify({
+                    'code': 403,
+                    'code_message': 'forbidden',
+                    'data': 'admin account has been deleted, contact super admin'
+                }), 403
+
             if not check_admin.check_password(password):
                 return jsonify({
                     'code': 401,
@@ -174,6 +203,7 @@ class Authentication:
                     'message': f'{check_admin.first_name} logged in successfully',
                     'email_verified': check_admin.email_verified,
                     'account_active': check_admin.account_active,
+                    'account_deleted': check_admin.deleted
                 }
             })
 
@@ -244,12 +274,27 @@ class Authentication:
                     "data": "The requested customer was not found",
                 }), 404
 
+            if not user.email_verified:
+                return jsonify({
+                    'code': 403,
+                    'code_message': 'forbidden',
+                    'data': 'email not verified'
+                }), 403
+
             if not user.account_active:
                 return jsonify({
                     'code': 400,
                     'code_message': 'bad request',
                     'data': 'User account is not active'
                 }), 400
+
+            if user.deleted:
+                return jsonify({
+                    'code': 403,
+                    'code_message': 'forbidden',
+                    'data': 'user account has been deleted, contact admin'
+                }), 403
+
 
             # Create payload for the new access token
             extra_payload = {
@@ -275,6 +320,7 @@ class Authentication:
                         '%B %d, %Y at %I:%M %p'),
                     'email_verified': user.email_verified,
                     'account_active': user.account_active,
+                    'account_deleted': user.deleted
                 }
             }
 
