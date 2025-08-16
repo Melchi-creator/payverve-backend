@@ -34,14 +34,12 @@ class UserResource(Resource):
     @parse_params(
         Argument("first_name", location="json", required=True),
         Argument("last_name", location="json", required=True),
+        Argument("username", location="json", required=True),
         Argument("email_address", location="json", required=True),
-        Argument("mobile_number", location="json", required=True),
         Argument("password", location="json", required=True),
-        Argument("gender", location="json", required=True),
-        Argument("date_of_birth", location="json", required=True),
         Argument("referral_code", location="json"),
     )
-    def create(first_name, last_name, email_address, mobile_number, password, gender, date_of_birth, referral_code):
+    def create(first_name, last_name, email_address, password, username, referral_code):
         """ Creates users account """
 
         try:
@@ -49,18 +47,8 @@ class UserResource(Resource):
             EmailCheck(email_address)
             PasswordValidation(password)
 
-            gender_check = ["male", "female"]
-
-            if gender.lower() not in gender_check:
-                return jsonify({
-                    'code': 400,
-                    'code_status': 'bad request',
-                    'message': "gender must be either 'male' or 'female'"
-                }), 400
-
             user_model = UserModel.query
             user_email = user_model.filter_by(email_address=email_address).first()
-            user_number = user_model.filter_by(mobile_number=mobile_number).first()
 
             if user_email:
                 return jsonify({
@@ -68,23 +56,6 @@ class UserResource(Resource):
                     'code_status': 'conflict',
                     'message': 'email address already has an account'
                 }), 409
-
-            if user_number:
-                return jsonify({
-                    'code': 409,
-                    'code_status': 'conflict',
-                    'message': 'mobile number already has an account'
-                }), 409
-
-            parsed_date_of_birth = datetime.strptime(date_of_birth, '%Y-%m-%d').year
-            age = int(datetime.now().year) - int(parsed_date_of_birth)
-
-            if age < 17:
-                return jsonify({
-                    'code': 400,
-                    'code_status': 'bad request',
-                    'message': 'you must be 17 years and above'
-                }), 400
 
             alphabet = string.ascii_letters + string.digits
             user_code = ''.join(secrets.choice(alphabet) for _ in range(11))
@@ -94,9 +65,7 @@ class UserResource(Resource):
                 first_name=first_name,
                 last_name=last_name,
                 email_address=email_address,
-                mobile_number=mobile_number,
-                gender=gender,
-                date_of_birth=date_of_birth,
+                username=username,
                 user_code=user_code
             )
             new_user.set_password(password)
@@ -428,6 +397,7 @@ class UserResource(Resource):
         Argument("zipcode", location="json"),
         Argument("country", location="json"),
         Argument("photo", location="json"),
+        Argument("username", location="json"),
     )
     def update(id=None, **fields):
         """ Updates a user account by id """
@@ -458,9 +428,30 @@ class UserResource(Resource):
                 user.mobile_number = fields['mobile_number']
 
             if 'gender' in fields and fields['gender'] is not None:
+
+                gender_check = ["male", "female"]
+
+                if fields['gender'].lower() not in gender_check:
+                    return jsonify({
+                        'code': 400,
+                        'code_status': 'bad request',
+                        'message': "gender must be either 'male' or 'female'"
+                    }), 400
+
                 user.gender = fields['gender']
 
             if 'date_of_birth' in fields and fields['date_of_birth'] is not None:
+
+                parsed_date_of_birth = datetime.strptime(fields['date_of_birth'], '%Y-%m-%d').year
+                age = int(datetime.now().year) - int(parsed_date_of_birth)
+
+                if age < 17:
+                    return jsonify({
+                        'code': 400,
+                        'code_status': 'bad request',
+                        'message': 'you must be 17 years and above'
+                    }), 400
+
                 user.date_of_birth = fields['date_of_birth']
 
             if 'house_number' in fields and fields['house_number'] is not None:
@@ -484,8 +475,8 @@ class UserResource(Resource):
             if 'photo' in fields and fields['photo'] is not None:
                 user.photo = fields['photo']
 
-            if 'deleted' in fields and fields['deleted'] is not None:
-                user.deleted = fields['deleted']
+            if 'username' in fields and fields['username'] is not None:
+                user.username = fields['username']
 
             user.save()
 
