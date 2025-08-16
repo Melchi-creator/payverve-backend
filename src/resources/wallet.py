@@ -35,14 +35,14 @@ class WalletResource(Resource):
             return jsonify({
                 'code': 404,
                 'code_status': 'not found',
-                'data': 'user not found'
+                'message': 'user not found'
             }), 404
 
         if not created_by_payverve:
             return jsonify({
                 'code': 403,
                 'code_status': 'forbidden',
-                'data': 'you are not allowed to create a wallet'
+                'message': 'you are not allowed to create a wallet'
             }), 403
 
         wallets = WalletModel.query.filter_by(user_id=user_id).all()
@@ -54,7 +54,7 @@ class WalletResource(Resource):
                     return jsonify({
                         'code': 409,
                         'code_status': 'conflict',
-                        'data': 'you already own a wallet with this currency'
+                        'message': 'you already own a wallet with this currency'
                     }), 409
 
             wallet_identifier = RandomGenerator.wallet_identifier()
@@ -82,14 +82,14 @@ class WalletResource(Resource):
             return jsonify({
                 'code': 409,
                 'code_status': 'conflict - integrity error',
-                'data': 'a wallet with this currency has already been listed'
+                'message': 'a wallet with this currency has already been listed'
             }), 409
 
         except DataError:
             return jsonify({
                 'code': 400,
                 'code_status': 'bad request - data error',
-                'data': 'ensure input data are correct'
+                'message': 'ensure input data are correct'
             }), 400
 
         except InternalError:
@@ -124,7 +124,7 @@ class WalletResource(Resource):
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'data': 'no wallet was found'
+                    'message': 'no wallet was found'
                 }), 404
 
             data = []
@@ -183,7 +183,7 @@ class WalletResource(Resource):
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'data': 'no wallet was found'
+                    'message': 'no wallet was found'
                 }), 404
 
             data = {
@@ -239,7 +239,7 @@ class WalletResource(Resource):
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'data': 'no wallet was found'
+                    'message': 'no wallet was found'
                 }), 404
 
             data = []
@@ -302,7 +302,7 @@ class WalletResource(Resource):
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'data': 'no wallet was found'
+                    'message': 'no wallet was found'
                 }), 404
 
             MinimumBalance(fund)
@@ -324,14 +324,14 @@ class WalletResource(Resource):
             return jsonify({
                 'code': 409,
                 'code_status': 'conflict - integrity error',
-                'data': 'a wallet with this currency has already been listed'
+                'message': 'a wallet with this currency has already been listed'
             }), 409
 
         except DataError:
             return jsonify({
                 'code': 400,
                 'code_status': 'bad request - data error',
-                'data': 'ensure input data are correct'
+                'message': 'ensure input data are correct'
             }), 400
 
         except InternalError:

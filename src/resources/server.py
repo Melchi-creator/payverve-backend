@@ -26,5 +26,5 @@ class ServerResource(Resource):
             return jsonify({
                 'code': 500,
                 'code_status': 'interval server error',
-                'data': 'The server is not running, something went wrong'
+                'message': 'The server is not running, something went wrong'
             }), 500

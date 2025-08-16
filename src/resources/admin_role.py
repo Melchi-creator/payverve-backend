@@ -32,7 +32,7 @@ class AdminRoleResource(Resource):
                 return jsonify({
                     'code': 409,
                     'code_status': 'conflict',
-                    'data': 'this admin role already exists'
+                    'message': 'this admin role already exists'
                 }), 409
 
             # noinspection PyArgumentList
@@ -51,35 +51,35 @@ class AdminRoleResource(Resource):
             return jsonify({
                 'code': 409,
                 'code_status': 'conflict - integrity error',
-                'data': 'this admin role already exists'
+                'message': 'this admin role already exists'
             }), 409
 
         except DataError:
             return jsonify({
                 'code': 400,
                 'code_status': 'bad request - data error',
-                'data': 'ensure input data are correct'
+                'message': 'ensure input data are correct'
             }), 400
 
         except InternalError:
             return jsonify({
                 'code': 500,
                 'code_status': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError, SQLAlchemyError):
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - operation, sqlalchemy and disconnection error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - programming error',
-                'data': 'could not fetch table'
+                'message': 'could not fetch table'
             }), 500
 
     @staticmethod
@@ -93,7 +93,7 @@ class AdminRoleResource(Resource):
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'data': 'no admin role was found'
+                    'message': 'no admin role was found'
                 }), 404
 
             data = [{'id': role.id, 'role': role.role} for role in roles]
@@ -108,21 +108,21 @@ class AdminRoleResource(Resource):
             return jsonify({
                 'code': 500,
                 'code_status': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - operation and disconnection error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - programming error',
-                'data': 'could not fetch table'
+                'message': 'could not fetch table'
             }), 500
 
     @staticmethod
@@ -136,7 +136,7 @@ class AdminRoleResource(Resource):
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'data': 'no role with this id was found'
+                    'message': 'no role with this id was found'
                 }), 404
 
             data = {
@@ -154,21 +154,21 @@ class AdminRoleResource(Resource):
             return jsonify({
                 'code': 500,
                 'code_status': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - operation and disconnection error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - programming error',
-                'data': 'could not fetch table'
+                'message': 'could not fetch table'
             }), 500
 
     @staticmethod
@@ -185,7 +185,7 @@ class AdminRoleResource(Resource):
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'data': 'no role with this id was found'
+                    'message': 'no role with this id was found'
                 }), 404
 
             role.role = fields['role']
@@ -206,21 +206,21 @@ class AdminRoleResource(Resource):
             return jsonify({
                 'code': 500,
                 'code_status': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - operation and disconnection error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - programming error',
-                'data': 'could not fetch table'
+                'message': 'could not fetch table'
             }), 500
 
     @staticmethod
@@ -234,7 +234,7 @@ class AdminRoleResource(Resource):
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'data': 'no role with this id was found'
+                    'message': 'no role with this id was found'
                 }), 404
 
             role.delete()
@@ -249,19 +249,19 @@ class AdminRoleResource(Resource):
             return jsonify({
                 'code': 500,
                 'code_status': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - operation and disconnection error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - programming error',
-                'data': 'could not fetch table'
+                'message': 'could not fetch table'
             }), 500

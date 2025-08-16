@@ -37,14 +37,14 @@ class AdminResource(Resource):
             return jsonify({
                 'code': 409,
                 'code_status': 'conflict',
-                'data': 'email address already has an account'
+                'message': 'email address already has an account'
             }), 409
 
         if admin_number:
             return jsonify({
                 'code': 409,
                 'code_status': 'conflict',
-                'data': 'mobile number already has an account'
+                'message': 'mobile number already has an account'
             }), 409
 
         # noinspection PyArgumentList
@@ -91,7 +91,7 @@ class AdminResource(Resource):
             return jsonify({
                 'code': 404,
                 'code_status': 'data not found',
-                'data': 'no admin account was found'
+                'message': 'no admin account was found'
             }), 404
 
         data = []
@@ -134,7 +134,7 @@ class AdminResource(Resource):
             return jsonify({
                 'code': 404,
                 'code_status': 'data not found',
-                'data': 'no admin account was found'
+                'message': 'no admin account was found'
             }), 404
 
         data = {
@@ -192,7 +192,7 @@ class AdminResource(Resource):
             return jsonify({
                 'code': 404,
                 'code_status': 'data not found',
-                'data': 'no admin account was found'
+                'message': 'no admin account was found'
             }), 404
 
         for (key, value) in fields.items():
@@ -352,12 +352,12 @@ class AdminResource(Resource):
     #     if not admin:
     #         return jsonify({
     #             'code': 401,
-    #             'data': "Token is invalid or expired!"
+    #             'message': "Token is invalid or expired!"
     #         }), 401
     #
     #     return jsonify({
     #         'code': 202,
-    #         'data': 'Token is valid',
+    #         'message': 'Token is valid',
     #     }), 202
     #
     # @staticmethod
@@ -373,7 +373,7 @@ class AdminResource(Resource):
     #     if not admin:
     #         return jsonify({
     #             'code': 401,
-    #             'data': "Token is invalid or expired!"
+    #             'message': "Token is invalid or expired!"
     #         }), 401
     #
     #     admin.set_password(password=new_password)

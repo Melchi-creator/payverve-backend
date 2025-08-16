@@ -42,7 +42,7 @@ class PayverveTransferResource(Resource):
                 return jsonify({
                     'code': 400,
                     'code_message': 'bad request',
-                    'data': 'the wallet id is not correct'
+                    'message': 'the wallet id is not correct'
                 }), 400
 
             MinimumBalance(int(amount))
@@ -53,7 +53,7 @@ class PayverveTransferResource(Resource):
                 return jsonify({
                     'code': 404,
                     'code_message': 'not found',
-                    'data': 'the sender wallet was not found'
+                    'message': 'the sender wallet was not found'
                 }), 404
 
             decrpted_funds = Cryptographer.decrypt(sender.fund)
@@ -62,7 +62,7 @@ class PayverveTransferResource(Resource):
                 return jsonify({
                     'code': 400,
                     'code_message': 'bad request',
-                    'data': 'insufficient funds in sender wallet'
+                    'message': 'insufficient funds in sender wallet'
                 }), 400
 
             recipient = WalletModel.query.filter_by(wallet_identifier=wallet_identifier).first()
@@ -71,7 +71,7 @@ class PayverveTransferResource(Resource):
                 return jsonify({
                     'code': 404,
                     'code_message': 'not found',
-                    'data': 'the recipient wallet id was not found'
+                    'message': 'the recipient wallet id was not found'
                 }), 404
 
             sender_currency = sender.currencies.short_code
@@ -160,14 +160,14 @@ class PayverveTransferResource(Resource):
             return jsonify({
                 'code': 409,
                 'code_status': 'conflict - integrity error',
-                'data': 'this currency has already been listed'
+                'message': 'this currency has already been listed'
             }), 409
 
         except DataError:
             return jsonify({
                 'code': 400,
                 'code_status': 'bad request - data error',
-                'data': 'ensure input data are correct'
+                'message': 'ensure input data are correct'
             }), 400
 
         except InternalError:
@@ -209,7 +209,7 @@ class PayverveTransferResource(Resource):
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'data': 'no payverve transfer was found'
+                    'message': 'no payverve transfer was found'
                 }), 404
 
             data = []
@@ -270,7 +270,7 @@ class PayverveTransferResource(Resource):
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'data': 'no payverve transfer was found'
+                    'message': 'no payverve transfer was found'
                 }), 404
 
             data = {
@@ -328,7 +328,7 @@ class PayverveTransferResource(Resource):
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'data': 'no payverve transfer was found'
+                    'message': 'no payverve transfer was found'
                 }), 404
 
             payverve_transfer.delete()

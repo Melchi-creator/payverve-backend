@@ -40,19 +40,19 @@ class PayverveWalletResource(Resource):
             return jsonify({
                 'code': 500,
                 'code_status': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - operation and disconnection error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - programming error',
-                'data': 'could not fetch table'
+                'message': 'could not fetch table'
             }), 500

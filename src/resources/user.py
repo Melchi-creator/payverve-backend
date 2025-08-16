@@ -55,7 +55,7 @@ class UserResource(Resource):
                 return jsonify({
                     'code': 400,
                     'code_status': 'bad request',
-                    'data': "gender must be either 'male' or 'female'"
+                    'message': "gender must be either 'male' or 'female'"
                 }), 400
 
             user_model = UserModel.query
@@ -66,14 +66,14 @@ class UserResource(Resource):
                 return jsonify({
                     'code': 409,
                     'code_status': 'conflict',
-                    'data': 'email address already has an account'
+                    'message': 'email address already has an account'
                 }), 409
 
             if user_number:
                 return jsonify({
                     'code': 409,
                     'code_status': 'conflict',
-                    'data': 'mobile number already has an account'
+                    'message': 'mobile number already has an account'
                 }), 409
 
             parsed_date_of_birth = datetime.strptime(date_of_birth, '%Y-%m-%d').year
@@ -83,7 +83,7 @@ class UserResource(Resource):
                 return jsonify({
                     'code': 400,
                     'code_status': 'bad request',
-                    'data': 'you must be 17 years and above'
+                    'message': 'you must be 17 years and above'
                 }), 400
 
             alphabet = string.ascii_letters + string.digits
@@ -129,7 +129,7 @@ class UserResource(Resource):
                     return jsonify({
                         'code': 404,
                         'code_status': 'not found',
-                        'data': 'there is no user with that referral code'
+                        'message': 'there is no user with that referral code'
                     })
 
                 payload = {
@@ -236,28 +236,28 @@ class UserResource(Resource):
             return jsonify({
                 'code': 400,
                 'code_status': 'bad request - value error',
-                'data': str(e)
+                'message': str(e)
             }), 400
 
         except TypeError as e:
             return jsonify({
                 'code': 400,
                 'code_status': 'bad request - type error',
-                'data': str(e)
+                'message': str(e)
             }), 400
 
         except IntegrityError:
             return jsonify({
                 'code': 409,
                 'code_status': 'conflict - integrity error',
-                'data': 'account already has an account'
+                'message': 'account already has an account'
             }), 409
 
         except DataError:
             return jsonify({
                 'code': 400,
                 'code_status': 'bad request - data error',
-                'data': 'ensure input data are correct'
+                'message': 'ensure input data are correct'
             }), 400
 
         except InternalError:
@@ -292,7 +292,7 @@ class UserResource(Resource):
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'data': 'no user account was found'
+                    'message': 'no user account was found'
                 }), 404
 
             data = []
@@ -359,7 +359,7 @@ class UserResource(Resource):
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'data': 'no user account was found'
+                    'message': 'no user account was found'
                 }), 404
 
             data = {
@@ -439,7 +439,7 @@ class UserResource(Resource):
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'data': 'no user account was found'
+                    'message': 'no user account was found'
                 }), 404
 
             if 'first_name' in fields and fields['first_name'] is not None:
@@ -527,14 +527,14 @@ class UserResource(Resource):
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'data': 'no user account was found'
+                    'message': 'no user account was found'
                 }), 404
 
             if user.deleted:
                 return jsonify({
                     'code': 400,
                     'code_status': 'bad request',
-                    'data': 'account is already staged for deleting'
+                    'message': 'account is already staged for deleting'
                 }), 400
 
             # user.deleted = True
@@ -587,7 +587,7 @@ class UserResource(Resource):
                 return jsonify({
                     'code': 400,
                     'code_message': 'bad request',
-                    'data': 'verification code must be 6 digits'
+                    'message': 'verification code must be 6 digits'
                 }), 400
 
             customer = UserModel.query.filter_by(email_address=email_address).first()
@@ -596,14 +596,14 @@ class UserResource(Resource):
                 return jsonify({
                     'code': 404,
                     'code_message': 'not found',
-                    'data': f'no account with {email_address} was found'
+                    'message': f'no account with {email_address} was found'
                 }), 404
 
             if customer.email_verified:
                 return jsonify({
                     'code': 400,
                     'code_message': 'bad request',
-                    'data': 'this user is already verified'
+                    'message': 'this user is already verified'
                 }), 400
 
             confirmation = TokenVerificationModel.query.filter_by(
@@ -625,7 +625,7 @@ class UserResource(Resource):
                 return jsonify({
                     'code': 400,
                     'code_message': 'bad request',
-                    'data': 'verification code does not match, try again'
+                    'message': 'verification code does not match, try again'
                 }), 400
 
             expected_expiry = confirmation.timestamp + timedelta(seconds=confirmation.expiration_time)
@@ -637,14 +637,14 @@ class UserResource(Resource):
                 return jsonify({
                     'code': 403,
                     'code_message': 'forbidden',
-                    'data': 'this code has expired'
+                    'message': 'this code has expired'
                 }), 403
 
             if confirmation.status == "verified":
                 return jsonify({
                     'code': 400,
                     'code_message': 'bad request',
-                    'data': 'this code has been verified'
+                    'message': 'this code has been verified'
                 }), 400
 
             confirmation.status = 'verified'
@@ -671,7 +671,7 @@ class UserResource(Resource):
             return jsonify({
                 'code': 400,
                 'code_message': 'bad request',
-                'data': 'this error is a datatype error',
+                'message': 'this error is a datatype error',
             }), 400
 
         except (ProgrammingError, DBAPIError, DisconnectionError, InternalError, OperationalError):
@@ -705,7 +705,7 @@ class UserResource(Resource):
                 return jsonify({
                     'code': 400,
                     'code_message': 'bad request',
-                    'data': 'this user is already verified'
+                    'message': 'this user is already verified'
                 }), 400
 
             confirmation = TokenVerificationModel.query.filter_by(
@@ -721,7 +721,7 @@ class UserResource(Resource):
                     return jsonify({
                         'code': 400,
                         'code_message': 'bad request',
-                        'data': 'the previous code has not expire yet'
+                        'message': 'the previous code has not expire yet'
                     }), 400
 
             confirmation.status = 'expired'
@@ -786,7 +786,7 @@ class UserResource(Resource):
             return jsonify({
                 'code': 400,
                 'code_message': 'bad request',
-                'data': 'this error is a datatype error',
+                'message': 'this error is a datatype error',
             }), 400
 
         except (ProgrammingError, DBAPIError, DisconnectionError, InternalError, OperationalError):
@@ -823,14 +823,14 @@ class UserResource(Resource):
                 return jsonify({
                     'code': 400,
                     'code_status': 'bad request',
-                    'data': 'old password is incorrect'
+                    'message': 'old password is incorrect'
                 }), 400
 
             if compare_digest(old_password, password):
                 return jsonify({
                     'code': 400,
                     'code_status': 'bad request',
-                    'data': 'old auth pin cannot be the same as the new auth pin'
+                    'message': 'old auth pin cannot be the same as the new auth pin'
                 }), 400
 
             user.set_password(password)
@@ -867,14 +867,14 @@ class UserResource(Resource):
             return jsonify({
                 'code': 400,
                 'code_status': 'bad request - value error',
-                'data': str(e)
+                'message': str(e)
             }), 400
 
         except TypeError as e:
             return jsonify({
                 'code': 400,
                 'code_status': 'bad request - type error',
-                'data': str(e)
+                'message': str(e)
             }), 400
 
     @staticmethod
@@ -890,14 +890,14 @@ class UserResource(Resource):
                 return jsonify({
                     'code': 400,
                     'code_status': 'bad request',
-                    'data': 'auth pin must be a 6 digit number'
+                    'message': 'auth pin must be a 6 digit number'
                 }), 400
 
             if not isinstance(auth_pin, int):
                 return jsonify({
                     'code': 400,
                     'code_status': 'bad request',
-                    'data': 'auth pin must be a number'
+                    'message': 'auth pin must be a number'
                 }), 400
 
             user = UserModel.query.filter_by(id=id).first()
@@ -945,14 +945,14 @@ class UserResource(Resource):
             return jsonify({
                 'code': 400,
                 'code_status': 'bad request - value error',
-                'data': str(e)
+                'message': str(e)
             }), 400
 
         except TypeError as e:
             return jsonify({
                 'code': 400,
                 'code_status': 'bad request - type error',
-                'data': str(e)
+                'message': str(e)
             }), 400
 
     @staticmethod
@@ -969,14 +969,14 @@ class UserResource(Resource):
                 return jsonify({
                     'code': 400,
                     'code_status': 'bad request',
-                    'data': 'auth pin must be a 6 digit number'
+                    'message': 'auth pin must be a 6 digit number'
                 }), 400
 
             if not isinstance(auth_pin, int):
                 return jsonify({
                     'code': 400,
                     'code_status': 'bad request',
-                    'data': 'auth pin must be a number'
+                    'message': 'auth pin must be a number'
                 }), 400
 
             user = UserModel.query.filter_by(id=id).first()
@@ -994,14 +994,14 @@ class UserResource(Resource):
                 return jsonify({
                     'code': 400,
                     'code_status': 'bad request',
-                    'data': 'old auth pin is incorrect'
+                    'message': 'old auth pin is incorrect'
                 }), 400
 
             if compare_digest(str(old_auth_pin), str(auth_pin)):
                 return jsonify({
                     'code': 400,
                     'code_status': 'bad request',
-                    'data': 'old auth pin cannot be the same as the new auth pin'
+                    'message': 'old auth pin cannot be the same as the new auth pin'
                 }), 400
 
             auth_pin = str(auth_pin)
@@ -1040,7 +1040,7 @@ class UserResource(Resource):
             return jsonify({
                 'code': 400,
                 'code_status': 'bad request - value error',
-                'data': str(e)
+                'message': str(e)
             }), 400
 
         except TypeError as e:

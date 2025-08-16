@@ -48,5 +48,5 @@ class MailtrapHelper:
             return {
                 'code': 500,
                 'code_message': 'server error',
-                'data': f'an error occurred: {str(e)}'
+                'message': f'an error occurred: {str(e)}'
             }

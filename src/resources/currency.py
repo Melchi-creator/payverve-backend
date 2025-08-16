@@ -38,7 +38,7 @@ class CurrencyResource(Resource):
                     return jsonify({
                         'code': 409,
                         'code_status': 'conflict',
-                        'data': 'this currency has already been listed'
+                        'message': 'this currency has already been listed'
                     }), 409
 
             # noinspection PyArgumentList
@@ -59,35 +59,35 @@ class CurrencyResource(Resource):
             return jsonify({
                 'code': 409,
                 'code_status': 'conflict - integrity error',
-                'data': 'this currency has already been listed'
+                'message': 'this currency has already been listed'
             }), 409
 
         except DataError:
             return jsonify({
                 'code': 400,
                 'code_status': 'bad request - data error',
-                'data': 'ensure input data are correct'
+                'message': 'ensure input data are correct'
             }), 400
 
         except InternalError:
             return jsonify({
                 'code': 500,
                 'code_status': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError, SQLAlchemyError):
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - operation, sqlalchemy and disconnection error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - programming error',
-                'data': 'could not fetch table'
+                'message': 'could not fetch table'
             }), 500
 
     @staticmethod
@@ -101,7 +101,7 @@ class CurrencyResource(Resource):
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'data': 'no currency was found'
+                    'message': 'no currency was found'
                 }), 404
 
             data = []
@@ -135,21 +135,21 @@ class CurrencyResource(Resource):
             return jsonify({
                 'code': 500,
                 'code_status': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - operation and disconnection error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - programming error',
-                'data': 'could not fetch table'
+                'message': 'could not fetch table'
             }), 500
 
     @staticmethod
@@ -163,7 +163,7 @@ class CurrencyResource(Resource):
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'data': 'no currency was found'
+                    'message': 'no currency was found'
                 }), 404
 
             data = {
@@ -218,7 +218,7 @@ class CurrencyResource(Resource):
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'data': 'no currency was found'
+                    'message': 'no currency was found'
                 }), 404
 
             if 'name' in fields and fields['name'] is not None:
@@ -270,7 +270,7 @@ class CurrencyResource(Resource):
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'data': 'currency not found'
+                    'message': 'currency not found'
                 }), 404
 
             currency.delete()

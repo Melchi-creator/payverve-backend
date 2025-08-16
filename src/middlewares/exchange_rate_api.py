@@ -42,19 +42,19 @@ class ExchangeRate:
             return jsonify({
                 'code': 500,
                 'code_message': 'exchange failed',
-                'data': f'Failed to fetch exchange rate for {base_currency} to {target_currency}'
+                'message': f'Failed to fetch exchange rate for {base_currency} to {target_currency}'
             }), 500
 
         except ConnectionError as e:
             return jsonify({
                 'code': 503,
                 'code_message': 'exchange rate service unavailable',
-                'data': str(e)
+                'message': str(e)
             }), 503
 
         except Exception as e:
             return jsonify({
                 'code': 500,
                 'code_message': 'interal server error',
-                'data': str(e)
+                'message': str(e)
             }), 500

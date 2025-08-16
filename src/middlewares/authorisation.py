@@ -29,14 +29,14 @@ def jwt_required(f):
                     return jsonify({
                         "code": 401,
                         "code_message": "Authentication token is missing",
-                        "data": "Token not found in Authorization header"
+                        "message": "Token not found in Authorization header"
                     }), 401
 
         if not token:
             return jsonify({
                 "code": 401,
                 "code_message": "Authentication token is missing",
-                "data": "Token not found in Authorization header"
+                "message": "Token not found in Authorization header"
             }), 401
 
         try:
@@ -47,14 +47,14 @@ def jwt_required(f):
                 return jsonify({
                     'code': 401,
                     "code_message": "Verification failed. Expired Token",
-                    "data": "Expired Token"
+                    "message": "Expired Token"
                 }), 401
 
             if "status" in current_user and current_user["status"] in ["invalid"]:  # noqa
                 return jsonify({
                     'code': 401,
                     "code_message": "Verification failed. Expired Token",
-                    "data": "Invalid token"
+                    "message": "Invalid token"
                 }), 401
 
             # Check if the token has a valid user ID
@@ -63,7 +63,7 @@ def jwt_required(f):
                 return jsonify({
                     "code": 401,
                     "code_message": "Authentication token is invalid",
-                    "data": "Token does not contain user ID"
+                    "message": "Token does not contain user ID"
                 }), 401
 
             user_id = current_user['sub']
@@ -84,28 +84,28 @@ def jwt_required(f):
                 return jsonify({
                     "code": 404,
                     "code_message": "not found",
-                    "data": "The requested customer was not found"
+                    "message": "The requested customer was not found"
                 }), 404
 
             if not checked_user.email_verified:
                 return jsonify({
                     "code": 403,
                     "code_message": "forbidden",
-                    "data": "User is not verified"
+                    "message": "User is not verified"
                 }), 403
 
             if not checked_user.account_active:
                 return jsonify({
                     "code": 403,
                     "code_message": "forbidden",
-                    "data": "Your account is not active"
+                    "message": "Your account is not active"
                 }), 403
 
             if checked_user.deleted:
                 return jsonify({
                     "code": 403,
                     "code_message": "forbidden",
-                    "data": "Your account has been deleted"
+                    "message": "Your account has been deleted"
                 }), 403
 
             # Add the current user to the request context
@@ -116,14 +116,14 @@ def jwt_required(f):
             return jsonify({
                 'code': 401,
                 "code_message": "Verification failed. Expired Token",
-                "data": "Expired Token"
+                "message": "Expired Token"
             }), 401
 
         except jwt.InvalidTokenError:
             return jsonify({
                 'code': 401,
                 "code_message": "Verification failed. Expired Token",
-                "data": "Invalid token"
+                "message": "Invalid token"
             }), 401
 
         return f(*args, **kwargs)
