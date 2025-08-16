@@ -55,3 +55,6 @@ refresh_secret_key = os.getenv('REFRESH_SECRET_KEY')
 paystack_secret_key = os.getenv('PAYSTACK_SECRET_KEY')
 paystack_public_key = os.getenv('PAYSTACK_PUBLIC_KEY')
 paystack_base_url = os.getenv('PAYSTACK_BASE_URL')
+
+low_fx_payvevrve_charge: float = float(os.getenv('LOW_FX_PAYVERVE_CHARGE'))
+high_fx_payverve_charge: float = float(os.getenv('HIGH_FX_PAYVERVE_CHARGE'))

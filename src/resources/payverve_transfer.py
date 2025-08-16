@@ -56,9 +56,9 @@ class PayverveTransferResource(Resource):
                     'message': 'the sender wallet was not found'
                 }), 404
 
-            decrpted_funds = Cryptographer.decrypt(sender.fund)
+            decrypted_funds = Cryptographer.decrypt(sender.fund)
 
-            if float(decrpted_funds) < float(amount):
+            if float(decrypted_funds) < float(amount):
                 return jsonify({
                     'code': 400,
                     'code_message': 'bad request',
@@ -108,9 +108,9 @@ class PayverveTransferResource(Resource):
                 exchange_rate = response.json().get("data")
 
                 if exchange_rate < 1:
-                    payverve_charge = 0.03  # 3% charge for low exchange rates
+                    payverve_charge = config.low_fx_payvevrve_charge  # charge for low exchange rates
                 else:
-                    payverve_charge = 0.01  # 1% charge for high exchange rates
+                    payverve_charge = config.high_fx_payverve_charge  # charge for high exchange rates
 
                 transfer_amount = ((float(amount)) - (float(amount) * float(payverve_charge))) * float(exchange_rate)
 

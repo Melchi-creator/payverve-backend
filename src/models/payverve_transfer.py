@@ -24,7 +24,7 @@ class PayverveTransferModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     amount_to_recipient = db.Column(db.Text, nullable=False)
     coversion_rate = db.Column(db.String(), nullable=False)
     narration = db.Column(db.String(), nullable=True)
-    wallet_identifier = db.Column(db.BigInteger, nullable=False)
+    wallet_identifier = db.Column(db.BigInteger, nullable=False)  # receipient
     reference = db.Column(db.String(), nullable=False, unique=True)
     transaction_type = db.Column(db.String(), nullable=False, default="wallet_tranfer")
     transfer_pair = db.Column(db.String(), nullable=False)
@@ -35,4 +35,4 @@ class PayverveTransferModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     # foreign keys
 
     user_id = db.Column(UUID(as_uuid=True), db.ForeignKey('users.id'), nullable=False)
-    wallet_id = db.Column(UUID(as_uuid=True), db.ForeignKey('wallets.id'), nullable=False)
+    wallet_id = db.Column(UUID(as_uuid=True), db.ForeignKey('wallets.id'), nullable=False)  # sender
