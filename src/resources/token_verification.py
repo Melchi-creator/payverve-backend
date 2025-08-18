@@ -24,7 +24,7 @@ class TokenVerificationRepository:
                 return jsonify({
                     'code': 404,
                     'code_message': 'not found',
-                    'data': 'no token found'
+                    'message': 'no token found'
                 }), 404
 
             data = [

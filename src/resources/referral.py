@@ -43,7 +43,7 @@ class ReferralResource(Resource):
                 return jsonify({
                     'code': 403,
                     'code_status': 'forbidden',
-                    'data': 'you are not allowed to create a wallet'
+                    'message': 'you are not allowed to create a wallet'
                 }), 403
 
             # noinspection PyArgumentList
@@ -65,14 +65,14 @@ class ReferralResource(Resource):
             return jsonify({
                 'code': 409,
                 'code_status': 'conflict - integrity error',
-                'data': 'this currency has already been listed'
+                'message': 'this currency has already been listed'
             }), 409
 
         except DataError:
             return jsonify({
                 'code': 400,
                 'code_status': 'bad request - data error',
-                'data': 'ensure input data are correct'
+                'message': 'ensure input data are correct'
             }), 400
 
         except InternalError:

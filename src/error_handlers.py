@@ -89,7 +89,7 @@ def intergrity_error_handler(e):
     return jsonify({
         'code': 409,
         'code_status': 'conflict - integrity error',
-        'data': 'account already has an account'
+        'message': 'account already has an account'
     }), 409
 
 
@@ -98,5 +98,5 @@ def data_error_handler(e):
     return jsonify({
         'code': 400,
         'code_status': 'bad request - data error',
-        'data': 'ensure input data are correct'
+        'message': 'ensure input data are correct'
     }), 400

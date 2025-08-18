@@ -42,7 +42,7 @@ class PayverveTransferResource(Resource):
                 return jsonify({
                     'code': 400,
                     'code_message': 'bad request',
-                    'data': 'the wallet id is not correct'
+                    'message': 'the wallet id is not correct'
                 }), 400
 
             MinimumBalance(int(amount))
@@ -53,16 +53,16 @@ class PayverveTransferResource(Resource):
                 return jsonify({
                     'code': 404,
                     'code_message': 'not found',
-                    'data': 'the sender wallet was not found'
+                    'message': 'the sender wallet was not found'
                 }), 404
 
-            decrpted_funds = Cryptographer.decrypt(sender.fund)
+            decrypted_funds = Cryptographer.decrypt(sender.fund)
 
-            if float(decrpted_funds) < float(amount):
+            if float(decrypted_funds) < float(amount):
                 return jsonify({
                     'code': 400,
                     'code_message': 'bad request',
-                    'data': 'insufficient funds in sender wallet'
+                    'message': 'insufficient funds in sender wallet'
                 }), 400
 
             recipient = WalletModel.query.filter_by(wallet_identifier=wallet_identifier).first()
@@ -71,7 +71,7 @@ class PayverveTransferResource(Resource):
                 return jsonify({
                     'code': 404,
                     'code_message': 'not found',
-                    'data': 'the recipient wallet id was not found'
+                    'message': 'the recipient wallet id was not found'
                 }), 404
 
             sender_currency = sender.currencies.short_code
@@ -108,9 +108,9 @@ class PayverveTransferResource(Resource):
                 exchange_rate = response.json().get("data")
 
                 if exchange_rate < 1:
-                    payverve_charge = 0.03  # 3% charge for low exchange rates
+                    payverve_charge = config.low_fx_payvevrve_charge  # charge for low exchange rates
                 else:
-                    payverve_charge = 0.01  # 1% charge for high exchange rates
+                    payverve_charge = config.high_fx_payverve_charge  # charge for high exchange rates
 
                 transfer_amount = ((float(amount)) - (float(amount) * float(payverve_charge))) * float(exchange_rate)
 
@@ -160,14 +160,14 @@ class PayverveTransferResource(Resource):
             return jsonify({
                 'code': 409,
                 'code_status': 'conflict - integrity error',
-                'data': 'this currency has already been listed'
+                'message': 'this currency has already been listed'
             }), 409
 
         except DataError:
             return jsonify({
                 'code': 400,
                 'code_status': 'bad request - data error',
-                'data': 'ensure input data are correct'
+                'message': 'ensure input data are correct'
             }), 400
 
         except InternalError:
@@ -209,7 +209,7 @@ class PayverveTransferResource(Resource):
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'data': 'no payverve transfer was found'
+                    'message': 'no payverve transfer was found'
                 }), 404
 
             data = []
@@ -270,7 +270,7 @@ class PayverveTransferResource(Resource):
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'data': 'no payverve transfer was found'
+                    'message': 'no payverve transfer was found'
                 }), 404
 
             data = {
@@ -328,7 +328,7 @@ class PayverveTransferResource(Resource):
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'data': 'no payverve transfer was found'
+                    'message': 'no payverve transfer was found'
                 }), 404
 
             payverve_transfer.delete()

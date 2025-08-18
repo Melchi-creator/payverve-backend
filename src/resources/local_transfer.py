@@ -41,14 +41,14 @@ class LocalTransferResource(Resource):
                 return jsonify({
                     'code': 404,
                     'code_message': 'not found',
-                    'data': 'could not find the wallet'
+                    'message': 'could not find the wallet'
                 }), 404
 
             if float(amount) > check_balance.fund:
                 return jsonify({
                     'code': 400,
                     'code_message': 'bad request',
-                    'data': 'your balance is not up to the inputted amount'
+                    'message': 'your balance is not up to the inputted amount'
                 }), 400
 
             # TODO: Check which currency is the recipient curreny
@@ -109,14 +109,14 @@ class LocalTransferResource(Resource):
             return jsonify({
                 'code': 409,
                 'code_status': 'conflict - integrity error',
-                'data': 'this currency has already been listed'
+                'message': 'this currency has already been listed'
             }), 409
 
         except DataError:
             return jsonify({
                 'code': 400,
                 'code_status': 'bad request - data error',
-                'data': 'ensure input data are correct'
+                'message': 'ensure input data are correct'
             }), 400
 
         except InternalError:
@@ -158,7 +158,7 @@ class LocalTransferResource(Resource):
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'data': 'no local transfer history was found'
+                    'message': 'no local transfer history was found'
                 }), 404
 
             data = []
@@ -217,7 +217,7 @@ class LocalTransferResource(Resource):
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'data': 'no swapped currency was found'
+                    'message': 'no swapped currency was found'
                 }), 404
 
             data = {
@@ -272,7 +272,7 @@ class LocalTransferResource(Resource):
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'data': 'no swapped currency was found'
+                    'message': 'no swapped currency was found'
                 }), 404
 
             swapped_currency.delete()

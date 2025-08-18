@@ -24,12 +24,12 @@ class UserModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     middle_name = db.Column(db.String(), nullable=True)
     username = db.Column(db.String(), nullable=True)
     email_address = db.Column(db.String(), nullable=False, unique=True)
-    mobile_number = db.Column(db.String(), nullable=False, unique=True)
+    mobile_number = db.Column(db.String(), nullable=True, unique=True)
     password = db.Column(db.String(), nullable=False)
     auth_pin = db.Column(db.String(), nullable=True)
     transaction_pin = db.Column(db.String(), nullable=True)
-    gender = db.Column(db.String(), nullable=False)
-    date_of_birth = db.Column(db.Date(), nullable=False)
+    gender = db.Column(db.String(), nullable=True)
+    date_of_birth = db.Column(db.Date(), nullable=True)
     house_number = db.Column(db.String(), nullable=True)
     street_name = db.Column(db.String(), nullable=True)
     city = db.Column(db.String(), nullable=True)
@@ -48,13 +48,13 @@ class UserModel(db.Model, BaseModel, metaclass=MetaBaseModel):
 
     # relationships
 
-    bank_accounts = db.relationship('BankAccountModel', backref='users', lazy=True, cascade="all")
-    beneficiaries = db.relationship('BeneficiaryModel', backref='users', lazy=True, cascade="all")
-    foreign_transfers = db.relationship('ForeignTransferModel', backref='users', lazy=True, cascade="all")
-    local_transfers = db.relationship('LocalTransferModel', backref='users', lazy=True, cascade="all")
-    swapped_currencies = db.relationship('SwapCurrencyModel', backref='users', lazy=True, cascade="all")
-    payverve_transfers = db.relationship('PayverveTransferModel', backref='users', lazy=True, cascade="all")
-    wallets = db.relationship('WalletModel', backref='users', lazy=True, cascade="all")
+    bank_accounts = db.relationship('BankAccountModel', backref='users', lazy=True, cascade="all, delete-orphan")
+    beneficiaries = db.relationship('BeneficiaryModel', backref='users', lazy=True, cascade="all, delete-orphan")
+    foreign_transfers = db.relationship('ForeignTransferModel', backref='users', lazy=True, cascade="all, delete-orphan")
+    local_transfers = db.relationship('LocalTransferModel', backref='users', lazy=True, cascade="all, delete-orphan")
+    swapped_currencies = db.relationship('SwapCurrencyModel', backref='users', lazy=True, cascade="all, delete-orphan")
+    payverve_transfers = db.relationship('PayverveTransferModel', backref='users', lazy=True, cascade="all, delete-orphan")
+    wallets = db.relationship('WalletModel', backref='users', lazy=True, cascade="all, delete-orphan")
 
     def set_password(self, password):
         """ hashes user password """

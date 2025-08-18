@@ -34,14 +34,12 @@ class UserResource(Resource):
     @parse_params(
         Argument("first_name", location="json", required=True),
         Argument("last_name", location="json", required=True),
+        Argument("username", location="json", required=True),
         Argument("email_address", location="json", required=True),
-        Argument("mobile_number", location="json", required=True),
         Argument("password", location="json", required=True),
-        Argument("gender", location="json", required=True),
-        Argument("date_of_birth", location="json", required=True),
         Argument("referral_code", location="json"),
     )
-    def create(first_name, last_name, email_address, mobile_number, password, gender, date_of_birth, referral_code):
+    def create(first_name, last_name, email_address, password, username, referral_code):
         """ Creates users account """
 
         try:
@@ -49,42 +47,24 @@ class UserResource(Resource):
             EmailCheck(email_address)
             PasswordValidation(password)
 
-            gender_check = ["male", "female"]
-
-            if gender.lower() not in gender_check:
-                return jsonify({
-                    'code': 400,
-                    'code_status': 'bad request',
-                    'data': "gender must be either 'male' or 'female'"
-                }), 400
-
             user_model = UserModel.query
             user_email = user_model.filter_by(email_address=email_address).first()
-            user_number = user_model.filter_by(mobile_number=mobile_number).first()
 
             if user_email:
                 return jsonify({
                     'code': 409,
                     'code_status': 'conflict',
-                    'data': 'email address already has an account'
+                    'message': 'email address already has an account'
                 }), 409
 
-            if user_number:
+            username_check = user_model.filter_by(username=username.lower()).first()
+
+            if username_check:
                 return jsonify({
                     'code': 409,
                     'code_status': 'conflict',
-                    'data': 'mobile number already has an account'
+                    'message': 'username already exist'
                 }), 409
-
-            parsed_date_of_birth = datetime.strptime(date_of_birth, '%Y-%m-%d').year
-            age = int(datetime.now().year) - int(parsed_date_of_birth)
-
-            if age < 17:
-                return jsonify({
-                    'code': 400,
-                    'code_status': 'bad request',
-                    'data': 'you must be 17 years and above'
-                }), 400
 
             alphabet = string.ascii_letters + string.digits
             user_code = ''.join(secrets.choice(alphabet) for _ in range(11))
@@ -94,9 +74,7 @@ class UserResource(Resource):
                 first_name=first_name,
                 last_name=last_name,
                 email_address=email_address,
-                mobile_number=mobile_number,
-                gender=gender,
-                date_of_birth=date_of_birth,
+                username=username.lower(),
                 user_code=user_code
             )
             new_user.set_password(password)
@@ -129,7 +107,7 @@ class UserResource(Resource):
                     return jsonify({
                         'code': 404,
                         'code_status': 'not found',
-                        'data': 'there is no user with that referral code'
+                        'message': 'there is no user with that referral code'
                     })
 
                 payload = {
@@ -236,49 +214,49 @@ class UserResource(Resource):
             return jsonify({
                 'code': 400,
                 'code_status': 'bad request - value error',
-                'data': str(e)
+                'message': str(e)
             }), 400
 
         except TypeError as e:
             return jsonify({
                 'code': 400,
                 'code_status': 'bad request - type error',
-                'data': str(e)
+                'message': str(e)
             }), 400
 
         except IntegrityError:
             return jsonify({
                 'code': 409,
                 'code_status': 'conflict - integrity error',
-                'data': 'account already has an account'
+                'message': 'account already has an account'
             }), 409
 
         except DataError:
             return jsonify({
                 'code': 400,
                 'code_status': 'bad request - data error',
-                'data': 'ensure input data are correct'
+                'message': 'ensure input data are correct'
             }), 400
 
         except InternalError:
             return jsonify({
                 'code': 500,
                 'code_status': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError, SQLAlchemyError):
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - operation, sqlalchemy and disconnection error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - programming error',
-                'data': 'could not fetch table'
+                'message': 'could not fetch table'
             }),
 
     @staticmethod
@@ -292,7 +270,7 @@ class UserResource(Resource):
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'data': 'no user account was found'
+                    'message': 'no user account was found'
                 }), 404
 
             data = []
@@ -331,14 +309,14 @@ class UserResource(Resource):
             return jsonify({
                 'code': 500,
                 'code_status': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - operation and disconnection error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
@@ -359,7 +337,7 @@ class UserResource(Resource):
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'data': 'no user account was found'
+                    'message': 'no user account was found'
                 }), 404
 
             data = {
@@ -395,14 +373,14 @@ class UserResource(Resource):
             return jsonify({
                 'code': 500,
                 'code_status': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - operation and disconnection error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
@@ -428,6 +406,7 @@ class UserResource(Resource):
         Argument("zipcode", location="json"),
         Argument("country", location="json"),
         Argument("photo", location="json"),
+        Argument("username", location="json"),
     )
     def update(id=None, **fields):
         """ Updates a user account by id """
@@ -439,7 +418,7 @@ class UserResource(Resource):
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'data': 'no user account was found'
+                    'message': 'no user account was found'
                 }), 404
 
             if 'first_name' in fields and fields['first_name'] is not None:
@@ -458,9 +437,30 @@ class UserResource(Resource):
                 user.mobile_number = fields['mobile_number']
 
             if 'gender' in fields and fields['gender'] is not None:
+
+                gender_check = ["male", "female"]
+
+                if fields['gender'].lower() not in gender_check:
+                    return jsonify({
+                        'code': 400,
+                        'code_status': 'bad request',
+                        'message': "gender must be either 'male' or 'female'"
+                    }), 400
+
                 user.gender = fields['gender']
 
             if 'date_of_birth' in fields and fields['date_of_birth'] is not None:
+
+                parsed_date_of_birth = datetime.strptime(fields['date_of_birth'], '%Y-%m-%d').year
+                age = int(datetime.now().year) - int(parsed_date_of_birth)
+
+                if age < 17:
+                    return jsonify({
+                        'code': 400,
+                        'code_status': 'bad request',
+                        'message': 'you must be 17 years and above'
+                    }), 400
+
                 user.date_of_birth = fields['date_of_birth']
 
             if 'house_number' in fields and fields['house_number'] is not None:
@@ -484,8 +484,8 @@ class UserResource(Resource):
             if 'photo' in fields and fields['photo'] is not None:
                 user.photo = fields['photo']
 
-            if 'deleted' in fields and fields['deleted'] is not None:
-                user.deleted = fields['deleted']
+            if 'username' in fields and fields['username'] is not None:
+                user.username = fields['username']
 
             user.save()
 
@@ -499,21 +499,21 @@ class UserResource(Resource):
             return jsonify({
                 'code': 500,
                 'code_status': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - operation and disconnection error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - programming error',
-                'data': 'could not fetch table'
+                'message': 'could not fetch table'
             }), 500
 
     @staticmethod
@@ -527,14 +527,14 @@ class UserResource(Resource):
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'data': 'no user account was found'
+                    'message': 'no user account was found'
                 }), 404
 
             if user.deleted:
                 return jsonify({
                     'code': 400,
                     'code_status': 'bad request',
-                    'data': 'account is already staged for deleting'
+                    'message': 'account is already staged for deleting'
                 }), 400
 
             # user.deleted = True
@@ -554,21 +554,21 @@ class UserResource(Resource):
             return jsonify({
                 'code': 500,
                 'code_status': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - operation and disconnection error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - programming error',
-                'data': 'could not fetch table'
+                'message': 'could not fetch table'
             }), 500
 
     @staticmethod
@@ -587,7 +587,7 @@ class UserResource(Resource):
                 return jsonify({
                     'code': 400,
                     'code_message': 'bad request',
-                    'data': 'verification code must be 6 digits'
+                    'message': 'verification code must be 6 digits'
                 }), 400
 
             customer = UserModel.query.filter_by(email_address=email_address).first()
@@ -596,14 +596,14 @@ class UserResource(Resource):
                 return jsonify({
                     'code': 404,
                     'code_message': 'not found',
-                    'data': f'no account with {email_address} was found'
+                    'message': f'no account with {email_address} was found'
                 }), 404
 
             if customer.email_verified:
                 return jsonify({
                     'code': 400,
                     'code_message': 'bad request',
-                    'data': 'this user is already verified'
+                    'message': 'this user is already verified'
                 }), 400
 
             confirmation = TokenVerificationModel.query.filter_by(
@@ -625,7 +625,7 @@ class UserResource(Resource):
                 return jsonify({
                     'code': 400,
                     'code_message': 'bad request',
-                    'data': 'verification code does not match, try again'
+                    'message': 'verification code does not match, try again'
                 }), 400
 
             expected_expiry = confirmation.timestamp + timedelta(seconds=confirmation.expiration_time)
@@ -637,14 +637,14 @@ class UserResource(Resource):
                 return jsonify({
                     'code': 403,
                     'code_message': 'forbidden',
-                    'data': 'this code has expired'
+                    'message': 'this code has expired'
                 }), 403
 
             if confirmation.status == "verified":
                 return jsonify({
                     'code': 400,
                     'code_message': 'bad request',
-                    'data': 'this code has been verified'
+                    'message': 'this code has been verified'
                 }), 400
 
             confirmation.status = 'verified'
@@ -664,21 +664,21 @@ class UserResource(Resource):
             return jsonify({
                 'code': 500,
                 'code_message': 'value error',
-                'data': f'an incorrect value was inputted: {str(e)}',
+                'message': f'an incorrect value was inputted: {str(e)}',
             }), 500
 
         except DataError:
             return jsonify({
                 'code': 400,
                 'code_message': 'bad request',
-                'data': 'this error is a datatype error',
+                'message': 'this error is a datatype error',
             }), 400
 
         except (ProgrammingError, DBAPIError, DisconnectionError, InternalError, OperationalError):
             return jsonify({
                 "code": 500,
                 'code_message': 'database error',
-                "data": "this error is a database error",
+                "message": "this error is a database error",
             }), 500
 
     @staticmethod
@@ -705,7 +705,7 @@ class UserResource(Resource):
                 return jsonify({
                     'code': 400,
                     'code_message': 'bad request',
-                    'data': 'this user is already verified'
+                    'message': 'this user is already verified'
                 }), 400
 
             confirmation = TokenVerificationModel.query.filter_by(
@@ -721,7 +721,7 @@ class UserResource(Resource):
                     return jsonify({
                         'code': 400,
                         'code_message': 'bad request',
-                        'data': 'the previous code has not expire yet'
+                        'message': 'the previous code has not expire yet'
                     }), 400
 
             confirmation.status = 'expired'
@@ -779,21 +779,21 @@ class UserResource(Resource):
             return jsonify({
                 'code': 500,
                 'code_message': 'value error',
-                'data': f'an incorrect value was inputted: {str(e)}',
+                'message': f'an incorrect value was inputted: {str(e)}',
             }), 500
 
         except DataError:
             return jsonify({
                 'code': 400,
                 'code_message': 'bad request',
-                'data': 'this error is a datatype error',
+                'message': 'this error is a datatype error',
             }), 400
 
         except (ProgrammingError, DBAPIError, DisconnectionError, InternalError, OperationalError):
             return jsonify({
                 "code": 500,
                 'code_message': 'database error',
-                "data": "this error is a database error",
+                "message": "this error is a database error",
             }), 500
 
     @staticmethod
@@ -823,14 +823,14 @@ class UserResource(Resource):
                 return jsonify({
                     'code': 400,
                     'code_status': 'bad request',
-                    'data': 'old password is incorrect'
+                    'message': 'old password is incorrect'
                 }), 400
 
             if compare_digest(old_password, password):
                 return jsonify({
                     'code': 400,
                     'code_status': 'bad request',
-                    'data': 'old auth pin cannot be the same as the new auth pin'
+                    'message': 'old auth pin cannot be the same as the new auth pin'
                 }), 400
 
             user.set_password(password)
@@ -846,35 +846,35 @@ class UserResource(Resource):
             return jsonify({
                 'code': 500,
                 'code_status': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - operation and disconnection error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - programming error',
-                'data': 'could not fetch table'
+                'message': 'could not fetch table'
             }), 500
 
         except ValueError as e:
             return jsonify({
                 'code': 400,
                 'code_status': 'bad request - value error',
-                'data': str(e)
+                'message': str(e)
             }), 400
 
         except TypeError as e:
             return jsonify({
                 'code': 400,
                 'code_status': 'bad request - type error',
-                'data': str(e)
+                'message': str(e)
             }), 400
 
     @staticmethod
@@ -890,14 +890,14 @@ class UserResource(Resource):
                 return jsonify({
                     'code': 400,
                     'code_status': 'bad request',
-                    'data': 'auth pin must be a 6 digit number'
+                    'message': 'auth pin must be a 6 digit number'
                 }), 400
 
             if not isinstance(auth_pin, int):
                 return jsonify({
                     'code': 400,
                     'code_status': 'bad request',
-                    'data': 'auth pin must be a number'
+                    'message': 'auth pin must be a number'
                 }), 400
 
             user = UserModel.query.filter_by(id=id).first()
@@ -906,7 +906,7 @@ class UserResource(Resource):
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'data': 'no user account was found'
+                    'message': 'no user account was found'
                 }), 404
 
             auth_pin = str(auth_pin)
@@ -924,35 +924,35 @@ class UserResource(Resource):
             return jsonify({
                 'code': 500,
                 'code_status': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - operation and disconnection error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - programming error',
-                'data': 'could not fetch table'
+                'message': 'could not fetch table'
             }), 500
 
         except ValueError as e:
             return jsonify({
                 'code': 400,
                 'code_status': 'bad request - value error',
-                'data': str(e)
+                'message': str(e)
             }), 400
 
         except TypeError as e:
             return jsonify({
                 'code': 400,
                 'code_status': 'bad request - type error',
-                'data': str(e)
+                'message': str(e)
             }), 400
 
     @staticmethod
@@ -969,14 +969,14 @@ class UserResource(Resource):
                 return jsonify({
                     'code': 400,
                     'code_status': 'bad request',
-                    'data': 'auth pin must be a 6 digit number'
+                    'message': 'auth pin must be a 6 digit number'
                 }), 400
 
             if not isinstance(auth_pin, int):
                 return jsonify({
                     'code': 400,
                     'code_status': 'bad request',
-                    'data': 'auth pin must be a number'
+                    'message': 'auth pin must be a number'
                 }), 400
 
             user = UserModel.query.filter_by(id=id).first()
@@ -985,7 +985,7 @@ class UserResource(Resource):
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'data': 'no user account was found'
+                    'message': 'no user account was found'
                 }), 404
 
             check_pin = user.check_auth_pin(str(old_auth_pin))
@@ -994,14 +994,14 @@ class UserResource(Resource):
                 return jsonify({
                     'code': 400,
                     'code_status': 'bad request',
-                    'data': 'old auth pin is incorrect'
+                    'message': 'old auth pin is incorrect'
                 }), 400
 
             if compare_digest(str(old_auth_pin), str(auth_pin)):
                 return jsonify({
                     'code': 400,
                     'code_status': 'bad request',
-                    'data': 'old auth pin cannot be the same as the new auth pin'
+                    'message': 'old auth pin cannot be the same as the new auth pin'
                 }), 400
 
             auth_pin = str(auth_pin)
@@ -1019,35 +1019,35 @@ class UserResource(Resource):
             return jsonify({
                 'code': 500,
                 'code_status': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - operation and disconnection error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - programming error',
-                'data': 'could not fetch table'
+                'message': 'could not fetch table'
             }), 500
 
         except ValueError as e:
             return jsonify({
                 'code': 400,
                 'code_status': 'bad request - value error',
-                'data': str(e)
+                'message': str(e)
             }), 400
 
         except TypeError as e:
             return jsonify({
                 'code': 400,
                 'code_status': 'bad request - type error',
-                'data': str(e)
+                'message': str(e)
             }), 400
 
     @staticmethod
@@ -1063,14 +1063,14 @@ class UserResource(Resource):
                 return jsonify({
                     'code': 400,
                     'code_status': 'bad request',
-                    'data': 'transaction pin must be a 4 digit number'
+                    'message': 'transaction pin must be a 4 digit number'
                 }), 400
 
             if not isinstance(transaction_pin, int):
                 return jsonify({
                     'code': 400,
                     'code_status': 'bad request',
-                    'data': 'transaction pin must be a number'
+                    'message': 'transaction pin must be a number'
                 }), 400
 
             user = UserModel.query.filter_by(id=id).first()
@@ -1079,7 +1079,7 @@ class UserResource(Resource):
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'data': 'no user account was found'
+                    'message': 'no user account was found'
                 }), 404
 
             user.set_transaction_pin(str(transaction_pin))
@@ -1095,35 +1095,35 @@ class UserResource(Resource):
             return jsonify({
                 'code': 500,
                 'code_status': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - operation and disconnection error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - programming error',
-                'data': 'could not fetch table'
+                'message': 'could not fetch table'
             }), 500
 
         except ValueError as e:
             return jsonify({
                 'code': 400,
                 'code_status': 'bad request - value error',
-                'data': str(e)
+                'message': str(e)
             }), 400
 
         except TypeError as e:
             return jsonify({
                 'code': 400,
                 'code_status': 'bad request - type error',
-                'data': str(e)
+                'message': str(e)
             }), 400
 
     @staticmethod
@@ -1140,14 +1140,14 @@ class UserResource(Resource):
                 return jsonify({
                     'code': 400,
                     'code_status': 'bad request',
-                    'data': 'transaction pin must be a 4 digit number'
+                    'message': 'transaction pin must be a 4 digit number'
                 }), 400
 
             if not isinstance(transaction_pin, int):
                 return jsonify({
                     'code': 400,
                     'code_status': 'bad request',
-                    'data': 'transaction pin must be a number'
+                    'message': 'transaction pin must be a number'
                 }), 400
 
             user = UserModel.query.filter_by(id=id).first()
@@ -1156,7 +1156,7 @@ class UserResource(Resource):
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'data': 'no user account was found'
+                    'message': 'no user account was found'
                 }), 404
 
             old_transaction_pin_check = user.check_transaction_pin(old_transaction_pin)
@@ -1165,14 +1165,14 @@ class UserResource(Resource):
                 return jsonify({
                     'code': 400,
                     'code_status': 'bad request',
-                    'data': 'old transaction pin is incorrect'
+                    'message': 'old transaction pin is incorrect'
                 }), 400
 
             if compare_digest(str(old_transaction_pin), str(transaction_pin)):
                 return jsonify({
                     'code': 400,
                     'code_status': 'bad request',
-                    'data': 'old transaction pin cannot be the same as the new transaction pin'
+                    'message': 'old transaction pin cannot be the same as the new transaction pin'
                 }), 400
 
             user.set_transaction_pin(str(transaction_pin))
@@ -1188,33 +1188,33 @@ class UserResource(Resource):
             return jsonify({
                 'code': 500,
                 'code_status': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - operation and disconnection error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - programming error',
-                'data': 'could not fetch table'
+                'message': 'could not fetch table'
             }), 500
 
         except ValueError as e:
             return jsonify({
                 'code': 400,
                 'code_status': 'bad request - value error',
-                'data': str(e)
+                'message': str(e)
             }), 400
 
         except TypeError as e:
             return jsonify({
                 'code': 400,
                 'code_status': 'bad request - type error',
-                'data': str(e)
+                'message': str(e)
             }), 400
