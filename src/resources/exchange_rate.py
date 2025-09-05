@@ -39,7 +39,6 @@ class ExchangeRateResource(Resource):
 
             today_rate = None
             confirm_is_today = False
-            markup_percentage = None
 
             if check_today_pair:
 
@@ -88,11 +87,10 @@ class ExchangeRateResource(Resource):
                 )
                 new_exchange_rate.save()
 
-
             if today_rate < 1:
                 markup_percentage = config.low_fx_payvevrve_charge  # charge for low exchange rates
             else:
-                markup_percentage = config.high_fx_payverve_charge # charge for high exchange rates
+                markup_percentage = config.high_fx_payverve_charge  # charge for high exchange rates
 
             return jsonify({
                 'code': 200,
@@ -213,6 +211,174 @@ class ExchangeRateResource(Resource):
                 'created_at': exchange_rate.created_at,
                 'updated_at': exchange_rate.updated_at
             }
+
+            return jsonify({
+                'code': 200,
+                'code_status': 'success',
+                'data': data
+            }), 200
+
+        except InternalError:
+            return jsonify({
+                'code': 500,
+                'code_status': 'internal server - internal server error',
+                'data': 'could not fetch data'
+            }), 500
+
+        except (OperationalError, DisconnectionError):
+            return jsonify({
+                'code': 500,
+                'code_status': 'database error - operation and disconnection error',
+                'data': 'could not fetch data'
+            }), 500
+
+        except ProgrammingError:
+            return jsonify({
+                'code': 500,
+                'code_status': 'database error - programming error',
+                'data': 'could not fetch table'
+            }), 500
+
+    @staticmethod
+    def read_pair_today(base_currency=None, target_currency=None):
+        """ Retrieve a wallet by id """
+
+        exchange_rate = ExchangeRateModel.query.filter_by(base_currency=base_currency,
+                                                          target_currency=target_currency).first()
+
+        try:
+            if not exchange_rate:
+                return jsonify({
+                    'code': 404,
+                    'code_status': 'data not found',
+                    'message': 'no currency pair was found'
+                }), 404
+
+            confirm_is_today = False
+            pair_details_id = None
+            pair_rate = None
+            pair_created_at = None
+            pair_updated_at = None
+
+            if exchange_rate:
+
+                confirm_is_today = compare_digest(str(exchange_rate.created_at.date()), str(datetime.now().date()))
+
+                if confirm_is_today:
+                    pair_details = exchange_rate
+
+                    pair_details_id = pair_details.id
+                    pair_rate = pair_details.rate
+                    pair_created_at = pair_details.created_at
+                    pair_updated_at = pair_details.updated_at
+
+            if not confirm_is_today:
+                access_token = None
+
+                # Extract token from Authorization header
+                if 'Authorization' in request.headers:
+                    auth_header = request.headers['Authorization']
+                    if auth_header.startswith('Bearer '):
+                        access_token = auth_header.split(' ')[1]
+
+                payload = {
+                    'base_currency': base_currency,
+                    'target_currency': target_currency
+                }
+
+                headers = {
+                    "Authorization": f"Bearer {access_token}"
+                }
+
+                response = requests.request("POST",
+                                            f"{config.app_path}/exchange-rates-api",
+                                            headers=headers,
+                                            json=payload)
+
+                if response.status_code != 200:
+                    return jsonify({
+                        'code': response.status_code,
+                        'code_status': 'error',
+                        'data': 'could not fetch exchange rate'
+                    }), response.status_code
+
+                today_rate = float(response.text)
+
+                # noinspection PyArgumentList
+                new_exchange_rate = ExchangeRateModel(
+                    base_currency=base_currency,
+                    target_currency=target_currency,
+                    rate=today_rate,
+                )
+                new_exchange_rate.save()
+
+                pair_details_id = new_exchange_rate.id
+                pair_rate = new_exchange_rate.rate
+                pair_created_at = new_exchange_rate.created_at
+                pair_updated_at = new_exchange_rate.updated_at
+
+            data = {
+                'id': pair_details_id,
+                'base_currency': base_currency,
+                'target_currency': target_currency,
+                'rate': pair_rate,
+                'created_at': pair_created_at,
+                'updated_at': pair_updated_at
+            }
+
+            return jsonify({
+                'code': 200,
+                'code_status': 'success',
+                'data': data
+            }), 200
+
+        except InternalError:
+            return jsonify({
+                'code': 500,
+                'code_status': 'internal server - internal server error',
+                'data': 'could not fetch data'
+            }), 500
+
+        except (OperationalError, DisconnectionError):
+            return jsonify({
+                'code': 500,
+                'code_status': 'database error - operation and disconnection error',
+                'data': 'could not fetch data'
+            }), 500
+
+        except ProgrammingError:
+            return jsonify({
+                'code': 500,
+                'code_status': 'database error - programming error',
+                'data': 'could not fetch table'
+            }), 500
+
+    @staticmethod
+    def read_pair_all(base_currency=None, target_currency=None):
+        """ Retrieve a wallet by id """
+
+        exchange_rates = ExchangeRateModel.query.filter_by(base_currency=base_currency,
+                                                           target_currency=target_currency).order_by(ExchangeRateModel.created_at.desc()).all()
+
+        try:
+            if not exchange_rates:
+                return jsonify({
+                    'code': 404,
+                    'code_status': 'data not found',
+                    'message': 'no currency pair was found'
+                }), 404
+
+            data = [
+                {
+                    'id': exchange_rate.id,
+                    'base_currency': exchange_rate.base_currency,
+                    'target_currency': exchange_rate.target_currency,
+                    'rate': exchange_rate.rate,
+                    'created_at': exchange_rate.created_at,
+                    'updated_at': exchange_rate.updated_at
+                }
+                for exchange_rate in exchange_rates
+            ]
 
             return jsonify({
                 'code': 200,

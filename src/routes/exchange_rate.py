@@ -17,3 +17,5 @@ ExchangeRateBlueprint.route("/exchange-rates-api", methods=['POST'])(jwt_require
 ExchangeRateBlueprint.route("/exchange-rates", methods=['POST'])(jwt_required(ExchangeRateResource.create))
 ExchangeRateBlueprint.route("/exchange-rates", methods=['GET'])(jwt_required(ExchangeRateResource.read_all))
 ExchangeRateBlueprint.route("/exchange-rates/<uuid:id>", methods=['GET'])(jwt_required(ExchangeRateResource.read_one))
+ExchangeRateBlueprint.route("/exchange-rates/<string:base_currency>/<string:target_currency>", methods=['GET'])(jwt_required(ExchangeRateResource.read_pair_today))
+ExchangeRateBlueprint.route("/exchange-rates/all/<string:base_currency>/<string:target_currency>", methods=['GET'])(jwt_required(ExchangeRateResource.read_pair_all))
