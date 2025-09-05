@@ -89,7 +89,7 @@ class UserResource(Resource):
                 'email_address': new_user.email_address,
             }
 
-            response = requests.request("POST", f'{config.app_path}/wallets', json=payload)
+            response = requests.request("POST", f'{config.app_path}/inapp-wallets', json=payload)
 
             if response.status_code != 201:
                 user_to_delete = UserModel.query.filter_by(id=new_user.id).first()

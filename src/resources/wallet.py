@@ -11,7 +11,7 @@ from sqlalchemy.exc import (DataError, DisconnectionError, IntegrityError,
                             InternalError, OperationalError, ProgrammingError,
                             SQLAlchemyError)
 
-from ..models import UserModel, WalletModel
+from ..models import KYCModel, UserModel, WalletModel
 # from ..utilities import RandomGenerator, emailHandler, parse_params
 from ..utilities import Cryptographer, RandomGenerator, parse_params
 from ..value_object import MinimumBalance
@@ -56,6 +56,98 @@ class WalletResource(Resource):
                         'code_status': 'conflict',
                         'message': 'you already own a wallet with this currency'
                     }), 409
+
+            wallet_identifier = RandomGenerator.wallet_identifier()
+
+            intial_fund = float(0)
+            MinimumBalance(intial_fund)
+            encrypt_fund = Cryptographer.encrypt(intial_fund)
+
+            # noinspection PyArgumentList
+            new_wallet = WalletModel(
+                fund=encrypt_fund,
+                wallet_identifier=wallet_identifier,
+                user_id=user_id,
+                currency_id=currency_id
+            )
+            new_wallet.save()
+
+            return jsonify({
+                'code': 201,
+                'code_status': 'created',
+                'data': 'wallet was successfully created'
+            }), 201
+
+        except IntegrityError:
+            return jsonify({
+                'code': 409,
+                'code_status': 'conflict - integrity error',
+                'message': 'a wallet with this currency has already been listed'
+            }), 409
+
+        except DataError:
+            return jsonify({
+                'code': 400,
+                'code_status': 'bad request - data error',
+                'message': 'ensure input data are correct'
+            }), 400
+
+        except InternalError:
+            return jsonify({
+                'code': 500,
+                'code_status': 'internal server - internal server error',
+                'data': 'could not fetch data'
+            }), 500
+
+        except (OperationalError, DisconnectionError, SQLAlchemyError):
+            return jsonify({
+                'code': 500,
+                'code_status': 'database error - operation, sqlalchemy and disconnection error',
+                'data': 'could not fetch data'
+            }), 500
+
+        except ProgrammingError:
+            return jsonify({
+                'code': 500,
+                'code_status': 'database error - programming error',
+                'data': 'could not fetch table'
+            }), 500
+
+    @staticmethod
+    def create_public():
+        """ Create a new wallet for a user with a specific currency """
+
+        user_id = request.json.get('user_id')
+        currency_id = request.json.get('currency_id')
+
+        customer_confirmation = UserModel.query.filter_by(id=user_id).first()
+
+        if not customer_confirmation:
+            return jsonify({
+                'code': 404,
+                'code_status': 'not found',
+                'message': 'user not found'
+            }), 404
+
+        own_wallet = WalletModel.query.filter_by(user_id=user_id, currency_id=currency_id).first()
+
+        try:
+
+            if own_wallet:
+                return jsonify({
+                    'code': 409,
+                    'code_status': 'conflict',
+                    'message': 'you already own a wallet with this currency'
+                }), 409
+
+            kyc_check = KYCModel.query.filter_by(user_id=user_id).first()
+
+            if not kyc_check.bvn_present or not kyc_check.nin_present:
+                return jsonify({
+                    'code': 409,
+                    'code_status': 'unauthorise',
+                    'message': 'complete your kyc before proceeding'
+                })
 
             wallet_identifier = RandomGenerator.wallet_identifier()
 
