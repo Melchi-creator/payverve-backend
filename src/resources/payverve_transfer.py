@@ -84,7 +84,13 @@ class PayverveTransferResource(Resource):
                 transfer_amount = (float(amount) * float(exchange_rate))
 
             if not compare_digest(str(sender_currency), str(recipient_currency)):
-                access_token = request.cookies.get('access_token')
+                access_token = None
+
+                # Extract token from Authorization header
+                if 'Authorization' in request.headers:
+                    auth_header = request.headers['Authorization']
+                    if auth_header.startswith('Bearer '):
+                        access_token = auth_header.split(' ')[1]
 
                 payload = {
                     'base_currency': sender_currency,

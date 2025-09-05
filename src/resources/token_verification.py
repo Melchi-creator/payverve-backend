@@ -6,12 +6,14 @@ import secrets
 from datetime import datetime, timedelta
 from hmac import compare_digest
 
-from flask import jsonify
+from flask import jsonify, render_template
 from flask_restful import Resource
 from flask_restful.reqparse import Argument
 from psycopg2 import InternalError, OperationalError, ProgrammingError
 from sqlalchemy.exc import DBAPIError, DisconnectionError
 
+import config
+from ..middlewares import MailtrapHelper
 from ..models import AdminModel, UserModel
 from ..models.token_verification import TokenVerificationModel
 from ..utilities import Cryptographer, parse_params
@@ -133,31 +135,31 @@ class TokenVerification(Resource):
             checked_user.password_reset_code = verification_code
             checked_user.save()
 
-            # expiry_time = new_verification_code.timestamp + timedelta(seconds=new_verification_code.expiration_time)
-            # current_year = datetime.now().year
+            expiry_time = new_verification_code.timestamp + timedelta(seconds=new_verification_code.expiration_time)
+            current_year = datetime.now().year
 
-            # endpoint = '/send'
-            # receipient = [
-            #     {"email": checked_user.email_address,
-            #      "name": f"{checked_user.first_name} {checked_user.last_name}"},
-            # ]
-            # subject = "Password Reset Notification"
-            # mail_message = render_template(
-            #     'customer/password_reset.html',
-            #     first_name=checked_user.first_name,
-            #     last_name=checked_user.last_name,
-            #     user_email_address=checked_user.email_address,
-            #     current_year=current_year,
-            #     expiry_time=expiry_time.strftime("%I:%M %p"),
-            #     verification_code=verification_code
-            # )
-            #
-            # MailtrapHelper.mailtrap_email_sender(config.mailtrap_payverve_security_name,
-            #                                      config.mailtrap_payverve_security_email,
-            #                                      endpoint,
-            #                                      receipient,
-            #                                      subject,
-            #                                      mail_message)
+            endpoint = '/send'
+            receipient = [
+                {"email": checked_user.email_address,
+                 "name": f"{checked_user.first_name} {checked_user.last_name}"},
+            ]
+            subject = "Password Reset Notification"
+            mail_message = render_template(
+                'customer/password_reset.html',
+                first_name=checked_user.first_name,
+                last_name=checked_user.last_name,
+                user_email_address=checked_user.email_address,
+                current_year=current_year,
+                expiry_time=expiry_time.strftime("%I:%M %p"),
+                verification_code=verification_code
+            )
+
+            MailtrapHelper.mailtrap_email_sender(config.mailtrap_payverve_security_name,
+                                                 config.mailtrap_payverve_security_email,
+                                                 endpoint,
+                                                 receipient,
+                                                 subject,
+                                                 mail_message)
 
             print(verification_code)
 

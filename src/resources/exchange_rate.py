@@ -4,6 +4,7 @@ This module defines the ExchangeRateResource class, which provides methods to cr
 and manage exchange rates. It interacts with the ExchangeRateModel to handle currency pairs,
 """
 from datetime import datetime
+from hmac import compare_digest
 
 import requests
 from flask import jsonify, request
@@ -31,22 +32,31 @@ class ExchangeRateResource(Resource):
 
             base_currency = request.json.get('base_currency')
             target_currency = request.json.get('target_currency')
-            access_token = request.json.get('access_token')
 
             check_today_pair = ExchangeRateModel.query.filter_by(base_currency=base_currency,
                                                                  target_currency=target_currency).order_by(
                 ExchangeRateModel.created_at.desc()).first()
 
             today_rate = None
-            confirm_is_today = None
+            confirm_is_today = False
+            markup_percentage = None
 
             if check_today_pair:
-                confirm_is_today = check_today_pair.created_at.date() == datetime.now().date()
+
+                confirm_is_today = compare_digest(str(check_today_pair.created_at.date()), str(datetime.now().date()))
 
                 if confirm_is_today:
                     today_rate = check_today_pair.rate
 
-            if confirm_is_today is None:
+            if not confirm_is_today:
+                access_token = None
+
+                # Extract token from Authorization header
+                if 'Authorization' in request.headers:
+                    auth_header = request.headers['Authorization']
+                    if auth_header.startswith('Bearer '):
+                        access_token = auth_header.split(' ')[1]
+
                 payload = {
                     'base_currency': base_currency,
                     'target_currency': target_currency
@@ -78,10 +88,19 @@ class ExchangeRateResource(Resource):
                 )
                 new_exchange_rate.save()
 
+
+            if today_rate < 1:
+                markup_percentage = config.low_fx_payvevrve_charge  # charge for low exchange rates
+            else:
+                markup_percentage = config.high_fx_payverve_charge # charge for high exchange rates
+
             return jsonify({
                 'code': 200,
                 'code_status': 'successful',
-                'data': today_rate
+                'data': {
+                    'rate': today_rate,
+                    'markup_percentage': markup_percentage,
+                }
             }), 200
 
         except IntegrityError:
@@ -123,7 +142,7 @@ class ExchangeRateResource(Resource):
     def read_all():
         """ Retrieve all exchange rate """
 
-        exchange_rates = ExchangeRateModel.query.all()
+        exchange_rates = ExchangeRateModel.query.order_by(ExchangeRateModel.created_at.desc()).all()
 
         try:
             if not exchange_rates:

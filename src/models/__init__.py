@@ -15,6 +15,7 @@ from .beneficiary import BeneficiaryModel
 from .currency import CurrencyModel
 from .exchange_rate import ExchangeRateModel
 from .foreign_transfer import ForeignTransferModel
+from .kyc import KYCModel
 from .local_transfer import LocalTransferModel
 from .payverve_transfer import PayverveTransferModel
 from .payverve_wallet import PayverveWalletModel

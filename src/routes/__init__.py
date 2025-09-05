@@ -9,6 +9,7 @@ from .authentication_authorisation import LoginBlueprint
 from .beneficiary import BeneficiaryBlueprint
 from .currency import CurrencyBlueprint
 from .exchange_rate import ExchangeRateBlueprint
+from .kyc import KYCBlueprint
 from .local_transfer import LocalTransferBlueprint
 from .payverve_transfer import PayverveTransferBlueprint
 from .payverve_wallet import PayverveWalletBlueprint

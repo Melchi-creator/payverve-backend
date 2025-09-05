@@ -22,7 +22,7 @@ from sqlalchemy.exc import DBAPIError, DataError, \
 
 import config
 from ..middlewares import MailtrapHelper
-from ..models import CurrencyModel, UserModel, WalletModel
+from ..models import CurrencyModel, KYCModel, UserModel, WalletModel
 from ..models.token_verification import TokenVerificationModel
 from ..utilities import Cryptographer, parse_params
 from ..value_object import EmailCheck, MinimumBalance, PasswordValidation
@@ -81,15 +81,6 @@ class UserResource(Resource):
             new_user.set_password(password)
             new_user.save()
 
-            token = None
-            auth_header = request.headers['Authorization']
-
-            if auth_header.startswith('Bearer '):
-                token = auth_header.split(' ')[1].encode('utf-8')
-
-            headers = {
-                'Authorization': f'Bearer {token}'
-            }
 
             payload = {
                 'user_id': str(new_user.id),
@@ -98,7 +89,7 @@ class UserResource(Resource):
                 'email_address': new_user.email_address,
             }
 
-            response = requests.request("POST", f'{config.app_path}/wallets', headers=headers, json=payload)
+            response = requests.request("POST", f'{config.app_path}/wallets', json=payload)
 
             if response.status_code != 201:
                 user_to_delete = UserModel.query.filter_by(id=new_user.id).first()
@@ -107,12 +98,14 @@ class UserResource(Resource):
                 return jsonify({
                     'code': response.status_code,
                     'code_status': response.json().get('code_status', 'error'),
-                    'data': response.json().get('data', 'an error occurred while creating wallet')
+                    'message': response.json().get('data', 'an error occurred while creating wallet')
                 }), response.status_code
 
+            referral_confirmation_id = None
 
             if referral_code:
                 referral_confirmation = UserModel.query.filter_by(user_code=referral_code).first()
+                referral_confirmation_id = referral_confirmation.id
 
                 if not referral_confirmation:
                     return jsonify({
@@ -130,7 +123,7 @@ class UserResource(Resource):
                     'email_address': new_user.email_address,
                 }
 
-                referral_response = requests.request("POST", f'{config.app_path}/referrals', headers=headers, json=payload)
+                referral_response = requests.request("POST", f'{config.app_path}/referrals', json=payload)
 
                 if referral_response.status_code != 201:
                     ngn_wallet = CurrencyModel.query.filter_by(short_code='ngn').first().id
@@ -149,17 +142,58 @@ class UserResource(Resource):
                     referral_wallet.fund = encrypt_referral_fund
                     referral_wallet.save()
 
-                    user_to_delete = UserModel.query.filter_by(id=new_user.id).first()
-                    user_to_delete.delete()
-
                     user_wallet_to_delete = WalletModel.query.filter_by(user_id=new_user.id).first()
                     user_wallet_to_delete.delete()
+
+                    user_to_delete = UserModel.query.filter_by(id=new_user.id).first()
+                    user_to_delete.delete()
 
                     return jsonify({
                         'code': referral_response.status_code,
                         'code_status': referral_response.json().get('code_status', 'error'),
-                        'data': referral_response.json().get('data', 'an error occurred registering referrals')
+                        'message': referral_response.json().get('data', 'an error occurred registering referrals')
                     }), referral_response.status_code
+
+            # KYC
+
+            payload = {
+                'user_id': str(new_user.id),
+                'created_by_payverve': True,
+                'email_address': new_user.email_address,
+            }
+
+            kyc_response = requests.request("POST", f'{config.app_path}/kycs', json=payload)
+
+            if kyc_response.status_code != 201:
+
+                if referral_code:
+                    ngn_wallet = CurrencyModel.query.filter_by(short_code='ngn').first().id
+                    referral_wallet = WalletModel.query.filter_by(user_id=referral_confirmation_id, currency_id=ngn_wallet).first()
+
+                    decrypted_referral_fund = Cryptographer.decrypt(referral_wallet.fund)
+                    current_decrypted_referral_fund = float(decrypted_referral_fund)
+
+                    MinimumBalance(current_decrypted_referral_fund)
+
+                    bonus_fund = float(500.00)
+                    referral_bonus = current_decrypted_referral_fund - bonus_fund
+                    MinimumBalance(referral_bonus)
+
+                    encrypt_referral_fund = Cryptographer.encrypt(referral_bonus)
+                    referral_wallet.fund = encrypt_referral_fund
+                    referral_wallet.save()
+
+                user_wallet_to_delete = WalletModel.query.filter_by(user_id=new_user.id).first()
+                user_wallet_to_delete.delete()
+
+                user_to_delete = UserModel.query.filter_by(id=new_user.id).first()
+                user_to_delete.delete()
+
+                return jsonify({
+                    'code': kyc_response.status_code,
+                    'code_status': kyc_response.json().get('code_status', 'error'),
+                    'message': kyc_response.json().get('data', 'an error occurred while creating wallet')
+                }), kyc_response.status_code
 
             # send verification and welcome email
 
@@ -182,6 +216,8 @@ class UserResource(Resource):
             expiry_time = new_verification_code.timestamp + timedelta(seconds=new_verification_code.expiration_time)
 
             current_year = datetime.now().year
+
+            print(verification_code)
 
             endpoint = '/send'
             receipient = [
