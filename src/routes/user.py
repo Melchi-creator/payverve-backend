@@ -6,7 +6,7 @@ It includes routes for creating, reading, updating, and deleting users.
 
 from flask import Blueprint
 
-from ..middlewares import jwt_required
+from ..auth import jwt_required
 from ..resources import UserResource
 
 UserBlueprint = Blueprint("user", __name__)

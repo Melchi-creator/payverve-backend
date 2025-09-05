@@ -6,7 +6,9 @@ It includes a route for creating exchange rates, protected by JWT authentication
 
 from flask import Blueprint
 
-from ..middlewares import ExchangeRate, jwt_required
+from ..auth import jwt_required
+from ..middlewares import ExchangeRate
+
 from ..resources import ExchangeRateResource
 
 ExchangeRateBlueprint = Blueprint("exchange_rate", __name__)

@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from secrets import compare_digest
 
 import requests
-from flask import jsonify, render_template
+from flask import jsonify, render_template, request
 from flask_restful import Resource
 from flask_restful.reqparse import Argument
 from sqlalchemy.exc import DBAPIError, DataError, \
@@ -21,10 +21,11 @@ from sqlalchemy.exc import DBAPIError, DataError, \
     ProgrammingError, SQLAlchemyError
 
 import config
+from ..middlewares import MailtrapHelper
 from ..models import CurrencyModel, UserModel, WalletModel
 from ..models.token_verification import TokenVerificationModel
-from ..utilities import Cryptographer, MailtrapHelper, parse_params
-from ..value_object import EmailCheck, PasswordValidation
+from ..utilities import Cryptographer, parse_params
+from ..value_object import EmailCheck, MinimumBalance, PasswordValidation
 
 
 class UserResource(Resource):
@@ -80,6 +81,16 @@ class UserResource(Resource):
             new_user.set_password(password)
             new_user.save()
 
+            token = None
+            auth_header = request.headers['Authorization']
+
+            if auth_header.startswith('Bearer '):
+                token = auth_header.split(' ')[1].encode('utf-8')
+
+            headers = {
+                'Authorization': f'Bearer {token}'
+            }
+
             payload = {
                 'user_id': str(new_user.id),
                 'currency_id': str(CurrencyModel.query.filter_by(short_code='ngn').first().id),
@@ -87,7 +98,7 @@ class UserResource(Resource):
                 'email_address': new_user.email_address,
             }
 
-            response = requests.request("POST", f'{config.app_path}/wallets', json=payload)
+            response = requests.request("POST", f'{config.app_path}/wallets', headers=headers, json=payload)
 
             if response.status_code != 201:
                 user_to_delete = UserModel.query.filter_by(id=new_user.id).first()
@@ -108,7 +119,7 @@ class UserResource(Resource):
                         'code': 404,
                         'code_status': 'not found',
                         'message': 'there is no user with that referral code'
-                    })
+                    }), 404
 
                 payload = {
                     'referral_id': str(referral_confirmation.id),
@@ -119,9 +130,25 @@ class UserResource(Resource):
                     'email_address': new_user.email_address,
                 }
 
-                response = requests.request("POST", f'{config.app_path}/referrals', json=payload)
+                referral_response = requests.request("POST", f'{config.app_path}/referrals', headers=headers, json=payload)
 
-                if response.status_code != 201:
+                if referral_response.status_code != 201:
+                    ngn_wallet = CurrencyModel.query.filter_by(short_code='ngn').first().id
+                    referral_wallet = WalletModel.query.filter_by(user_id=referral_confirmation.id, currency_id=ngn_wallet).first()
+
+                    decrypted_referral_fund = Cryptographer.decrypt(referral_wallet.fund)
+                    current_decrypted_referral_fund = float(decrypted_referral_fund)
+
+                    MinimumBalance(current_decrypted_referral_fund)
+
+                    bonus_fund = float(500.00)
+                    referral_bonus = current_decrypted_referral_fund - bonus_fund
+                    MinimumBalance(referral_bonus)
+
+                    encrypt_referral_fund = Cryptographer.encrypt(referral_bonus)
+                    referral_wallet.fund = encrypt_referral_fund
+                    referral_wallet.save()
+
                     user_to_delete = UserModel.query.filter_by(id=new_user.id).first()
                     user_to_delete.delete()
 
@@ -129,10 +156,10 @@ class UserResource(Resource):
                     user_wallet_to_delete.delete()
 
                     return jsonify({
-                        'code': response.status_code,
-                        'code_status': response.json().get('code_status', 'error'),
-                        'data': response.json().get('data', 'an error occurred registering referrals')
-                    }), response.status_code
+                        'code': referral_response.status_code,
+                        'code_status': referral_response.json().get('code_status', 'error'),
+                        'data': referral_response.json().get('data', 'an error occurred registering referrals')
+                    }), referral_response.status_code
 
             # send verification and welcome email
 
@@ -145,7 +172,7 @@ class UserResource(Resource):
                 channel='email',
                 channel_contact=new_user.email_address,
                 code_sent=Cryptographer.encrypt(verification_code),
-                expiration_time=300,
+                expiration_time=900,
                 timestamp=datetime.now(),
                 status='pending'
             )
@@ -615,13 +642,13 @@ class UserResource(Resource):
                 return jsonify({
                     'code': 404,
                     'code_message': 'not found',
-                    'data': 'verification code not found'
+                    'message': 'verification code not found'
                 }), 400
 
             confirmation_code = confirmation.code_sent
             decrypt_confirmation_code = Cryptographer.decrypt(confirmation_code)
 
-            if decrypt_confirmation_code != verification_code:
+            if not compare_digest(decrypt_confirmation_code, verification_code):
                 return jsonify({
                     'code': 400,
                     'code_message': 'bad request',
@@ -736,7 +763,7 @@ class UserResource(Resource):
                 channel='email',
                 channel_contact=email_address,
                 code_sent=Cryptographer.encrypt(verification_code),
-                expiration_time=300,
+                expiration_time=900,
                 timestamp=datetime.now(),
                 status='pending'
             )
@@ -881,7 +908,7 @@ class UserResource(Resource):
     @parse_params(
         Argument("auth_pin", location="json", required=True, type=int),
     )
-    def user_create_auth_pin(auth_pin: int, id=None):
+    def user_create_auth_pin(auth_pin, id=None):
         """ this method is used to create the auth pin of a user """
 
         try:
@@ -957,19 +984,33 @@ class UserResource(Resource):
 
     @staticmethod
     @parse_params(
-        Argument("old_auth_pin", location="json", required=True),
+        Argument("old_auth_pin", location="json", required=True, type=int),
         Argument("auth_pin", location="json", required=True, type=int),
     )
-    def user_change_auth_pin(old_auth_pin: str, auth_pin: int, id=None):
+    def user_change_auth_pin(old_auth_pin, auth_pin, id=None):
         """ this method is used to change the auth pin of a user """
 
         try:
+
+            if old_auth_pin is None or len(str(old_auth_pin)) != 6:
+                return jsonify({
+                    'code': 400,
+                    'code_status': 'bad request',
+                    'message': 'old auth pin must be a 6 digit number'
+                }), 400
 
             if auth_pin is None or len(str(auth_pin)) != 6:
                 return jsonify({
                     'code': 400,
                     'code_status': 'bad request',
                     'message': 'auth pin must be a 6 digit number'
+                }), 400
+
+            if not isinstance(old_auth_pin, int):
+                return jsonify({
+                    'code': 400,
+                    'code_status': 'bad request',
+                    'message': 'old auth pin must be a number'
                 }), 400
 
             if not isinstance(auth_pin, int):
@@ -1054,7 +1095,7 @@ class UserResource(Resource):
     @parse_params(
         Argument("transaction_pin", location="json", required=True, type=int),
     )
-    def user_create_transaction_pin(transaction_pin: int, id=None):
+    def user_create_transaction_pin(transaction_pin, id=None):
         """ this method is used to create the transaction_pin of a user """
 
         try:
@@ -1128,19 +1169,33 @@ class UserResource(Resource):
 
     @staticmethod
     @parse_params(
-        Argument("old_transaction_pin", location="json", required=True),
+        Argument("old_transaction_pin", location="json", required=True, type=int),
         Argument("transaction_pin", location="json", required=True, type=int),
     )
-    def user_change_transaction_pin(old_transaction_pin: str, transaction_pin: int, id=None):
+    def user_change_transaction_pin(old_transaction_pin, transaction_pin, id=None):
         """ this method is used to change the transaction_pin of a user """
 
         try:
+
+            if old_transaction_pin is None or len(str(old_transaction_pin)) != 4:
+                return jsonify({
+                    'code': 400,
+                    'code_status': 'bad request',
+                    'message': 'old transaction pin must be a 4 digit number'
+                }), 400
 
             if transaction_pin is None or len(str(transaction_pin)) != 4:
                 return jsonify({
                     'code': 400,
                     'code_status': 'bad request',
                     'message': 'transaction pin must be a 4 digit number'
+                }), 400
+
+            if not isinstance(old_transaction_pin, int):
+                return jsonify({
+                    'code': 400,
+                    'code_status': 'bad request',
+                    'message': 'old transaction pin must be a number'
                 }), 400
 
             if not isinstance(transaction_pin, int):

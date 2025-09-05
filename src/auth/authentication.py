@@ -4,17 +4,18 @@
 from datetime import datetime, timedelta
 
 from flask import jsonify, make_response, request
+from flask_restful import Resource
 from flask_restful.reqparse import Argument
 from psycopg2 import DataError, InternalError, OperationalError, ProgrammingError
 from sqlalchemy.exc import DBAPIError, DisconnectionError
 
 import config
-from ..models import AdminModel, UserModel
-from ..utilities import decode_token, encode_token, parse_params
-from ..value_object import EmailCheck
+from src.models import AdminModel, UserModel
+from src.utilities import decode_token, encode_token, parse_params
+from src.value_object import EmailCheck
 
 
-class Authentication:
+class Authentication(Resource):
     """ """
 
     @staticmethod
@@ -294,7 +295,6 @@ class Authentication:
                     'code_message': 'forbidden',
                     'message': 'user account has been deleted, contact admin'
                 }), 403
-
 
             # Create payload for the new access token
             extra_payload = {

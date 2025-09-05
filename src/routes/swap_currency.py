@@ -6,7 +6,7 @@ Defines all api routes for swapped currencies resources especially CRUD
 
 from flask import Blueprint
 
-from ..middlewares import jwt_required
+from ..auth import jwt_required
 from ..resources import SwapCurrencyResource
 
 SwapCurrencyBlueprint = Blueprint("swap_currency", __name__)

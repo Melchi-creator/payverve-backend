@@ -15,5 +15,6 @@ from .payverve_wallet import PayverveWalletBlueprint
 from .referral import ReferralBlueprint
 from .server import ServerBlueprint
 from .swap_currency import SwapCurrencyBlueprint
+from .token_verification import TokenVerificationBlueprint
 from .user import UserBlueprint
 from .wallet import WalletBlueprint

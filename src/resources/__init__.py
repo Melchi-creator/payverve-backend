@@ -14,5 +14,6 @@ from .payverve_wallet import PayverveWalletResource
 from .referral import ReferralResource
 from .server import ServerResource
 from .swap_currency import SwapCurrencyResource
+from .token_verification import TokenVerification
 from .user import UserResource
 from .wallet import WalletResource

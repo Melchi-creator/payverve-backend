@@ -4,11 +4,11 @@
 
 from flask import Blueprint
 
-from ..middlewares import jwt_required
+from ..auth import jwt_required
 from ..resources import ReferralResource
 
 ReferralBlueprint = Blueprint("referral", __name__)
 
-ReferralBlueprint.route("/referrals", methods=['POST'])(ReferralResource.create)
+ReferralBlueprint.route("/referrals", methods=['POST'])(jwt_required(ReferralResource.create))
 ReferralBlueprint.route("/referrals", methods=['GET'])(jwt_required(ReferralResource.read_all))
 ReferralBlueprint.route("/referrals/<uuid:id>", methods=['GET'])(jwt_required(ReferralResource.read_one))
