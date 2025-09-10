@@ -22,4 +22,5 @@ from .payverve_wallet import PayverveWalletModel
 from .referral import ReferralModel
 from .swap_currency import SwapCurrencyModel
 from .user import UserModel
+from .virtual_account_numbers import VirtualAccountNumberModel
 from .wallet import WalletModel

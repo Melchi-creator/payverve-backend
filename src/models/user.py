@@ -52,10 +52,20 @@ class UserModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     bank_accounts = db.relationship('BankAccountModel', backref='users', lazy=True, cascade="all, delete-orphan")
     beneficiaries = db.relationship('BeneficiaryModel', backref='users', lazy=True, cascade="all, delete-orphan")
     kycs = db.relationship('KYCModel', backref='users', lazy=True, cascade="all, delete-orphan")
-    foreign_transfers = db.relationship('ForeignTransferModel', backref='users', lazy=True, cascade="all, delete-orphan")
+    foreign_transfers = db.relationship('ForeignTransferModel',
+                                        backref='users',
+                                        lazy=True,
+                                        cascade="all, delete-orphan")
     local_transfers = db.relationship('LocalTransferModel', backref='users', lazy=True, cascade="all, delete-orphan")
     swapped_currencies = db.relationship('SwapCurrencyModel', backref='users', lazy=True, cascade="all, delete-orphan")
-    payverve_transfers = db.relationship('PayverveTransferModel', backref='users', lazy=True, cascade="all, delete-orphan")
+    payverve_transfers = db.relationship('PayverveTransferModel',
+                                         backref='users',
+                                         lazy=True,
+                                         cascade="all, delete-orphan")
+    virtual_account_numbers = db.relationship('VirtualAccountNumberModel',
+                                              backref='users',
+                                              lazy=True,
+                                              cascade="all, delete-orphan")
     wallets = db.relationship('WalletModel', backref='users', lazy=True, cascade="all, delete-orphan")
 
     def set_password(self, password):

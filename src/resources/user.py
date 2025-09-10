@@ -37,10 +37,11 @@ class UserResource(Resource):
         Argument("last_name", location="json", required=True),
         Argument("username", location="json", required=True),
         Argument("email_address", location="json", required=True),
+        Argument("mobile_number", location="json", required=True),
         Argument("password", location="json", required=True),
         Argument("referral_code", location="json"),
     )
-    def create(first_name, last_name, email_address, password, username, referral_code):
+    def create(first_name, last_name, email_address, mobile_number, password, username, referral_code):
         """ Creates users account """
 
         try:
@@ -76,6 +77,7 @@ class UserResource(Resource):
                 last_name=last_name,
                 email_address=email_address,
                 username=username.lower(),
+                mobile_number=mobile_number,
                 user_code=user_code
             )
             new_user.set_password(password)

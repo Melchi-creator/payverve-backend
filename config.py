@@ -58,3 +58,8 @@ paystack_base_url = os.getenv('PAYSTACK_BASE_URL')
 
 low_fx_payvevrve_charge: float = float(os.getenv('LOW_FX_PAYVERVE_CHARGE'))
 high_fx_payverve_charge: float = float(os.getenv('HIGH_FX_PAYVERVE_CHARGE'))
+
+flutterwave_public_key = os.getenv('FLUTTERWAVE_PUBLIC_KEY')
+flutterwave_secret_key = os.getenv('FLUTTERWAVE_SECRET_KEY')
+flutterwave_encryption_key = os.getenv('FLUTTERWAVE_ENCRYPTION_KEY')
+flutterwave_base_url = os.getenv('FLUTTERWAVE_BASE_URL')

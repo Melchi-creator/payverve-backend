@@ -17,4 +17,5 @@ from .server import ServerResource
 from .swap_currency import SwapCurrencyResource
 from .token_verification import TokenVerification
 from .user import UserResource
+from .virtual_account_numbers import VirtualAccountNumberResource
 from .wallet import WalletResource

@@ -1,141 +1,59 @@
 """
 
 """
-from flask import jsonify, request
+from flask import jsonify
 from flask_restful import Resource
 from flask_restful.reqparse import Argument
-from sqlalchemy.exc import DataError, \
-    DisconnectionError, \
-    IntegrityError, \
+from sqlalchemy.exc import DisconnectionError, \
     InternalError, \
     OperationalError, \
-    ProgrammingError, \
-    SQLAlchemyError
+    ProgrammingError
 
-from ..models import KYCModel, UserModel
+from ..models import KYCModel, VirtualAccountNumberModel
 from ..utilities import parse_params
 from ..value_object import BVNCheck, NINCheck
 
 
-class KYCResource(Resource):
+class VirtualAccountNumberResource(Resource):
     """  """
-
-    @staticmethod
-    def create():
-        """  """
-
-        try:
-
-            user_id = request.json.get('user_id')
-            email_address = request.json.get('email_address')
-            created_by_payverve = request.json.get('created_by_payverve')
-
-            customer_confirmation = UserModel.query.filter_by(id=user_id, email_address=email_address).first()
-
-            if not customer_confirmation:
-                return jsonify({
-                    'code': 404,
-                    'code_status': 'not found',
-                    'message': 'user not found'
-                }), 404
-
-            if not customer_confirmation.email_verified or not customer_confirmation.account_active:
-                return jsonify({
-                    'code': 403,
-                    'code_status': 'forbidden',
-                    'message': 'you are not allowed to create a kyc until your email is verified and account active'
-                }), 403
-
-
-            if not created_by_payverve:
-                return jsonify({
-                    'code': 403,
-                    'code_status': 'forbidden',
-                    'message': 'you are not allowed to create a kyc'
-                }), 403
-
-            # noinspection PyArgumentList
-            new_kyc = KYCModel(
-                user_id=user_id,
-            )
-            new_kyc.save()
-
-            return jsonify({
-                'code': 201,
-                'code_status': 'created',
-                'data': 'kyc successfully created - tier 1'
-            }), 201
-
-        except IntegrityError:
-            return jsonify({
-                'code': 409,
-                'code_status': 'conflict - integrity error',
-                'message': 'this currency has already been listed'
-            }), 409
-
-        except DataError:
-            return jsonify({
-                'code': 400,
-                'code_status': 'bad request - data error',
-                'message': 'ensure input data are correct'
-            }), 400
-
-        except InternalError:
-            return jsonify({
-                'code': 500,
-                'code_status': 'internal server - internal server error',
-                'message': 'could not fetch data'
-            }), 500
-
-        except (OperationalError, DisconnectionError, SQLAlchemyError):
-            return jsonify({
-                'code': 500,
-                'code_status': 'database error - operation, sqlalchemy and disconnection error',
-                'message': 'could not fetch data'
-            }), 500
-
-        except ProgrammingError:
-            return jsonify({
-                'code': 500,
-                'code_status': 'database error - programming error',
-                'message': 'could not fetch table'
-            }), 500
-
-        except (ArithmeticError, ValueError, ZeroDivisionError):
-            return jsonify({
-                'code': 500,
-                'code_status': 'calculation error - arithmetic, value, zerodivision error',
-                'message': 'could run an arithmetic calculation'
-            }), 500
 
     @staticmethod
     def read_all():
         """  """
 
-        kycs = KYCModel.query.all()
+        virtual_account_numbers = VirtualAccountNumberModel.query.all()
 
         try:
-            if not kycs:
+            if not virtual_account_numbers:
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'message': 'no kycs was found'
+                    'message': 'no virtual accounts was found'
                 }), 404
 
-            data = []
-
-            for kyc in kycs:
-                data.append({
-                    'id': kyc.id,
-                    'tier': kyc.tier,
-                    'bvn': kyc.bvn,
-                    'nin': kyc.nin,
-                    'bvn_present': kyc.bvn_present,
-                    'nin_present': kyc.nin_present,
-                    'user_id': kyc.user_id,
-                    'created_at': kyc.created_at,
-                    'updated_at': kyc.updated_at
-                })
+            data = [
+                {
+                    'id': virtual_account_number.id,
+                    'response_code': virtual_account_number.response_code,
+                    'response_message': virtual_account_number.response_message,
+                    'flw_ref': virtual_account_number.flw_ref,
+                    'order_ref': virtual_account_number.order_ref,
+                    'frequency': virtual_account_number.frequency,
+                    'created_at_by_flw': virtual_account_number.created_at_by_flw,
+                    'expiry_date': virtual_account_number.expiry_date,
+                    'account_number': virtual_account_number.account_number,
+                    'bank_name': virtual_account_number.bank_name,
+                    'note': virtual_account_number.note,
+                    'amount': virtual_account_number.amount,
+                    'currency_ticker': virtual_account_number.currency_ticker,
+                    'is_active': virtual_account_number.is_active,
+                    'user_id': virtual_account_number.user_id,
+                    'currency_id': virtual_account_number.currency_id,
+                    'created_at': virtual_account_number.created_at,
+                    'updated_at': virtual_account_number.updated_at
+                }
+                for virtual_account_number in virtual_account_numbers
+            ]
 
             return jsonify({
                 'code': 200,
