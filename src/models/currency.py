@@ -27,9 +27,10 @@ class CurrencyModel(db.Model, BaseModel, metaclass=MetaBaseModel):
 
     # relationships
 
-    bank_accounts = db.relationship('BankAccountModel', backref='currencies', lazy=True)
+    bank_accounts = db.relationship('BankAccountModel', backref='currencies', lazy=True, cascade="all, delete-orphan")
+    transactions = db.relationship('TransactionModel', backref='currencies', lazy=True, cascade="all, delete-orphan")
     virtual_account_numbers = db.relationship('VirtualAccountNumberModel',
                                               backref='currencies',
                                               lazy=True,
                                               cascade="all, delete-orphan")
-    wallets = db.relationship('WalletModel', backref='currencies', lazy=True, cascade="all")
+    wallets = db.relationship('WalletModel', backref='currencies', lazy=True, cascade="all, delete-orphan")

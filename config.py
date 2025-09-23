@@ -63,3 +63,5 @@ flutterwave_public_key = os.getenv('FLUTTERWAVE_PUBLIC_KEY')
 flutterwave_secret_key = os.getenv('FLUTTERWAVE_SECRET_KEY')
 flutterwave_encryption_key = os.getenv('FLUTTERWAVE_ENCRYPTION_KEY')
 flutterwave_base_url = os.getenv('FLUTTERWAVE_BASE_URL')
+flutterwave_secret_hash = os.getenv('FLUTTERWAVE_SECRET_HASH')
+

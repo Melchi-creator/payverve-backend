@@ -192,10 +192,10 @@ class WalletResource(Resource):
             account_number = inner_data.get('account_number')
             bank_name = inner_data.get('bank_name')
 
-            # @TODO thia following block of code will be removed
-            if config.env == 'dev':
-                code = str(secrets.randbelow(10 ** 5)).zfill(5)
-                account_number = str(code) + str(account_number)[-5:]
+            # # @TODO thia following block of code will be removed
+            # if config.env == 'dev':
+            #     code = str(secrets.randbelow(10 ** 5)).zfill(5)
+            #     account_number = str(code) + str(account_number)[-5:]
 
             currency_ticker = CurrencyModel.query.filter_by(id=currency_id).first().short_code
 

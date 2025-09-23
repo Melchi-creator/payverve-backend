@@ -57,11 +57,13 @@ class UserModel(db.Model, BaseModel, metaclass=MetaBaseModel):
                                         lazy=True,
                                         cascade="all, delete-orphan")
     local_transfers = db.relationship('LocalTransferModel', backref='users', lazy=True, cascade="all, delete-orphan")
-    swapped_currencies = db.relationship('SwapCurrencyModel', backref='users', lazy=True, cascade="all, delete-orphan")
     payverve_transfers = db.relationship('PayverveTransferModel',
                                          backref='users',
                                          lazy=True,
                                          cascade="all, delete-orphan")
+    spend_saves = db.relationship('SpendSaveModel', backref='users', lazy=True, cascade="all, delete-orphan")
+    swapped_currencies = db.relationship('SwapCurrencyModel', backref='users', lazy=True, cascade="all, delete-orphan")
+    transactions = db.relationship('TransactionModel', backref='users', lazy=True, cascade="all, delete-orphan")
     virtual_account_numbers = db.relationship('VirtualAccountNumberModel',
                                               backref='users',
                                               lazy=True,

@@ -18,7 +18,12 @@ from sqlalchemy.exc import DataError, \
     ProgrammingError, SQLAlchemyError
 
 import config
-from ..models import PayverveTransferModel, PayverveWalletModel, WalletModel
+from ..models import CurrencyModel, \
+    PayverveTransferModel, \
+    PayverveWalletModel, \
+    SpendSaveModel, \
+    TransactionModel, \
+    WalletModel
 from ..utilities import Cryptographer, RandomGenerator, parse_params
 from ..value_object import MinimumBalance
 
@@ -90,6 +95,15 @@ class PayverveTransferResource(Resource):
 
             sender_currency = sender.currencies.short_code
             recipient_currency = recipient.currencies.short_code
+
+            # @TODO to be update (removed) when accepting other currencies
+
+            if not compare_digest(str(sender_currency), 'ngn') or not compare_digest(str(recipient_currency), 'ngn'):
+                return jsonify({
+                    'code': 400,
+                    'code_message': 'bad request',
+                    'message': 'sender currency and recipient currency must be ngn'
+                })
 
             exchange_rate = 1
             transfer_amount = None
@@ -169,6 +183,37 @@ class PayverveTransferResource(Resource):
 
             sender.save()
             recipient.save()
+
+            # Spend and Save Transactions
+
+            spend_save = SpendSaveModel.query.filter_by(user_id=user_id).first()
+
+            if spend_save:
+                if spend_save.is_active:
+                    sender = WalletModel.query.filter_by(id=wallet_id).first()
+
+                    percentage_cal = (int(spend_save.percentage_to_save)/int(100))
+                    amount_to_save = int(amount) * int(percentage_cal)
+
+                    if sender.fund > amount_to_save:
+                        init_balance = Cryptographer.decrypt(spend_save.balance)
+                        final_balance = float(init_balance) + float(amount_to_save)
+
+                        spend_save.balance = Cryptographer.encrypt(final_balance)
+                        spend_save.save()
+
+                        currency_id = CurrencyModel.query.filter_by(short_code=sender_currency).first().id
+
+                        # noinspection PyArgumentList
+                        new_transaction = TransactionModel(
+                            amount=amount_to_save,
+                            transaction_type='spend_and_save',
+                            user_id=user_id,
+                            currency_id=currency_id,
+                            note=f'spend and save at {spend_save.percentage_to_save}%',
+                        )
+
+                        new_transaction.save()
 
             return jsonify({
                 'code': 201,

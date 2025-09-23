@@ -6,6 +6,9 @@ import requests
 from flask import jsonify, request
 
 import config
+from src.models import CurrencyModel, WalletModel
+from src.models.transaction import TransactionModel
+from src.utilities import Cryptographer
 
 
 class FltterwaveHelper:
@@ -53,7 +56,7 @@ class FltterwaveHelper:
             return jsonify({
                 'code': 500,
                 'code_message': 'server error',
-                'data': f'an error occurred: {str(e)}'
+                'message': f'an error occurred: {str(e)}'
             }), 500
 
     @staticmethod
@@ -83,11 +86,10 @@ class FltterwaveHelper:
                 "account_number": account_number,
                 "amount": amount,
                 "currency": currency.upper(),
-                "reference":reference,
+                "reference": reference,
                 "callback_url": callback_url,
                 "narration": narration
             }
-
 
             response = requests.request('POST', url, headers=headers, json=payload)
 
@@ -101,7 +103,120 @@ class FltterwaveHelper:
             return jsonify({
                 'code': 500,
                 'code_message': 'server error',
-                'data': f'an error occurred: {str(e)}'
+                'message': f'an error occurred: {str(e)}'
             }), 500
 
+    @staticmethod
+    def flutterwave_list_of_banks():
+        """ """
 
+        try:
+
+            country = request.json.get('country').upper()
+
+            url = f'{config.flutterwave_base_url}/banks/{country}?include_provider_type=1'
+
+            headers = {
+                'content-type': 'application/json',
+                'Authorization': f'Bearer {config.flutterwave_secret_key}'
+            }
+
+            response = requests.request('GET', url, headers=headers)
+
+            return jsonify({
+                'code': response.status_code,
+                'code_message': 'success' if response.status_code == 200 else 'failed',
+                'data': response.json()
+            }), response.status_code
+
+        except Exception as e:
+            return jsonify({
+                'code': 500,
+                'code_message': 'server error',
+                'message': f'an error occurred: {str(e)}'
+            }), 500
+
+    @staticmethod
+    def flutterwave_webhook():
+        """ """
+
+        try:
+
+            secret_hash = config.flutterwave_secret_hash
+            signature = request.headers.get("verifi-hash")
+            if signature is None or (signature != secret_hash):
+                return jsonify({
+                    'code': 401,
+                    'code_message': 'signature verification failed',
+                    'message': 'signature verification failed'
+                }), 401
+
+            data = request.get_json()
+
+            # Make sure payload is valid
+            if not data or "event" not in data:
+                return jsonify({
+                    'code': 400,
+                    'code_message': 'invalid request',
+                    'message': 'invalid request'
+                }), 400
+
+            event = data.get("event")
+            event_type = event.get("event.type")
+            tx_data = data.get("data", {})
+
+            # Only handle successful charges
+            if event == "charge.completed" and tx_data.get("status") == "successful":
+                tx_ref = tx_data.get("tx_ref")
+                flw_ref = tx_data.get("flw_ref")
+                amount = tx_data.get("amount")
+                customer_email = tx_data.get("customer", {}).get("email")
+                currency = tx_data.get("currency")
+
+                from src.models import UserModel
+                user_id = UserModel.query.filter_by(email_address=customer_email).first().id
+                transaction = TransactionModel.query.filter_by(user_id=user_id, flw_ref=flw_ref).first()
+
+                transaction_type = None
+
+                if event_type == "BANK_TRANSFER_TRANSACTION":
+                    transaction_type = "wallet_funding"
+
+                encrypt_amount = Cryptographer.encrypt(amount)
+
+                if not transaction:
+                    currency_id = CurrencyModel.query.filter_by(short_code=currency.lower()).first().id
+
+                    # noinspection PyArgumentList
+                    new_transaction = TransactionModel(
+                        tx_ref=tx_ref,
+                        flw_ref=flw_ref,
+                        amount=encrypt_amount,
+                        transaction_type=transaction_type,
+                        user_id=user_id,
+                        currency_id=currency_id,
+                        note='bank transfer'
+                    )
+
+                    user_wallet = WalletModel.query.filter_by(user_id=user_id, currency_ticker=currency.lower()).first()
+                    decrypt_balance = Cryptographer.decrypt(user_wallet.fund)
+
+                    new_balance = float(decrypt_balance) + float(amount)
+                    encrypt_balance = Cryptographer.encrypt(new_balance)
+                    user_wallet.fund = encrypt_balance
+                    user_wallet.save()
+
+                    new_transaction.save()
+
+            return jsonify({
+                'code': 200,
+                'code_message': 'success',
+                'data': 'transaction successful'
+            }), 200
+
+        except Exception as e:
+            return jsonify({
+                'code': 500,
+                'code_message': 'server error',
+                'message': f'an error occurred: {str(e)}'
+            })
