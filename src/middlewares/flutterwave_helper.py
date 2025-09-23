@@ -57,21 +57,45 @@ class FltterwaveHelper:
             }), 500
 
     @staticmethod
-    def verify_payment(reference: str):
-        """ this method verifies a payment transaction """
+    def flutterwave_ngn_funding():
+        """ """
 
         try:
 
-            url = f'{config.paystack_base_url}/transaction/verify/{reference}'
+            account_bank = request.json.get('account_bank')
+            account_number = request.json.get('account_number')
+            amount = request.json.get('amount')
+            currency = request.json.get('currency')
+            reference = request.json.get('reference')
+            callback_url = request.json.get('callback_url')
+            narration = request.json.get('narration')
+
+            url = f'{config.flutterwave_base_url}/transfers'
 
             headers = {
                 'content-type': 'application/json',
-                'authorization': f'Bearer {config.paystack_secret_key}'
+                'Authorization': f'Bearer {config.flutterwave_secret_key}',
+                'accept': 'application/json'
             }
 
-            response = requests.request('GET', url, headers=headers)
+            payload = {
+                "account_bank": account_bank,
+                "account_number": account_number,
+                "amount": amount,
+                "currency": currency.upper(),
+                "reference":reference,
+                "callback_url": callback_url,
+                "narration": narration
+            }
 
-            return response
+
+            response = requests.request('POST', url, headers=headers, json=payload)
+
+            return jsonify({
+                'code': response.status_code,
+                'code_message': 'success' if response.status_code == 200 else 'failed',
+                'data': response.json()
+            }), response.status_code
 
         except Exception as e:
             return jsonify({
@@ -80,75 +104,4 @@ class FltterwaveHelper:
                 'data': f'an error occurred: {str(e)}'
             }), 500
 
-    @staticmethod
-    def paystack_bank(endpoint: str, method: str):
-        """ this method verifies a payment transaction """
 
-        try:
-
-            url = f'{config.paystack_base_url}/{endpoint}'
-
-            headers = {
-                'authorization': f'Bearer {config.paystack_secret_key}'
-            }
-
-            response = requests.request(method, url, headers=headers)
-
-            return response
-
-        except Exception as e:
-            return jsonify({
-                'code': 500,
-                'code_message': 'server error',
-                'data': f'an error occurred: {str(e)}'
-            }), 500
-
-    @staticmethod
-    def verify_bank(account_number: int, bank_code: int):
-        """ this method verifies a payment transaction """
-
-        try:
-
-            url = f'{config.paystack_base_url}/bank/resolve?account_number={account_number}&bank_code={bank_code}'
-
-            headers = {
-                'authorization': f'Bearer {config.paystack_secret_key}'
-            }
-
-            response = requests.request('GET', url, headers=headers)
-
-            return response
-
-        except Exception as e:
-            return jsonify({
-                'code': 500,
-                'code_message': 'server error',
-                'data': f'an error occurred: {str(e)}'
-            }), 500
-
-    @staticmethod
-    def verify_account(data):
-        """ this method verifies a payment transaction """
-
-        try:
-
-            url = f'{config.paystack_base_url}/bank/validate'
-
-            headers = {
-                'content-type': 'application/json',
-                'authorization': f'Bearer {config.paystack_secret_key}'
-            }
-
-            print(url)
-
-            response = requests.request('POST', url, headers=headers, json=data)
-            print(response)
-
-            return response
-
-        except Exception as e:
-            return jsonify({
-                'code': 500,
-                'code_message': 'server error',
-                'data': f'an error occurred: {str(e)}'
-            }), 500

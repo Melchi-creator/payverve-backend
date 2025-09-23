@@ -154,27 +154,31 @@ class WalletResource(Resource):
 
             token = request.headers.get('Authorization').split(" ")[1]
 
-            headers = {
-                'content-type': 'application/json',
-                'Authorization': f'Bearer {token}'
-            }
+            response = None
 
-            payload = {
-                'email_address': customer_confirmation.email_address,
-                'mobile_number': customer_confirmation.mobile_number,
-                'first_name': customer_confirmation.first_name,
-                'last_name': customer_confirmation.last_name,
-                'bvn': kyc_check.bvn,
-            }
+            if compare_digest(str(ngn_currency_id), str(currency_id)):
 
-            response = requests.request("POST", f'{config.app_path}/flutterwave-create-ngn', headers=headers, json=payload)
+                headers = {
+                    'content-type': 'application/json',
+                    'Authorization': f'Bearer {token}'
+                }
 
-            if response.status_code != 200:
-                return jsonify({
-                    'code': response.status_code,
-                    'code_status': 'failed',
-                    'data': 'could not create wallet at the moment, try again later'
-                }), response.status_code
+                payload = {
+                    'email_address': customer_confirmation.email_address,
+                    'mobile_number': customer_confirmation.mobile_number,
+                    'first_name': customer_confirmation.first_name,
+                    'last_name': customer_confirmation.last_name,
+                    'bvn': kyc_check.bvn,
+                }
+
+                response = requests.request("POST", f'{config.app_path}/flutterwave-create-ngn', headers=headers, json=payload)
+
+                if response.status_code != 200:
+                    return jsonify({
+                        'code': response.status_code,
+                        'code_status': 'failed',
+                        'data': 'could not create wallet at the moment, try again later'
+                    }), response.status_code
 
             wallet_identifier = RandomGenerator.wallet_identifier()
 
@@ -188,9 +192,10 @@ class WalletResource(Resource):
             account_number = inner_data.get('account_number')
             bank_name = inner_data.get('bank_name')
 
+            # @TODO thia following block of code will be removed
             if config.env == 'dev':
-                code = str(secrets.randbelow(10 ** 10)).zfill(10)
-                account_number = str(code) + str(account_number)[-6:]
+                code = str(secrets.randbelow(10 ** 5)).zfill(5)
+                account_number = str(code) + str(account_number)[-5:]
 
             currency_ticker = CurrencyModel.query.filter_by(id=currency_id).first().short_code
 
@@ -224,8 +229,6 @@ class WalletResource(Resource):
                     'code_status': 'success',
                     'data': 'ngn wallet created successfully and activated'
                 }), 200
-
-            currency_ticker = CurrencyModel.query.filter_by(id=currency_id).first().short_code
 
             # noinspection PyArgumentList
             new_wallet = WalletModel(
