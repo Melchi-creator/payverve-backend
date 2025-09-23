@@ -40,6 +40,16 @@ class SwapCurrencyResource(Resource):
         # @ TODO: add a real fx charge system
 
         try:
+
+            # @ TODO: to be update when foreign currencies bcome available
+
+            if amount or narration or wallet_identifier or user_id or wallet_id:
+                return jsonify({
+                    'code': 400,
+                    'code_messgae': 'bad request',
+                    'message': 'swapping is currently not available, check back shortyly'
+                })
+
             if len(wallet_identifier) != 10 or not wallet_identifier.isdigit():
                 return jsonify({
                     'code': 400,

@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from secrets import compare_digest
 
 import requests
-from flask import jsonify, render_template, request
+from flask import jsonify, render_template
 from flask_restful import Resource
 from flask_restful.reqparse import Argument
 from sqlalchemy.exc import DBAPIError, DataError, \
@@ -22,7 +22,7 @@ from sqlalchemy.exc import DBAPIError, DataError, \
 
 import config
 from ..middlewares import MailtrapHelper
-from ..models import CurrencyModel, KYCModel, UserModel, WalletModel
+from ..models import CurrencyModel, UserModel, WalletModel
 from ..models.token_verification import TokenVerificationModel
 from ..utilities import Cryptographer, parse_params
 from ..value_object import EmailCheck, MinimumBalance, PasswordValidation
@@ -83,7 +83,6 @@ class UserResource(Resource):
             new_user.set_password(password)
             new_user.save()
 
-
             payload = {
                 'user_id': str(new_user.id),
                 'currency_id': str(CurrencyModel.query.filter_by(short_code='ngn').first().id),
@@ -129,7 +128,8 @@ class UserResource(Resource):
 
                 if referral_response.status_code != 201:
                     ngn_wallet = CurrencyModel.query.filter_by(short_code='ngn').first().id
-                    referral_wallet = WalletModel.query.filter_by(user_id=referral_confirmation.id, currency_id=ngn_wallet).first()
+                    referral_wallet = WalletModel.query.filter_by(user_id=referral_confirmation.id,
+                                                                  currency_id=ngn_wallet).first()
 
                     decrypted_referral_fund = Cryptographer.decrypt(referral_wallet.fund)
                     current_decrypted_referral_fund = float(decrypted_referral_fund)
@@ -170,7 +170,8 @@ class UserResource(Resource):
 
                 if referral_code:
                     ngn_wallet = CurrencyModel.query.filter_by(short_code='ngn').first().id
-                    referral_wallet = WalletModel.query.filter_by(user_id=referral_confirmation_id, currency_id=ngn_wallet).first()
+                    referral_wallet = WalletModel.query.filter_by(user_id=referral_confirmation_id,
+                                                                  currency_id=ngn_wallet).first()
 
                     decrypted_referral_fund = Cryptographer.decrypt(referral_wallet.fund)
                     current_decrypted_referral_fund = float(decrypted_referral_fund)
@@ -1275,6 +1276,96 @@ class UserResource(Resource):
                 'code': 200,
                 'code_status': 'success',
                 'data': "transaction pin changed successfully"
+            }), 200
+
+        except InternalError:
+            return jsonify({
+                'code': 500,
+                'code_status': 'internal server - internal server error',
+                'message': 'could not fetch data'
+            }), 500
+
+        except (OperationalError, DisconnectionError):
+            return jsonify({
+                'code': 500,
+                'code_status': 'database error - operation and disconnection error',
+                'message': 'could not fetch data'
+            }), 500
+
+        except ProgrammingError:
+            return jsonify({
+                'code': 500,
+                'code_status': 'database error - programming error',
+                'message': 'could not fetch table'
+            }), 500
+
+        except ValueError as e:
+            return jsonify({
+                'code': 400,
+                'code_status': 'bad request - value error',
+                'message': str(e)
+            }), 400
+
+        except TypeError as e:
+            return jsonify({
+                'code': 400,
+                'code_status': 'bad request - type error',
+                'message': str(e)
+            }), 400
+
+    @staticmethod
+    @parse_params(
+        Argument("transaction_pin", location="json", required=True, type=int),
+    )
+    def confirm_transaction_pin(transaction_pin, id=None):
+        """  """
+
+        try:
+
+            if transaction_pin is None or len(str(transaction_pin)) != 4:
+                return jsonify({
+                    'code': 400,
+                    'code_status': 'bad request',
+                    'message': 'transaction pin must be a 4 digit number'
+                }), 400
+
+            if not isinstance(transaction_pin, int):
+                return jsonify({
+                    'code': 400,
+                    'code_status': 'bad request',
+                    'message': 'transaction pin must be a number'
+                }), 400
+
+            user = UserModel.query.filter_by(id=id).first()
+
+            if not user:
+                return jsonify({
+                    'code': 404,
+                    'code_status': 'data not found',
+                    'message': 'no user account was found'
+                }), 404
+
+            if not user.transaction_pin:
+                return jsonify({
+                    'code': 400,
+                    'code_status': 'bad request',
+                    'message': 'you do not have a transaction pin, create one'
+                }), 400
+
+            transaction_pin_check = user.check_transaction_pin(str(transaction_pin))
+
+            if not transaction_pin_check:
+                return jsonify({
+                    'code': 400,
+                    'code_status': 'bad request',
+                    'message': 'transaction pin is incorrect'
+                }), 400
+
+
+            return jsonify({
+                'code': 200,
+                'code_status': 'success',
+                'data': "transaction pin is correct"
             }), 200
 
         except InternalError:

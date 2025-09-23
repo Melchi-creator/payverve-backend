@@ -20,7 +20,9 @@ from .local_transfer import LocalTransferModel
 from .payverve_transfer import PayverveTransferModel
 from .payverve_wallet import PayverveWalletModel
 from .referral import ReferralModel
+from .spend_save import SpendSaveModel
 from .swap_currency import SwapCurrencyModel
+from .transaction import TransactionModel
 from .user import UserModel
 from .virtual_account_numbers import VirtualAccountNumberModel
 from .wallet import WalletModel
