@@ -7,7 +7,7 @@ utilizing the CurrencyResource class.
 
 from flask import Blueprint
 
-from ..middlewares import jwt_required
+from ..auth import jwt_required
 from ..resources import CurrencyResource
 
 CurrencyBlueprint = Blueprint("currency", __name__)

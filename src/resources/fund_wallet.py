@@ -1,8 +1,5 @@
 """
-src/resources/payverve_transfer.py
-This module defines the PayverveTransferResource class, which handles Payverve transfer operations.
-It includes methods for creating, reading, and deleting Payverve transfers, with error handling for
-various database and validation errors.
+
 """
 from hmac import compare_digest
 
@@ -15,15 +12,16 @@ from sqlalchemy.exc import DataError, \
     IntegrityError, \
     InternalError, \
     OperationalError, \
-    ProgrammingError, SQLAlchemyError
+    ProgrammingError, \
+    SQLAlchemyError
 
 import config
-from ..models import PayverveTransferModel, PayverveWalletModel, WalletModel
+from ..models import PayverveWalletModel, SwapCurrencyModel, WalletModel
 from ..utilities import Cryptographer, RandomGenerator, parse_params
 from ..value_object import MinimumBalance
 
 
-class PayverveTransferResource(Resource):
+class FundNGNWalletResource(Resource):
     """  """
 
     @staticmethod
@@ -35,7 +33,9 @@ class PayverveTransferResource(Resource):
         Argument("wallet_id", location="json", required=True),
     )
     def create(amount, narration, wallet_identifier, user_id, wallet_id):
-        """ """
+        """ Swap Currency """
+
+        # @ TODO: add a real fx charge system
 
         try:
             if len(wallet_identifier) != 10 or not wallet_identifier.isdigit():
@@ -47,68 +47,67 @@ class PayverveTransferResource(Resource):
 
             MinimumBalance(int(amount))
 
-            sender = WalletModel.query.filter_by(id=wallet_id).first()
+            base_currency_wallet = WalletModel.query.filter_by(id=wallet_id, user_id=user_id).first()
 
-            if not sender:
-                return jsonify({
-                    'code': 404,
-                    'code_message': 'not found',
-                    'message': 'the sender wallet was not found'
-                }), 404
-
-            if not sender.is_active:
+            if not base_currency_wallet.is_active:
                 return jsonify({
                     'code': 403,
                     'code_message': 'forbidden',
-                    'message': 'you do not have the facility to send money at the moment'
+                    'message': f'your {base_currency_wallet.currencies.short_code} wallet does not have the facility to perform this operation'
                 }), 403
 
-            decrypted_funds = Cryptographer.decrypt(sender.fund)
+            if not base_currency_wallet:
+                return jsonify({
+                    'code': 404,
+                    'code_message': 'not found',
+                    'message': 'the base currency wallet was not found'
+                }), 404
+
+            decrypted_funds = Cryptographer.decrypt(base_currency_wallet.fund)
 
             if float(decrypted_funds) < float(amount):
                 return jsonify({
                     'code': 400,
                     'code_message': 'bad request',
-                    'message': 'insufficient funds in sender wallet'
+                    'message': 'insufficient funds in base currency wallet'
                 }), 400
 
-            recipient = WalletModel.query.filter_by(wallet_identifier=wallet_identifier).first()
+            target_currency_wallet = WalletModel.query.filter_by(wallet_identifier=wallet_identifier,
+                                                                 user_id=user_id).first()
 
-            if not recipient:
-                return jsonify({
-                    'code': 404,
-                    'code_message': 'not found',
-                    'message': 'the recipient wallet id was not found'
-                }), 404
-
-            if not recipient.is_active:
+            if not target_currency_wallet.is_active:
                 return jsonify({
                     'code': 403,
                     'code_message': 'forbidden',
-                    'message': 'the recipient does not have the facility to receive money at the moment'
+                    'message': f'your {target_currency_wallet.currencies.short_code} wallet does not have the facility to perform this operation'
                 }), 403
 
-            sender_currency = sender.currencies.short_code
-            recipient_currency = recipient.currencies.short_code
+            if not target_currency_wallet:
+                return jsonify({
+                    'code': 404,
+                    'code_message': 'not found',
+                    'message': 'the target currency wallet id was not found'
+                }), 404
+
+            base_currency = base_currency_wallet.currencies.short_code
+            target_currency = target_currency_wallet.currencies.short_code
 
             exchange_rate = 1
-            transfer_amount = None
+            swap_amount = None
 
-            if compare_digest(str(sender_currency), str(recipient_currency)):
-                transfer_amount = (float(amount) * float(exchange_rate))
+            if compare_digest(str(base_currency), str(target_currency)):
+                return jsonify({
+                    'code': 400,
+                    'code_message': 'bad request',
+                    'message': f'you can\'t convert from {base_currency} to {target_currency}'
+                }), 400
 
-            if not compare_digest(str(sender_currency), str(recipient_currency)):
-                access_token = None
-
-                # Extract token from Authorization header
-                if 'Authorization' in request.headers:
-                    auth_header = request.headers['Authorization']
-                    if auth_header.startswith('Bearer '):
-                        access_token = auth_header.split(' ')[1]
+            if not compare_digest(str(base_currency), str(target_currency)):
+                access_token = request.cookies.get('access_token')
 
                 payload = {
-                    'base_currency': sender_currency,
-                    'target_currency': recipient_currency,
+                    'base_currency': base_currency,
+                    'target_currency': target_currency,
                     'access_token': access_token
                 }
 
@@ -132,7 +131,7 @@ class PayverveTransferResource(Resource):
                 else:
                     payverve_charge = config.high_fx_payverve_charge  # charge for high exchange rates
 
-                transfer_amount = ((float(amount)) - (float(amount) * float(payverve_charge))) * float(exchange_rate)
+                swap_amount = ((float(amount)) - (float(amount) * float(payverve_charge))) * float(exchange_rate)
 
                 payverve_balance = PayverveWalletModel.query.first()
                 payverve_charge_amount = (float(amount) * float(payverve_charge)) + float(Cryptographer.decrypt(
@@ -141,39 +140,39 @@ class PayverveTransferResource(Resource):
                 payverve_balance.fund = Cryptographer.encrypt(payverve_charge_amount)
                 payverve_balance.save()
 
-            decrypted_sender_funds = float(Cryptographer.decrypt(sender.fund))
-            decrypted_recipient_funds = float(Cryptographer.decrypt(recipient.fund))
+            decrypted_base_currency_wallet_funds = float(Cryptographer.decrypt(base_currency_wallet.fund))
+            decrypted_target_currency_wallet_funds = float(Cryptographer.decrypt(target_currency_wallet.fund))
 
-            sender_total_funds = float(decrypted_sender_funds) - float(amount)
-            recipient_total_funds = float(decrypted_recipient_funds) + float(transfer_amount)
+            base_currency_wallet_total_funds = float(decrypted_base_currency_wallet_funds) - float(amount)
+            target_currency_wallet_total_funds = float(decrypted_target_currency_wallet_funds) + float(swap_amount)
 
-            sender.fund = Cryptographer.encrypt(sender_total_funds)
-            recipient.fund = Cryptographer.encrypt(recipient_total_funds)
+            base_currency_wallet.fund = Cryptographer.encrypt(base_currency_wallet_total_funds)
+            target_currency_wallet.fund = Cryptographer.encrypt(target_currency_wallet_total_funds)
 
-            reference_number = RandomGenerator.payverve_transfer_reference_number()
+            reference_number = RandomGenerator.swap_reference_number()
 
             # noinspection PyArgumentList
-            new_payverve_transfer = PayverveTransferModel(
-                amount_from_sender=Cryptographer.encrypt(amount),
-                amount_to_recipient=Cryptographer.encrypt(transfer_amount),
+            new_currencies_swap = SwapCurrencyModel(
+                amount_from_base_currency=Cryptographer.encrypt(amount),
+                amount_to_target_currency=Cryptographer.encrypt(swap_amount),
                 coversion_rate=exchange_rate,
                 narration=narration,
                 wallet_identifier=wallet_identifier,
                 reference=reference_number,
-                transfer_pair=f'Wallet({sender_currency})-Wallet({recipient_currency})',
+                swap_pairs=f'Wallet({base_currency})-Wallet({target_currency})',
                 user_id=user_id,
                 wallet_id=wallet_id,
             )
 
-            new_payverve_transfer.save()
+            new_currencies_swap.save()
 
-            sender.save()
-            recipient.save()
+            base_currency_wallet.save()
+            target_currency_wallet.save()
 
             return jsonify({
                 'code': 201,
                 'code_status': 'created',
-                'data': 'money transfered successfully'
+                'data': 'currencies swapped successfully'
             }), 201
 
         except IntegrityError:
@@ -220,36 +219,36 @@ class PayverveTransferResource(Resource):
 
     @staticmethod
     def read_all():
-        """ Retrieve all payverve transfer """
+        """ Retrieve all swapped currencies """
 
-        payverve_transfers = PayverveTransferModel.query.order_by(PayverveTransferModel.created_at.desc()).all()
+        swapped_currencies = SwapCurrencyModel.query.order_by(SwapCurrencyModel.created_at.desc()).all()
 
         try:
-            if not payverve_transfers:
+            if not swapped_currencies:
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'message': 'no payverve transfer was found'
+                    'message': 'no swapped currency was found'
                 }), 404
 
             data = []
 
-            for payverve_transfer in payverve_transfers:
+            for swapped_currency in swapped_currencies:
                 data.append({
-                    'id': payverve_transfer.id,
-                    'amount_from_sender': Cryptographer.decrypt(payverve_transfer.amount_from_sender),
-                    'amount_to_recipient': Cryptographer.decrypt(payverve_transfer.amount_to_recipient),
-                    'coversion_rate': payverve_transfer.coversion_rate,
-                    'narration': payverve_transfer.narration,
-                    'wallet_identifier': payverve_transfer.wallet_identifier,
-                    'reference': payverve_transfer.reference,
-                    'transaction_type': payverve_transfer.transaction_type,
-                    'transfer_pair': payverve_transfer.transfer_pair,
-                    'user_id': payverve_transfer.user_id,
-                    'sender': payverve_transfer.users.first_name + ' ' + payverve_transfer.users.last_name,
-                    'wallet_id': payverve_transfer.wallet_id,
-                    'created_at': payverve_transfer.created_at,
-                    'updated_at': payverve_transfer.updated_at
+                    'id': swapped_currency.id,
+                    'amount_from_base_currency': Cryptographer.decrypt(swapped_currency.amount_from_base_currency),
+                    'amount_to_target_currency': Cryptographer.decrypt(swapped_currency.amount_to_target_currency),
+                    'coversion_rate': swapped_currency.coversion_rate,
+                    'narration': swapped_currency.narration,
+                    'wallet_identifier': swapped_currency.wallet_identifier,
+                    'reference': swapped_currency.reference,
+                    'transaction_type': swapped_currency.transaction_type,
+                    'swap_pairs': swapped_currency.swap_pairs,
+                    'user_id': swapped_currency.user_id,
+                    'user': swapped_currency.users.first_name + ' ' + swapped_currency.users.last_name,
+                    'wallet_id': swapped_currency.wallet_id,
+                    'created_at': swapped_currency.created_at,
+                    'updated_at': swapped_currency.updated_at
                 })
 
             return jsonify({
@@ -281,33 +280,33 @@ class PayverveTransferResource(Resource):
 
     @staticmethod
     def read_one(id=None):
-        """ Retrieve one payverve transfer by id """
+        """ Retrieve one swapped currency by id """
 
-        payverve_transfer = PayverveTransferModel.query.filter_by(id=id).first()
+        swapped_currency = SwapCurrencyModel.query.filter_by(id=id).first()
 
         try:
-            if not payverve_transfer:
+            if not swapped_currency:
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'message': 'no payverve transfer was found'
+                    'message': 'no swapped currency was found'
                 }), 404
 
             data = {
-                'id': payverve_transfer.id,
-                'amount_from_sender': Cryptographer.decrypt(payverve_transfer.amount_from_sender),
-                'amount_to_recipient': Cryptographer.decrypt(payverve_transfer.amount_to_recipient),
-                'coversion_rate': payverve_transfer.coversion_rate,
-                'narration': payverve_transfer.narration,
-                'wallet_identifier': payverve_transfer.wallet_identifier,
-                'reference': payverve_transfer.reference,
-                'transaction_type': payverve_transfer.transaction_type,
-                'transfer_pair': payverve_transfer.transfer_pair,
-                'user_id': payverve_transfer.user_id,
-                'sender': payverve_transfer.users.first_name + ' ' + payverve_transfer.users.last_name,
-                'wallet_id': payverve_transfer.wallet_id,
-                'created_at': payverve_transfer.created_at,
-                'updated_at': payverve_transfer.updated_at
+                'id': swapped_currency.id,
+                'amount_from_base_currency': Cryptographer.decrypt(swapped_currency.amount_from_base_currency),
+                'amount_to_target_currency': Cryptographer.decrypt(swapped_currency.amount_to_target_currency),
+                'coversion_rate': swapped_currency.coversion_rate,
+                'narration': swapped_currency.narration,
+                'wallet_identifier': swapped_currency.wallet_identifier,
+                'reference': swapped_currency.reference,
+                'transaction_type': swapped_currency.transaction_type,
+                'swap_pairs': swapped_currency.swap_pairs,
+                'user_id': swapped_currency.user_id,
+                'user': swapped_currency.users.first_name + ' ' + swapped_currency.users.last_name,
+                'wallet_id': swapped_currency.wallet_id,
+                'created_at': swapped_currency.created_at,
+                'updated_at': swapped_currency.updated_at
             }
 
             return jsonify({
@@ -339,19 +338,19 @@ class PayverveTransferResource(Resource):
 
     @staticmethod
     def delete(id=None):
-        """ Retrieve and delete one payverve tranfer by id """
+        """ Retrieve and delete one swapped currency by id """
 
-        payverve_transfer = PayverveTransferModel.query.filter_by(id=id).first()
+        swapped_currency = SwapCurrencyModel.query.filter_by(id=id).first()
 
         try:
-            if not payverve_transfer:
+            if not swapped_currency:
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'message': 'no payverve transfer was found'
+                    'message': 'no swapped currency was found'
                 }), 404
 
-            payverve_transfer.delete()
+            swapped_currency.delete()
 
             return jsonify({
                 'code': 200,

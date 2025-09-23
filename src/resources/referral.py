@@ -11,7 +11,9 @@ from sqlalchemy.exc import DataError, \
     ProgrammingError, \
     SQLAlchemyError
 
-from ..models import ReferralModel, UserModel
+from ..models import CurrencyModel, ReferralModel, UserModel, WalletModel
+from ..utilities import Cryptographer
+from ..value_object import MinimumBalance
 
 
 class ReferralResource(Resource):
@@ -43,7 +45,7 @@ class ReferralResource(Resource):
                 return jsonify({
                     'code': 403,
                     'code_status': 'forbidden',
-                    'message': 'you are not allowed to create a wallet'
+                    'message': 'you are not allowed to create a referral'
                 }), 403
 
             # noinspection PyArgumentList
@@ -54,6 +56,34 @@ class ReferralResource(Resource):
                 referred_code=referred_code
             )
             new_referred.save()
+
+            ngn_wallet = CurrencyModel.query.filter_by(short_code='ngn').first().id
+
+            referral_wallet = WalletModel.query.filter_by(user_id=referral_id, currency_id=ngn_wallet).first()
+            referred_wallet = WalletModel.query.filter_by(user_id=referred_id, currency_id=ngn_wallet).first()
+
+            decrypted_referral_fund = Cryptographer.decrypt(referral_wallet.fund)
+            decrypted_referred_fund = Cryptographer.decrypt(referred_wallet.fund)
+
+            current_decrypted_referral_fund = float(decrypted_referral_fund)
+            current_decrypted_referred_fund = float(decrypted_referred_fund)
+
+            MinimumBalance(current_decrypted_referral_fund)
+            MinimumBalance(current_decrypted_referred_fund)
+
+            bonus_fund = float(500.00)
+
+            referral_bonus = bonus_fund + current_decrypted_referral_fund
+            referred_bonus = bonus_fund + current_decrypted_referred_fund
+
+            encrypt_referral_fund = Cryptographer.encrypt(referral_bonus)
+            encrypt_referred_fund = Cryptographer.encrypt(referred_bonus)
+
+            referral_wallet.fund = encrypt_referral_fund
+            referral_wallet.save()
+
+            referred_wallet.fund = encrypt_referred_fund
+            referred_wallet.save()
 
             return jsonify({
                 'code': 201,

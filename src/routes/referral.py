@@ -4,7 +4,7 @@
 
 from flask import Blueprint
 
-from ..middlewares import jwt_required
+from ..auth import jwt_required
 from ..resources import ReferralResource
 
 ReferralBlueprint = Blueprint("referral", __name__)

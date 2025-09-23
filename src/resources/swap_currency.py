@@ -37,6 +37,8 @@ class SwapCurrencyResource(Resource):
     def create(amount, narration, wallet_identifier, user_id, wallet_id):
         """ Swap Currency """
 
+        # @ TODO: add a real fx charge system
+
         try:
             if len(wallet_identifier) != 10 or not wallet_identifier.isdigit():
                 return jsonify({
@@ -48,6 +50,13 @@ class SwapCurrencyResource(Resource):
             MinimumBalance(int(amount))
 
             base_currency_wallet = WalletModel.query.filter_by(id=wallet_id, user_id=user_id).first()
+
+            if not base_currency_wallet.is_active:
+                return jsonify({
+                    'code': 403,
+                    'code_message': 'forbidden',
+                    'message': f'your {base_currency_wallet.currencies.short_code} wallet does not have the facility to perform this operation'
+                }), 403
 
             if not base_currency_wallet:
                 return jsonify({
@@ -67,6 +76,13 @@ class SwapCurrencyResource(Resource):
 
             target_currency_wallet = WalletModel.query.filter_by(wallet_identifier=wallet_identifier,
                                                                  user_id=user_id).first()
+
+            if not target_currency_wallet.is_active:
+                return jsonify({
+                    'code': 403,
+                    'code_message': 'forbidden',
+                    'message': f'your {target_currency_wallet.currencies.short_code} wallet does not have the facility to perform this operation'
+                }), 403
 
             if not target_currency_wallet:
                 return jsonify({

@@ -9,8 +9,8 @@ import jwt
 from flask import jsonify, request
 
 from config import access_secret_key
-from ..models import AdminModel, UserModel
-from ..utilities import decode_token
+from src.models import AdminModel, UserModel
+from src.utilities import decode_token
 
 
 def jwt_required(f):
@@ -84,7 +84,7 @@ def jwt_required(f):
                 return jsonify({
                     "code": 404,
                     "code_message": "not found",
-                    "message": "The requested customer was not found"
+                    "message": "The requested user was not found"
                 }), 404
 
             if not checked_user.email_verified:

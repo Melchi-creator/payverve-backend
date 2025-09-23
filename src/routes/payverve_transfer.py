@@ -6,7 +6,7 @@ Defines all api routes for payverve transfer resources especially CRUD
 
 from flask import Blueprint
 
-from ..middlewares import jwt_required
+from ..auth import jwt_required
 from ..resources import PayverveTransferResource
 
 PayverveTransferBlueprint = Blueprint("payverve_transfer", __name__)
