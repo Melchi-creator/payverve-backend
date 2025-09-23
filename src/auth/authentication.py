@@ -36,7 +36,7 @@ class Authentication(Resource):
                 return jsonify({
                     'code': 404,
                     'code_message': 'not found',
-                    'data': 'user not found'
+                    'message': 'user not found'
                 }), 404
 
             if not check_user.email_verified:
@@ -129,7 +129,7 @@ class Authentication(Resource):
             return jsonify({
                 "code": 500,
                 'code_message': 'database error',
-                "data": "this error is a database error",
+                "message": "this error is a database error",
             }), 500
 
     @staticmethod
@@ -150,7 +150,7 @@ class Authentication(Resource):
                 return jsonify({
                     'code': 404,
                     'code_message': 'not found',
-                    'data': 'user not found'
+                    'message': 'user not found'
                 }), 404
 
             if not check_admin.email_verified:
@@ -219,7 +219,7 @@ class Authentication(Resource):
             return jsonify({
                 "code": 500,
                 'code_message': 'database error',
-                "data": "this error is a database error",
+                "message": "this error is a database error",
             }), 500
 
     @staticmethod
@@ -272,7 +272,7 @@ class Authentication(Resource):
                 return jsonify({
                     "code": 404,
                     'code_message': 'not found',
-                    "data": "The requested customer was not found",
+                    "message": "The requested customer was not found",
                 }), 404
 
             if not user.email_verified:
@@ -352,5 +352,5 @@ class Authentication(Resource):
             return jsonify({
                 "code": 500,
                 'code_message': 'database error',
-                "data": "this error is a database error",
+                "message": "this error is a database error",
             }), 500
