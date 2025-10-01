@@ -19,8 +19,8 @@ USER appuser
 # Step 5: Install dependencies
 # Copy only the requirements file first to leverage Docker's build cache.
 # This step will only be re-run if the requirements file changes.
-COPY --chown=appuser:appuser prod-requirements.txt .
-RUN pip install --no-cache-dir -r prod-requirements.txt
+COPY --chown=appuser:appuser requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Step 6: Copy your application code into the container
 # This includes wsgi.py, server.py, config.py, and the src/, migrations/, templates/ folders.
