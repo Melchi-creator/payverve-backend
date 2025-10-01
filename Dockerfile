@@ -31,4 +31,4 @@ EXPOSE 8000
 
 # Step 8: Define the command to run your application
 # We know from our manual testing that the correct command is 'wsgi:payverve'
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "wsgi:payverve"]
+CMD ["gunicorn", "--bind", "0.0.0.0:${PORT}", "wsgi:payverve"]
