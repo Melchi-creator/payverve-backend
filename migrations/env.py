@@ -1,5 +1,6 @@
 import os
 from dotenv import load_dotenv
+from sqlalchemy import create_engine
 import logging
 from logging.config import fileConfig
 
@@ -101,7 +102,8 @@ def run_migrations_online():
     if conf_args.get("process_revision_directives") is None:
         conf_args["process_revision_directives"] = process_revision_directives
 
-    connectable = get_engine()
+    #connectable = get_engine()
+    connectable = create_engine(os.environ.get('SQLALCHEMY_DATABASE_URI'))
 
     with connectable.connect() as connection:
         context.configure(
