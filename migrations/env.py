@@ -1,17 +1,10 @@
-import os
-from dotenv import load_dotenv
-from sqlalchemy import create_engine
 import logging
 from logging.config import fileConfig
 
 from flask import current_app
 
 from alembic import context
-# Load .env file from the project root
-dotenv_path = os.path.join(os.path.dirname(__file__), '..', '.env')
-if os.path.exists(dotenv_path):
-    load_dotenv(dotenv_path)
-    
+
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
@@ -43,8 +36,7 @@ def get_engine_url():
 # for 'autogenerate' support
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
-# config.set_main_option('sqlalchemy.url', get_engine_url())
-config.set_main_option('sqlalchemy.url', os.environ.get('SQLALCHEMY_DATABASE_URI'))
+config.set_main_option('sqlalchemy.url', get_engine_url())
 target_db = current_app.extensions['migrate'].db
 
 # other values from the config, defined by the needs of env.py,
@@ -102,8 +94,7 @@ def run_migrations_online():
     if conf_args.get("process_revision_directives") is None:
         conf_args["process_revision_directives"] = process_revision_directives
 
-    #connectable = get_engine()
-    connectable = create_engine(os.environ.get('SQLALCHEMY_DATABASE_URI'))
+    connectable = get_engine()
 
     with connectable.connect() as connection:
         context.configure(
