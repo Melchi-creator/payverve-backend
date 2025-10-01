@@ -3,7 +3,8 @@ src/utilities/bearer_token.py
 This module provides functions to encode and decode JWT tokens for authentication purposes.
 """
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
+
 
 import jwt
 from flask import request
@@ -17,9 +18,9 @@ def encode_token(extra_payload, time_length, secret_key):
     """
     try:
         payload = {
-            'exp': datetime.now(UTC) + timedelta(days=0, seconds=time_length),
-            'iat': datetime.now(UTC),
-            'nbf': datetime.now(UTC),
+            'exp': datetime.now(timezone.utc) + timedelta(days=0, seconds=time_length),
+            'iat': datetime.now(timezone.utc),
+            'nbf': datetime.now(timezone.utc),
             'iss': request.url,
         }
         payload.update(extra_payload)
