@@ -162,6 +162,7 @@ class UserResource(Resource):
                 'user_id': str(new_user.id),
                 'created_by_payverve': True,
                 'email_address': new_user.email_address,
+                'new_user': True,
             }
 
             kyc_response = requests.request("POST", f'{config.app_path}/kycs', json=payload)
