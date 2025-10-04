@@ -29,6 +29,7 @@ class KYCResource(Resource):
             user_id = request.json.get('user_id')
             email_address = request.json.get('email_address')
             created_by_payverve = request.json.get('created_by_payverve')
+            new_user = request.json.get('new_user')
 
             customer_confirmation = UserModel.query.filter_by(id=user_id, email_address=email_address).first()
 
@@ -39,12 +40,13 @@ class KYCResource(Resource):
                     'message': 'user not found'
                 }), 404
 
-            if not customer_confirmation.email_verified or not customer_confirmation.account_active:
-                return jsonify({
-                    'code': 403,
-                    'code_status': 'forbidden',
-                    'message': 'you are not allowed to create a kyc until your email is verified and account active'
-                }), 403
+            if not new_user:
+                if not customer_confirmation.email_verified or not customer_confirmation.account_active:
+                    return jsonify({
+                        'code': 403,
+                        'code_status': 'forbidden',
+                        'message': 'you are not allowed to create a kyc until your email is verified and account active'
+                    }), 403
 
 
             if not created_by_payverve:
