@@ -35,6 +35,8 @@ class AdminModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     country = db.Column(db.String(), nullable=True)
     photo = db.Column(db.String(), nullable=True)
     email_verified = db.Column(db.Boolean, default=False)
+    account_active = db.Column(db.Boolean(), nullable=False, default=False)
+    deleted = db.Column(db.Boolean(), nullable=False, default=False)
     password_reset_code = db.Column(db.String(), nullable=True)
 
     created_at = db.Column(db.DateTime(), default=datetime.now(), nullable=False)

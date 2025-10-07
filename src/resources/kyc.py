@@ -48,7 +48,6 @@ class KYCResource(Resource):
                         'message': 'you are not allowed to create a kyc until your email is verified and account active'
                     }), 403
 
-
             if not created_by_payverve:
                 return jsonify({
                     'code': 403,

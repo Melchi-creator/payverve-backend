@@ -4,7 +4,6 @@ This module defines the WalletResource class, which provides RESTful endpoints f
 It includes methods for creating, reading, updating, and deleting wallets, as well as handling errors
 related to database operations.
 """
-import secrets
 from hmac import compare_digest
 
 import requests
@@ -171,7 +170,10 @@ class WalletResource(Resource):
                     'bvn': kyc_check.bvn,
                 }
 
-                response = requests.request("POST", f'{config.app_path}/flutterwave-create-ngn', headers=headers, json=payload)
+                response = requests.request("POST",
+                                            f'{config.app_path}/flutterwave-create-ngn',
+                                            headers=headers,
+                                            json=payload)
 
                 if response.status_code != 200:
                     return jsonify({

@@ -43,6 +43,7 @@ class UserModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     email_verified = db.Column(db.Boolean, default=False)
     user_code = db.Column(db.String(), nullable=False)
     password_reset_code = db.Column(db.String(), nullable=True)
+    jti = db.Column(db.Text(), nullable=True)  # JWT ID for token revocation
 
     created_at = db.Column(db.DateTime(), default=datetime.now(), nullable=False)
     updated_at = db.Column(db.DateTime(), onupdate=datetime.now(), nullable=True)
