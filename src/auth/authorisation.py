@@ -4,13 +4,14 @@ the authorisation module is used to check if the user is authenticated
 """
 
 from functools import wraps
+from hmac import compare_digest
 
 import jwt
 from flask import jsonify, request
 
 from config import access_secret_key
 from src.models import AdminModel, UserModel
-from src.utilities import decode_token
+from src.utilities import Cryptographer, decode_token
 
 
 def jwt_required(f):
@@ -67,6 +68,7 @@ def jwt_required(f):
                 }), 401
 
             user_id = current_user['sub']
+            jti = current_user['jti']
 
             checked_user = None
 
@@ -82,10 +84,19 @@ def jwt_required(f):
 
             if not checked_user:
                 return jsonify({
-                    "code": 404,
-                    "code_message": "not found",
-                    "message": "The requested user was not found"
-                }), 404
+                    "code": 403,
+                    "code_message": "forbidden",
+                    "data": "You don't have access to this resource, logout and login again"
+                }), 403
+
+            verify_jti = Cryptographer.decrypt(checked_user.jti)
+
+            if not compare_digest(str(jti), str(verify_jti)):
+                return jsonify({
+                    "code": 401,
+                    "code_message": "Authentication token is invalid",
+                    "data": "Token does not passs validation"
+                }), 401
 
             if not checked_user.email_verified:
                 return jsonify({

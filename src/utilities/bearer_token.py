@@ -11,7 +11,7 @@ from flask import request
 import config
 
 
-def encode_token(extra_payload, time_length, secret_key):
+def encode_token(extra_payload, jti, time_length, secret_key):
     """
     Generates the Auth Token
     """
@@ -20,6 +20,7 @@ def encode_token(extra_payload, time_length, secret_key):
             'exp': datetime.now(UTC) + timedelta(days=0, seconds=time_length),
             'iat': datetime.now(UTC),
             'nbf': datetime.now(UTC),
+            'jti': jti,
             'iss': request.url,
         }
         payload.update(extra_payload)

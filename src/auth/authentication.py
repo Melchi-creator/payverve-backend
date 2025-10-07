@@ -1,6 +1,7 @@
 """
 
 """
+import secrets
 from datetime import datetime, timedelta
 
 from flask import jsonify, make_response, request
@@ -11,7 +12,7 @@ from sqlalchemy.exc import DBAPIError, DisconnectionError
 
 import config
 from src.models import AdminModel, UserModel
-from src.utilities import decode_token, encode_token, parse_params
+from src.utilities import Cryptographer, decode_token, encode_token, parse_params
 from src.value_object import EmailCheck
 
 
@@ -73,8 +74,10 @@ class Authentication(Resource):
                 'family_name': check_user.last_name,
             }
 
-            access_token = encode_token(extra_payload, config.access_token_time, config.access_secret_key)
-            refresh_token = encode_token(extra_payload, config.refresh_token_time, config.refresh_secret_key)
+            jti = secrets.token_urlsafe(16)
+
+            access_token = encode_token(extra_payload, jti, config.access_token_time, config.access_secret_key)
+            refresh_token = encode_token(extra_payload, jti, config.refresh_token_time, config.refresh_secret_key)
 
             # Build response body
             response_body = {
@@ -115,6 +118,9 @@ class Authentication(Resource):
                 samesite='None',
                 max_age=config.refresh_token_time
             )
+
+            check_user.jti = Cryptographer.encrypt(jti)
+            check_user.save()
 
             return response
 
@@ -187,8 +193,13 @@ class Authentication(Resource):
                 'family_name': check_admin.last_name,
             }
 
-            access_token = encode_token(extra_payload, config.access_token_time, config.access_secret_key)
-            refresh_token = encode_token(extra_payload, config.refresh_token_time, config.refresh_secret_key)
+            jti = secrets.token_urlsafe(16)
+
+            access_token = encode_token(extra_payload, jti, config.access_token_time, config.access_secret_key)
+            refresh_token = encode_token(extra_payload, jti, config.refresh_token_time, config.refresh_secret_key)
+
+            check_admin.jti = Cryptographer.encrypt(jti)
+            check_admin.save()
 
             return jsonify({
                 'code': 200,
@@ -303,9 +314,11 @@ class Authentication(Resource):
                 'family_name': user.last_name,
             }
 
+            jti = secrets.token_urlsafe(16)
+
             # Generate new access token
-            access_token = encode_token(extra_payload, config.access_token_time, config.access_secret_key)
-            refresh_token = encode_token(extra_payload, config.refresh_token_time, config.refresh_secret_key)
+            access_token = encode_token(extra_payload, jti, config.access_token_time, config.access_secret_key)
+            refresh_token = encode_token(extra_payload, jti, config.refresh_token_time, config.refresh_secret_key)
 
             # Build response body
             response_body = {
@@ -344,6 +357,9 @@ class Authentication(Resource):
                 samesite='None',
                 max_age=config.refresh_token_time
             )
+
+            user.jti = Cryptographer.encrypt(jti)
+            user.save()
 
             return response
 
