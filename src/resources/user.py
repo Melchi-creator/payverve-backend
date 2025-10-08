@@ -15,9 +15,9 @@ from flask_restful import Resource
 from flask_restful.reqparse import Argument
 from sqlalchemy.exc import DBAPIError, DataError, \
     DisconnectionError, \
-    InternalError, \
+    IntegrityError, InternalError, \
     OperationalError, \
-    ProgrammingError
+    ProgrammingError, SQLAlchemyError
 
 import config
 from ..middlewares import MailtrapHelper
