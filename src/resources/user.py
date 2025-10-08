@@ -15,10 +15,9 @@ from flask_restful import Resource
 from flask_restful.reqparse import Argument
 from sqlalchemy.exc import DBAPIError, DataError, \
     DisconnectionError, \
-    IntegrityError, \
     InternalError, \
     OperationalError, \
-    ProgrammingError, SQLAlchemyError
+    ProgrammingError
 
 import config
 from ..middlewares import MailtrapHelper
@@ -57,6 +56,15 @@ class UserResource(Resource):
                     'code': 409,
                     'code_status': 'conflict',
                     'message': 'email address already has an account'
+                }), 409
+
+            user_mobile_number = user_model.filter_by(mobile_number=mobile_number).first()
+
+            if user_mobile_number:
+                return jsonify({
+                    'code': 409,
+                    'code_status': 'conflict',
+                    'message': 'mobile number already has an account'
                 }), 409
 
             username_check = user_model.filter_by(username=username.lower()).first()
@@ -221,8 +229,6 @@ class UserResource(Resource):
 
             current_year = datetime.now().year
 
-            print(verification_code)
-
             endpoint = '/send'
             receipient = [
                 {"email": new_user.email_address,
@@ -324,7 +330,7 @@ class UserResource(Resource):
                 'code': 500,
                 'code_status': 'database error - programming error',
                 'message': 'could not fetch table'
-            }),
+        }),
 
     @staticmethod
     def read_all():
@@ -1361,7 +1367,6 @@ class UserResource(Resource):
                     'code_status': 'bad request',
                     'message': 'transaction pin is incorrect'
                 }), 400
-
 
             return jsonify({
                 'code': 200,
