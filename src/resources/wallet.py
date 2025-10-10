@@ -4,6 +4,7 @@ This module defines the WalletResource class, which provides RESTful endpoints f
 It includes methods for creating, reading, updating, and deleting wallets, as well as handling errors
 related to database operations.
 """
+import secrets
 from hmac import compare_digest
 
 import requests
@@ -61,7 +62,8 @@ class WalletResource(Resource):
                 fund=encrypt_fund,
                 wallet_identifier=wallet_identifier,
                 user_id=user_id,
-                currency_id=currency_id
+                currency_id=currency_id,
+                account_number=secrets.randbits(10)
             )
             new_wallet.save()
 
