@@ -18,9 +18,9 @@ def encode_token(extra_payload, jti, time_length, secret_key):
     """
     try:
         payload = {
-            'exp': datetime.now(UTC) + timedelta(days=0, seconds=time_length),
-            'iat': datetime.now(UTC),
-            'nbf': datetime.now(UTC),
+            'exp': datetime.now() + timedelta(days=0, seconds=time_length),
+            'iat': datetime.now(),
+            'nbf': datetime.now(),
             'jti': jti,
             'iss': request.url,
         }
