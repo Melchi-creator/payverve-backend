@@ -10,7 +10,7 @@ from sqlalchemy.exc import DataError, \
     SQLAlchemyError
 
 from ..middlewares import PaystackHelper
-from ..models import BankAccountModel, UserModel
+from ..models import BankAccountModel, KYCModel, UserModel
 from ..utilities import Cryptographer, parse_params
 
 
@@ -25,8 +25,6 @@ class BankAccountResource(Resource):
     def create(bank_name, bank_code, account_number, user_id):
         """ Adds a new bank account """
 
-        bank_accounts = BankAccountModel.query.all()
-
         try:
 
             customer = UserModel.query.filter_by(id=user_id).first()
@@ -40,16 +38,16 @@ class BankAccountResource(Resource):
 
             # @TODO: Know your customer
 
-            # existing_kyc = KnowYourCustomerModel.query.filter_by(user_id=user_id).first()
-            #
-            # if not existing_kyc or existing_kyc.bvn is None:
-            #     return jsonify({
-            #         'code': 400,
-            #         'code_message': 'bad request',
-            #         'message': 'You need to complete your KYC before adding bank account details'
-            #     }), 400
+            existing_kyc = KYCModel.query.filter_by(user_id=user_id).first()
 
-            number_of_account= BankAccountModel.query.filter_by(user_id=user_id).count()
+            if not existing_kyc or existing_kyc.bvn is None:
+                return jsonify({
+                    'code': 400,
+                    'code_message': 'bad request',
+                    'message': 'You need to complete your KYC before adding bank account details'
+                }), 400
+
+            number_of_account = BankAccountModel.query.filter_by(user_id=user_id).count()
 
             if number_of_account >= 2:
                 return jsonify({
@@ -59,7 +57,7 @@ class BankAccountResource(Resource):
                 }), 400
 
             bank_detail = BankAccountModel.query.filter_by(user_id=user_id,
-                                                          account_number=account_number).first()
+                                                           account_number=account_number).first()
 
             if bank_detail:
                 return jsonify({
@@ -167,7 +165,7 @@ class BankAccountResource(Resource):
                 account_number=account_number,
                 account_type=account_type,
                 currency=currency,
-                document_type=document_type
+                # document_type=document_type
             )
 
             new_bank_detail.save()
@@ -175,7 +173,7 @@ class BankAccountResource(Resource):
             return jsonify({
                 'code': 201,
                 'code_status': 'created',
-                'data': 'bank account was successfully added'
+                'message': 'bank account was successfully added'
             }), 201
         except IntegrityError:
             return jsonify({
@@ -242,7 +240,7 @@ class BankAccountResource(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': data
+                'message': data
             }), 200
 
         except InternalError:
@@ -293,7 +291,7 @@ class BankAccountResource(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': data
+                'message': data
             }), 200
 
         except InternalError:
@@ -369,7 +367,7 @@ class BankAccountResource(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': data
+                'message': data
             }), 200
 
         except InternalError:
@@ -412,7 +410,7 @@ class BankAccountResource(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': 'account was deleted successfully'
+                'message': 'account was deleted successfully'
             }), 200
 
         except InternalError:

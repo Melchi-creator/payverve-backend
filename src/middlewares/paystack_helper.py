@@ -33,7 +33,7 @@ class PaystackHelper:
             return jsonify({
                 'code': 500,
                 'code_message': 'server error',
-                'data': f'an error occurred: {str(e)}'
+                'message': f'an error occurred: {str(e)}'
             }), 500
 
     @staticmethod
@@ -57,7 +57,7 @@ class PaystackHelper:
             return jsonify({
                 'code': 500,
                 'code_message': 'server error',
-                'data': f'an error occurred: {str(e)}'
+                'message': f'an error occurred: {str(e)}'
             }), 500
 
     @staticmethod
@@ -80,7 +80,7 @@ class PaystackHelper:
             return jsonify({
                 'code': 500,
                 'code_message': 'server error',
-                'data': f'an error occurred: {str(e)}'
+                'message': f'an error occurred: {str(e)}'
             }), 500
 
     @staticmethod
@@ -103,7 +103,7 @@ class PaystackHelper:
             return jsonify({
                 'code': 500,
                 'code_message': 'server error',
-                'data': f'an error occurred: {str(e)}'
+                'message': f'an error occurred: {str(e)}'
             }), 500
 
     @staticmethod
@@ -130,5 +130,5 @@ class PaystackHelper:
             return jsonify({
                 'code': 500,
                 'code_message': 'server error',
-                'data': f'an error occurred: {str(e)}'
+                'message': f'an error occurred: {str(e)}'
             }), 500

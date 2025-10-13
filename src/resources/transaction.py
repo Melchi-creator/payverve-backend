@@ -49,7 +49,7 @@ class TransactionResource(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': data
+                'message': data
             }), 200
 
         except InternalError:
@@ -103,7 +103,7 @@ class TransactionResource(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': data
+                'message': data
             }), 200
 
         except InternalError:
@@ -160,7 +160,7 @@ class TransactionResource(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': data
+                'message': data
             }), 200
 
         except InternalError:

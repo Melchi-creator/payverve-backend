@@ -31,9 +31,9 @@ class PayverveWalletResource(Resource):
             }
 
             return jsonify({
-                "status": "success",
-                "message": "Payverve funds retrieved successfully",
-                "data": data
+                "codd": 200,
+                "code_message": "successful",
+                'message': data
             }), 200
 
         except InternalError:

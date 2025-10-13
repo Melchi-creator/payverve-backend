@@ -44,7 +44,7 @@ class AdminRoleResource(Resource):
             return jsonify({
                 'code': 201,
                 'code_status': 'created',
-                'data': 'admin role was successfully added'
+                'message': 'admin role was successfully added'
             }), 201
 
         except IntegrityError:
@@ -101,7 +101,7 @@ class AdminRoleResource(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': data
+                'message': data
             }), 200
 
         except InternalError:
@@ -147,7 +147,7 @@ class AdminRoleResource(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': data
+                'message': data
             }), 200
 
         except InternalError:
@@ -199,7 +199,7 @@ class AdminRoleResource(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': data
+                'message': data
             }), 200
 
         except InternalError:
@@ -242,7 +242,7 @@ class AdminRoleResource(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': 'admin role was deleted successfully'
+                'message': 'admin role was deleted successfully'
             }), 200
 
         except InternalError:
