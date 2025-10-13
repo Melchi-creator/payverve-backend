@@ -55,7 +55,7 @@ class VirtualAccountNumberResource(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': data
+                'message': data
             }), 200
 
         except InternalError:
@@ -117,7 +117,7 @@ class VirtualAccountNumberResource(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': data
+                'message': data
             }), 200
 
         except InternalError:
@@ -182,7 +182,7 @@ class VirtualAccountNumberResource(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': data
+                'message': data
             }), 200
 
         except InternalError:

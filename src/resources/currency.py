@@ -52,7 +52,7 @@ class CurrencyResource(Resource):
             return jsonify({
                 'code': 201,
                 'code_status': 'created',
-                'data': 'currency was successfully added'
+                'message': 'currency was successfully added'
             }), 201
 
         except IntegrityError:
@@ -128,7 +128,7 @@ class CurrencyResource(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': data
+                'message': data
             }), 200
 
         except InternalError:
@@ -178,28 +178,28 @@ class CurrencyResource(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': data
+                'message': data
             }), 200
 
         except InternalError:
             return jsonify({
                 'code': 500,
                 'code_status': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - operation and disconnection error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - programming error',
-                'data': 'could not fetch table'
+                'message': 'could not fetch table'
             }), 500
 
     @staticmethod
@@ -235,28 +235,28 @@ class CurrencyResource(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': "currency was updated successfully"
+                'message': "currency was updated successfully"
             }), 200
 
         except InternalError:
             return jsonify({
                 'code': 500,
                 'code_status': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - operation and disconnection error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - programming error',
-                'data': 'could not fetch table'
+                'message': 'could not fetch table'
             }), 500
 
     @staticmethod
@@ -278,26 +278,26 @@ class CurrencyResource(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': 'currency was deleted successfully'
+                'message': 'currency was deleted successfully'
             }), 200
 
         except InternalError:
             return jsonify({
                 'code': 500,
                 'code_status': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - operation and disconnection error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - programming error',
-                'data': 'could not fetch table'
+                'message': 'could not fetch table'
             }), 500

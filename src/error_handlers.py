@@ -44,7 +44,7 @@ def internal_error_handler(e):
     return jsonify({
         'code': 500,
         'code_status': 'internal server - internal server error',
-        'data': 'could not fetch data'
+        'message': 'could not fetch data'
     }), 500
 
 
@@ -53,7 +53,7 @@ def operational_error_handler(e):
     return jsonify({
         'code': 500,
         'code_status': 'database error - operation error',
-        'data': 'could not fetch data'
+        'message': 'could not fetch data'
     }), 500
 
 
@@ -62,7 +62,7 @@ def SQLAlchemy_error_handler(e):
     return jsonify({
         'code': 500,
         'code_status': 'database error - sqlalchemy error',
-        'data': 'could not fetch data'
+        'message': 'could not fetch data'
     }), 500
 
 
@@ -71,7 +71,7 @@ def disconnection_error_handler(e):
     return jsonify({
         'code': 500,
         'code_status': 'database error - disconnection error',
-        'data': 'could not fetch data'
+        'message': 'could not fetch data'
     }), 500
 
 
@@ -80,7 +80,7 @@ def programming_error_handler(e):
     return jsonify({
         'code': 500,
         'code_status': 'database error - programming error',
-        'data': 'could not fetch table'
+        'message': 'could not fetch table'
     }), 500
 
 

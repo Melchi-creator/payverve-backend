@@ -40,19 +40,19 @@ class Authentication(Resource):
                     'message': 'user not found'
                 }), 404
 
-            if not check_user.email_verified:
-                return jsonify({
-                    'code': 403,
-                    'code_message': 'forbidden',
-                    'message': 'email not verified'
-                }), 403
-
-            if not check_user.account_active:
-                return jsonify({
-                    'code': 403,
-                    'code_message': 'forbidden',
-                    'message': 'user account is inactive, contact admin'
-                }), 403
+            # if not check_user.email_verified:
+            #     return jsonify({
+            #         'code': 403,
+            #         'code_message': 'forbidden',
+            #         'message': 'email not verified'
+            #     }), 403
+            # 
+            # if not check_user.account_active:
+            #     return jsonify({
+            #         'code': 403,
+            #         'code_message': 'forbidden',
+            #         'message': 'user account is inactive, contact admin'
+            #     }), 403
 
             if check_user.deleted:
                 return jsonify({
@@ -83,7 +83,7 @@ class Authentication(Resource):
             response_body = {
                 'code': 200,
                 'code_message': 'successful',
-                'data': {
+                'message': {
                     'access_token': access_token,
                     'refresh_token': refresh_token,
                     'expires': (datetime.now() + timedelta(seconds=config.access_token_time)).strftime('%I:%M %p'),
@@ -204,7 +204,7 @@ class Authentication(Resource):
             return jsonify({
                 'code': 200,
                 'code_message': 'successful',
-                'data': {
+                'message': {
                     'access_token': access_token,
                     'refresh_token': refresh_token,
                     'expires': (datetime.now() + timedelta(seconds=config.access_token_time)).strftime('%I:%M %p'),
@@ -324,7 +324,7 @@ class Authentication(Resource):
             response_body = {
                 'code': 200,
                 'code_message': 'successful',
-                'data': {
+                'message': {
                     'access_token': access_token,
                     'refresh_token': refresh_token,
                     'expires': (datetime.now() + timedelta(seconds=config.access_token_time)).strftime('%I:%M %p'),

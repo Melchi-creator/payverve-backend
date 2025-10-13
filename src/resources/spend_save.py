@@ -64,7 +64,7 @@ class SpendSaveResource(Resource):
             return jsonify({
                 'code': 201,
                 'code_status': 'created',
-                'data': 'spend and send successfully setup'
+                'message': 'spend and send successfully setup'
             }), 201
 
         except IntegrityError:
@@ -85,28 +85,28 @@ class SpendSaveResource(Resource):
             return jsonify({
                 'code': 500,
                 'code_status': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError, SQLAlchemyError):
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - operation, sqlalchemy and disconnection error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - programming error',
-                'data': 'could not fetch table'
+                'message': 'could not fetch table'
             }), 500
 
         except (ArithmeticError, ValueError, ZeroDivisionError):
             return jsonify({
                 'code': 500,
                 'code_status': 'calculation error - arithmetic, value, zerodivision error',
-                'data': 'could run an arithmetic calculation'
+                'message': 'could run an arithmetic calculation'
             }), 500
 
     @staticmethod
@@ -140,28 +140,28 @@ class SpendSaveResource(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': data
+                'message': data
             }), 200
 
         except InternalError:
             return jsonify({
                 'code': 500,
                 'code_status': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - operation and disconnection error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - programming error',
-                'data': 'could not fetch table'
+                'message': 'could not fetch table'
             }), 500
 
     @staticmethod
@@ -192,28 +192,28 @@ class SpendSaveResource(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': data
+                'message': data
             }), 200
 
         except InternalError:
             return jsonify({
                 'code': 500,
                 'code_status': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - operation and disconnection error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - programming error',
-                'data': 'could not fetch table'
+                'message': 'could not fetch table'
             }), 500
 
     @staticmethod
@@ -246,7 +246,7 @@ class SpendSaveResource(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': 'spend and save was successfully updated'
+                'message': 'spend and save was successfully updated'
             }), 200
 
         except IntegrityError:
@@ -267,21 +267,21 @@ class SpendSaveResource(Resource):
             return jsonify({
                 'code': 500,
                 'code_status': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError, SQLAlchemyError):
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - operation, sqlalchemy and disconnection error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - programming error',
-                'data': 'could not fetch table'
+                'message': 'could not fetch table'
             }), 500
 
     @staticmethod
@@ -327,7 +327,7 @@ class SpendSaveResource(Resource):
             return jsonify({
                 'code': 201,
                 'code_status': 'created',
-                'data': 'Withdrawal was successful from your spend and send'
+                'message': 'Withdrawal was successful from your spend and send'
             }), 201
 
         except IntegrityError:
@@ -348,26 +348,26 @@ class SpendSaveResource(Resource):
             return jsonify({
                 'code': 500,
                 'code_status': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError, SQLAlchemyError):
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - operation, sqlalchemy and disconnection error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - programming error',
-                'data': 'could not fetch table'
+                'message': 'could not fetch table'
             }), 500
 
         except (ArithmeticError, ValueError, ZeroDivisionError):
             return jsonify({
                 'code': 500,
                 'code_status': 'calculation error - arithmetic, value, zerodivision error',
-                'data': 'could run an arithmetic calculation'
+                'message': 'could run an arithmetic calculation'
             }), 500

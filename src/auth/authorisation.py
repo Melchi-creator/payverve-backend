@@ -98,19 +98,19 @@ def jwt_required(f):
                     "data": "Token does not passs validation"
                 }), 401
 
-            if not checked_user.email_verified:
-                return jsonify({
-                    "code": 403,
-                    "code_message": "forbidden",
-                    "message": "User is not verified"
-                }), 403
-
-            if not checked_user.account_active:
-                return jsonify({
-                    "code": 403,
-                    "code_message": "forbidden",
-                    "message": "Your account is not active"
-                }), 403
+            # if not checked_user.email_verified:
+            #     return jsonify({
+            #         "code": 403,
+            #         "code_message": "forbidden",
+            #         "message": "User is not verified"
+            #     }), 403
+            #
+            # if not checked_user.account_active:
+            #     return jsonify({
+            #         "code": 403,
+            #         "code_message": "forbidden",
+            #         "message": "Your account is not active"
+            #     }), 403
 
             if checked_user.deleted:
                 return jsonify({

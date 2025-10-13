@@ -136,7 +136,7 @@ class PayverveTransferResource(Resource):
                     return jsonify({
                         'code': response.status_code,
                         'code_status': response.json().get('code_status', 'error'),
-                        'data': response.json().get('data', 'could not fetch exchange rate')
+                        'message': response.json().get('data', 'could not fetch exchange rate')
                     }), response.status_code
 
                 exchange_rate = response.json().get("data")
@@ -192,7 +192,7 @@ class PayverveTransferResource(Resource):
                 if spend_save.is_active:
                     sender = WalletModel.query.filter_by(id=wallet_id).first()
 
-                    percentage_cal = (int(spend_save.percentage_to_save)/int(100))
+                    percentage_cal = (int(spend_save.percentage_to_save) / int(100))
                     amount_to_save = int(amount) * int(percentage_cal)
 
                     if sender.fund > amount_to_save:
@@ -218,7 +218,7 @@ class PayverveTransferResource(Resource):
             return jsonify({
                 'code': 201,
                 'code_status': 'created',
-                'data': 'money transfered successfully'
+                'message': 'money transfered successfully'
             }), 201
 
         except IntegrityError:
@@ -239,28 +239,28 @@ class PayverveTransferResource(Resource):
             return jsonify({
                 'code': 500,
                 'code_status': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError, SQLAlchemyError):
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - operation, sqlalchemy and disconnection error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - programming error',
-                'data': 'could not fetch table'
+                'message': 'could not fetch table'
             }), 500
 
         except (ArithmeticError, ValueError, ZeroDivisionError):
             return jsonify({
                 'code': 500,
                 'code_status': 'calculation error - arithmetic, value, zerodivision error',
-                'data': 'could run an arithmetic calculation'
+                'message': 'could run an arithmetic calculation'
             }), 500
 
     @staticmethod
@@ -300,28 +300,28 @@ class PayverveTransferResource(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': data
+                'message': data
             }), 200
 
         except InternalError:
             return jsonify({
                 'code': 500,
                 'code_status': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - operation and disconnection error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - programming error',
-                'data': 'could not fetch table'
+                'message': 'could not fetch table'
             }), 500
 
     @staticmethod
@@ -358,28 +358,28 @@ class PayverveTransferResource(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': data
+                'message': data
             }), 200
 
         except InternalError:
             return jsonify({
                 'code': 500,
                 'code_status': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - operation and disconnection error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - programming error',
-                'data': 'could not fetch table'
+                'message': 'could not fetch table'
             }), 500
 
     @staticmethod
@@ -401,26 +401,26 @@ class PayverveTransferResource(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': 'swap history was deleted successfully'
+                'message': 'swap history was deleted successfully'
             }), 200
 
         except InternalError:
             return jsonify({
                 'code': 500,
                 'code_status': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - operation and disconnection error',
-                'data': 'could not fetch data'
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - programming error',
-                'data': 'could not fetch table'
+                'message': 'could not fetch table'
             }), 500

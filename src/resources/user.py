@@ -280,7 +280,7 @@ class UserResource(Resource):
             return jsonify({
                 'code': 201,
                 'code_status': 'created',
-                'data': 'account was successfully created'
+                'message': 'account was successfully created'
             }), 201
 
         except ValueError as e:
@@ -330,7 +330,7 @@ class UserResource(Resource):
                 'code': 500,
                 'code_status': 'database error - programming error',
                 'message': 'could not fetch table'
-        }),
+            }),
 
     @staticmethod
     def read_all():
@@ -375,7 +375,7 @@ class UserResource(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': data
+                'message': data
             }), 200
 
         except InternalError:
@@ -396,7 +396,7 @@ class UserResource(Resource):
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - programming error',
-                'data': 'could not fetch table'
+                'message': 'could not fetch table'
             }), 500
 
     @staticmethod
@@ -439,7 +439,7 @@ class UserResource(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': data
+                'message': data
             }), 200
 
         except InternalError:
@@ -460,7 +460,7 @@ class UserResource(Resource):
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - programming error',
-                'data': 'could not fetch table'
+                'message': 'could not fetch table'
             }), 500
 
     @staticmethod
@@ -565,7 +565,7 @@ class UserResource(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': "user account was successfully updated",
+                'message': "user account was successfully updated",
             }), 200
 
         except InternalError:
@@ -620,7 +620,7 @@ class UserResource(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': 'account has been staged for deleting'
+                'message': 'account has been staged for deleting'
             }), 200
 
         except InternalError:
@@ -730,7 +730,7 @@ class UserResource(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'successful',
-                'data': 'verification was successful'
+                'message': 'verification was successful'
             }), 200
 
         except ValueError as e:
@@ -771,7 +771,7 @@ class UserResource(Resource):
                 return jsonify({
                     'code': 404,
                     'code_message': 'not found',
-                    'data': f'no account with {email_address} was found'
+                    'message': f'no account with {email_address} was found'
                 }), 404
 
             if customer.email_verified:
@@ -845,7 +845,7 @@ class UserResource(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'successful',
-                'data': 'verification code sent successfully'
+                'message': 'verification code sent successfully'
             }), 200
 
         except ValueError as e:
@@ -887,7 +887,7 @@ class UserResource(Resource):
                 return jsonify({
                     'code': 404,
                     'code_status': 'data not found',
-                    'data': 'no user account was found'
+                    'message': 'no user account was found'
                 }), 404
 
             old_password_check = user.check_password(old_password)
@@ -912,7 +912,7 @@ class UserResource(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': "password changed successfully"
+                'message': "password changed successfully"
             }), 200
 
         except InternalError:
@@ -990,7 +990,7 @@ class UserResource(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': "Auth pin created successfully"
+                'message': "Auth pin created successfully"
             }), 200
 
         except InternalError:
@@ -1099,7 +1099,7 @@ class UserResource(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': "auth pin changed successfully"
+                'message': "auth pin changed successfully"
             }), 200
 
         except InternalError:
@@ -1175,7 +1175,7 @@ class UserResource(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': "Transaction pin created successfully"
+                'message': "Transaction pin created successfully"
             }), 200
 
         except InternalError:
@@ -1282,7 +1282,7 @@ class UserResource(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': "transaction pin changed successfully"
+                'message': "transaction pin changed successfully"
             }), 200
 
         except InternalError:
@@ -1371,7 +1371,7 @@ class UserResource(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': "transaction pin is correct"
+                'message': "transaction pin is correct"
             }), 200
 
         except InternalError:

@@ -49,7 +49,7 @@ class FltterwaveHelper:
             return jsonify({
                 'code': response.status_code,
                 'code_message': 'success' if response.status_code == 200 else 'failed',
-                'data': response.json()
+                'message': response.json()
             }), response.status_code
 
         except Exception as e:
@@ -96,7 +96,7 @@ class FltterwaveHelper:
             return jsonify({
                 'code': response.status_code,
                 'code_message': 'success' if response.status_code == 200 else 'failed',
-                'data': response.json()
+                'message': response.json()
             }), response.status_code
 
         except Exception as e:
@@ -126,7 +126,7 @@ class FltterwaveHelper:
             return jsonify({
                 'code': response.status_code,
                 'code_message': 'success' if response.status_code == 200 else 'failed',
-                'data': response.json()
+                'message': response.json()
             }), response.status_code
 
         except Exception as e:
@@ -211,7 +211,7 @@ class FltterwaveHelper:
             return jsonify({
                 'code': 200,
                 'code_message': 'success',
-                'data': 'transaction successful'
+                'message': 'transaction successful'
             }), 200
 
         except Exception as e:

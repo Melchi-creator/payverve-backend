@@ -64,7 +64,7 @@ class KYCResource(Resource):
             return jsonify({
                 'code': 201,
                 'code_status': 'created',
-                'data': 'kyc successfully created - tier 1'
+                'message': 'kyc successfully created - tier 1'
             }), 201
 
         except IntegrityError:
@@ -141,7 +141,7 @@ class KYCResource(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': data
+                'message': data
             }), 200
 
         except InternalError:
@@ -194,7 +194,7 @@ class KYCResource(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': data
+                'message': data
             }), 200
 
         except InternalError:
@@ -278,7 +278,7 @@ class KYCResource(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': "kyc successfully updated"
+                'message': "kyc successfully updated"
             }), 200
 
         except InternalError:

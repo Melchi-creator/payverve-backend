@@ -28,7 +28,7 @@ class Cryptographer:
             return jsonify({
                 "code": 500,
                 'code_message': 'type error',
-                'data': f'an incorrect datatype was inputted: {str(e)}',
+                'message': f'an incorrect datatype was inputted: {str(e)}',
             }), 500
 
     @staticmethod
@@ -48,21 +48,21 @@ class Cryptographer:
             return jsonify({
                 "code": 500,
                 'code_message': 'invalid token',
-                'data': f'incalid token: {str(e)}',
+                'message': f'incalid token: {str(e)}',
             }), 500
 
         except TypeError as e:
             return jsonify({
                 "code": 500,
                 'code_message': 'type error',
-                'data': f'an incorrect datatype was inputted: {str(e)}',
+                'message': f'an incorrect datatype was inputted: {str(e)}',
             }), 500
 
         except Exception as e:
             return jsonify({
                 "code": 500,
                 'code_message': ' decryption error',
-                'data': f'an error occurred during decryption: {str(e)}',
+                'message': f'an error occurred during decryption: {str(e)}',
             }), 500
 
     @staticmethod
@@ -79,5 +79,5 @@ class Cryptographer:
             return jsonify({
                 "code": 500,
                 'code_message': 'invalid token',
-                'data': f'incalid token: {str(e)}',
+                'message': f'incalid token: {str(e)}',
             }), 500

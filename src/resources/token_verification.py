@@ -56,14 +56,14 @@ class TokenVerification(Resource):
             return jsonify({
                 'code': 200,
                 'code_message': 'successful',
-                'data': data
+                'message': data
             }), 200
 
         except (ProgrammingError, DBAPIError, DisconnectionError, InternalError, OperationalError):
             return jsonify({
                 "code": 500,
                 'code_message': 'database error',
-                "data": "this error is a database error",
+                'message': "this error is a database error",
             }), 500
 
     @staticmethod
@@ -117,7 +117,6 @@ class TokenVerification(Resource):
                     "message": "Your account has been deleted"
                 }), 403
 
-
             verification_code = str(secrets.randbelow(1000000)).zfill(6)
 
             # noinspection PyArgumentList
@@ -166,7 +165,7 @@ class TokenVerification(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': f'password reset code has been sent to {checked_user.email_address}'
+                'message': f'password reset code has been sent to {checked_user.email_address}'
             }), 200
 
         except InternalError:
@@ -327,7 +326,7 @@ class TokenVerification(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': 'password reset successful'
+                'message': 'password reset successful'
             }), 200
 
         except InternalError:

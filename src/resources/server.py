@@ -19,7 +19,7 @@ class ServerResource(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': 'The server is running succuessfully'
+                'message': 'The server is running succuessfully'
             }), 200
 
         except (ConnectionError, ConnectionRefusedError):

@@ -77,7 +77,7 @@ class AdminResource(Resource):
         return jsonify({
             'code': 201,
             'code_status': 'created',
-            'data': 'admin account was successfully created',
+            'message': 'admin account was successfully created',
             # 'token': token
         }), 201
 
@@ -120,7 +120,7 @@ class AdminResource(Resource):
         return jsonify({
             'code': 200,
             'code_status': 'success',
-            'data': data
+            'message': data
         }), 200
 
     @staticmethod
@@ -161,7 +161,7 @@ class AdminResource(Resource):
         return jsonify({
             'code': 200,
             'code_status': 'success',
-            'data': data
+            'message': data
         }), 200
 
     @staticmethod
@@ -224,12 +224,12 @@ class AdminResource(Resource):
         return jsonify({
             'code': 200,
             'code_status': 'success',
-            'data': data
+            'message': data
         }), 200
 
     @staticmethod
     # @auth.login_required
-    def delete(id=None, **kwargs):
+    def delete(id=None):
         """ Retrieve and delete a admin account by id """
 
         admin = AdminModel.query.filter_by(id=id).first()
@@ -238,7 +238,7 @@ class AdminResource(Resource):
             return jsonify({
                 'code': 404,
                 'code_status': 'data not found',
-                'data': 'no admin account was found'
+                'message': 'no admin account was found'
             }), 404
 
         admin.delete()
@@ -246,7 +246,7 @@ class AdminResource(Resource):
         return jsonify({
             'code': 200,
             'code_status': 'success',
-            'data': 'admin ccount has been deleted'
+            'message': 'admin ccount has been deleted'
         }), 200
 
     # @staticmethod
@@ -263,7 +263,7 @@ class AdminResource(Resource):
     #         return jsonify({
     #             'code': 404,
     #             'code_status': 'data not found',
-    #             'data': 'no admin account was found'
+    #             'message': 'no admin account was found'
     #         }), 404
     #
     #     if admin and admin.check_password(password=password):
@@ -308,7 +308,7 @@ class AdminResource(Resource):
     #         return jsonify({
     #             'code': 404,
     #             'code_status': 'data not found',
-    #             'data': 'no account with that email'
+    #             'message': 'no account with that email'
     #         }), 404
     #
     #     token = validation.generate_token(admin.get_id(), context='reset-password')
@@ -339,7 +339,7 @@ class AdminResource(Resource):
     #     return jsonify({
     #         'code': 200,
     #         'code_status': 'email sent',
-    #         'data': 'reset link sent to registered email',
+    #         'message': 'reset link sent to registered email',
     #         'url': reset_url
     #     }), 200
     #
@@ -381,5 +381,5 @@ class AdminResource(Resource):
     #
     #     return jsonify({
     #         'code': 200,
-    #         'data': 'password reset successful',
+    #         'message': 'password reset successful',
     #     }), 200

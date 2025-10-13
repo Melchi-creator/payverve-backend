@@ -74,7 +74,7 @@ class ExchangeRateResource(Resource):
                     return jsonify({
                         'code': response.status_code,
                         'code_status': 'error',
-                        'data': 'could not fetch exchange rate'
+                        'message': 'could not fetch exchange rate'
                     }), response.status_code
 
                 today_rate = float(response.text)
@@ -95,7 +95,7 @@ class ExchangeRateResource(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'successful',
-                'data': {
+                'message': {
                     'rate': today_rate,
                     'markup_percentage': markup_percentage,
                 }
@@ -133,7 +133,7 @@ class ExchangeRateResource(Resource):
             return jsonify({
                 'code': 500,
                 'code_status': 'database error - programming error',
-                'data': 'could not fetch table'
+                'message': 'could not fetch table'
             }), 500
 
     @staticmethod
@@ -165,7 +165,7 @@ class ExchangeRateResource(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': data
+                'message': data
             }), 200
 
         except InternalError:
@@ -215,7 +215,7 @@ class ExchangeRateResource(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': data
+                'message': data
             }), 200
 
         except InternalError:
@@ -329,7 +329,7 @@ class ExchangeRateResource(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': data
+                'message': data
             }), 200
 
         except InternalError:
@@ -383,7 +383,7 @@ class ExchangeRateResource(Resource):
             return jsonify({
                 'code': 200,
                 'code_status': 'success',
-                'data': data
+                'message': data
             }), 200
 
         except InternalError:
