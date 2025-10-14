@@ -32,8 +32,8 @@ class PaystackHelper:
         except Exception as e:
             return jsonify({
                 'code': 500,
-                'code_message': 'server error',
-                'message': f'an error occurred: {str(e)}'
+                'message': 'server error',
+                'data': f'an error occurred: {str(e)}'
             }), 500
 
     @staticmethod
@@ -56,8 +56,8 @@ class PaystackHelper:
         except Exception as e:
             return jsonify({
                 'code': 500,
-                'code_message': 'server error',
-                'message': f'an error occurred: {str(e)}'
+                'message': 'server error',
+                'data': f'an error occurred: {str(e)}'
             }), 500
 
     @staticmethod
@@ -79,8 +79,8 @@ class PaystackHelper:
         except Exception as e:
             return jsonify({
                 'code': 500,
-                'code_message': 'server error',
-                'message': f'an error occurred: {str(e)}'
+                'message': 'server error',
+                'data': f'an error occurred: {str(e)}'
             }), 500
 
     @staticmethod
@@ -102,8 +102,8 @@ class PaystackHelper:
         except Exception as e:
             return jsonify({
                 'code': 500,
-                'code_message': 'server error',
-                'message': f'an error occurred: {str(e)}'
+                'message': 'server error',
+                'data': f'an error occurred: {str(e)}'
             }), 500
 
     @staticmethod
@@ -129,6 +129,6 @@ class PaystackHelper:
         except Exception as e:
             return jsonify({
                 'code': 500,
-                'code_message': 'server error',
-                'message': f'an error occurred: {str(e)}'
+                'message': 'server error',
+                'data': f'an error occurred: {str(e)}'
             }), 500

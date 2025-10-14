@@ -46,8 +46,8 @@ class PayverveTransferResource(Resource):
             if len(wallet_identifier) != 10 or not wallet_identifier.isdigit():
                 return jsonify({
                     'code': 400,
-                    'code_message': 'bad request',
-                    'message': 'the wallet id is not correct'
+                    'message': 'bad request',
+                    'data': 'the wallet id is not correct'
                 }), 400
 
             MinimumBalance(int(amount))
@@ -57,15 +57,15 @@ class PayverveTransferResource(Resource):
             if not sender:
                 return jsonify({
                     'code': 404,
-                    'code_message': 'not found',
-                    'message': 'the sender wallet was not found'
+                    'message': 'not found',
+                    'data': 'the sender wallet was not found'
                 }), 404
 
             if not sender.is_active:
                 return jsonify({
                     'code': 403,
-                    'code_message': 'forbidden',
-                    'message': 'you do not have the facility to send money at the moment'
+                    'message': 'forbidden',
+                    'data': 'you do not have the facility to send money at the moment'
                 }), 403
 
             decrypted_funds = Cryptographer.decrypt(sender.fund)
@@ -73,8 +73,8 @@ class PayverveTransferResource(Resource):
             if float(decrypted_funds) < float(amount):
                 return jsonify({
                     'code': 400,
-                    'code_message': 'bad request',
-                    'message': 'insufficient funds in sender wallet'
+                    'message': 'bad request',
+                    'data': 'insufficient funds in sender wallet'
                 }), 400
 
             recipient = WalletModel.query.filter_by(wallet_identifier=wallet_identifier).first()
@@ -82,15 +82,15 @@ class PayverveTransferResource(Resource):
             if not recipient:
                 return jsonify({
                     'code': 404,
-                    'code_message': 'not found',
-                    'message': 'the recipient wallet id was not found'
+                    'message': 'not found',
+                    'data': 'the recipient wallet id was not found'
                 }), 404
 
             if not recipient.is_active:
                 return jsonify({
                     'code': 403,
-                    'code_message': 'forbidden',
-                    'message': 'the recipient does not have the facility to receive money at the moment'
+                    'message': 'forbidden',
+                    'data': 'the recipient does not have the facility to receive money at the moment'
                 }), 403
 
             sender_currency = sender.currencies.short_code
@@ -101,8 +101,8 @@ class PayverveTransferResource(Resource):
             if not compare_digest(str(sender_currency), 'ngn') or not compare_digest(str(recipient_currency), 'ngn'):
                 return jsonify({
                     'code': 400,
-                    'code_message': 'bad request',
-                    'message': 'sender currency and recipient currency must be ngn'
+                    'message': 'bad request',
+                    'data': 'sender currency and recipient currency must be ngn'
                 })
 
             exchange_rate = 1
@@ -135,8 +135,8 @@ class PayverveTransferResource(Resource):
                 if response.status_code != 200:
                     return jsonify({
                         'code': response.status_code,
-                        'code_status': response.json().get('code_status', 'error'),
-                        'message': response.json().get('data', 'could not fetch exchange rate')
+                        'message': response.json().get('code_status', 'error'),
+                        'data': response.json().get('data', 'could not fetch exchange rate')
                     }), response.status_code
 
                 exchange_rate = response.json().get("data")
@@ -217,50 +217,50 @@ class PayverveTransferResource(Resource):
 
             return jsonify({
                 'code': 201,
-                'code_status': 'created',
-                'message': 'money transfered successfully'
+                'message': 'created',
+                'data': 'money transfered successfully'
             }), 201
 
         except IntegrityError:
             return jsonify({
                 'code': 409,
-                'code_status': 'conflict - integrity error',
-                'message': 'this currency has already been listed'
+                'message': 'conflict - integrity error',
+                'data': 'this currency has already been listed'
             }), 409
 
         except DataError:
             return jsonify({
                 'code': 400,
-                'code_status': 'bad request - data error',
-                'message': 'ensure input data are correct'
+                'message': 'bad request - data error',
+                'data': 'ensure input data are correct'
             }), 400
 
         except InternalError:
             return jsonify({
                 'code': 500,
-                'code_status': 'internal server - internal server error',
-                'message': 'could not fetch data'
+                'message': 'internal server - internal server error',
+                'data': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError, SQLAlchemyError):
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - operation, sqlalchemy and disconnection error',
-                'message': 'could not fetch data'
+                'message': 'database error - operation, sqlalchemy and disconnection error',
+                'data': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - programming error',
-                'message': 'could not fetch table'
+                'message': 'database error - programming error',
+                'data': 'could not fetch table'
             }), 500
 
         except (ArithmeticError, ValueError, ZeroDivisionError):
             return jsonify({
                 'code': 500,
-                'code_status': 'calculation error - arithmetic, value, zerodivision error',
-                'message': 'could run an arithmetic calculation'
+                'message': 'calculation error - arithmetic, value, zerodivision error',
+                'data': 'could run an arithmetic calculation'
             }), 500
 
     @staticmethod
@@ -273,8 +273,8 @@ class PayverveTransferResource(Resource):
             if not payverve_transfers:
                 return jsonify({
                     'code': 404,
-                    'code_status': 'data not found',
-                    'message': 'no payverve transfer was found'
+                    'message': 'data not found',
+                    'data': 'no payverve transfer was found'
                 }), 404
 
             data = []
@@ -299,29 +299,29 @@ class PayverveTransferResource(Resource):
 
             return jsonify({
                 'code': 200,
-                'code_status': 'success',
-                'message': data
+                'message': 'success',
+                'data': data
             }), 200
 
         except InternalError:
             return jsonify({
                 'code': 500,
-                'code_status': 'internal server - internal server error',
-                'message': 'could not fetch data'
+                'message': 'internal server - internal server error',
+                'data': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - operation and disconnection error',
-                'message': 'could not fetch data'
+                'message': 'database error - operation and disconnection error',
+                'data': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - programming error',
-                'message': 'could not fetch table'
+                'message': 'database error - programming error',
+                'data': 'could not fetch table'
             }), 500
 
     @staticmethod
@@ -334,8 +334,8 @@ class PayverveTransferResource(Resource):
             if not payverve_transfer:
                 return jsonify({
                     'code': 404,
-                    'code_status': 'data not found',
-                    'message': 'no payverve transfer was found'
+                    'message': 'data not found',
+                    'data': 'no payverve transfer was found'
                 }), 404
 
             data = {
@@ -357,29 +357,29 @@ class PayverveTransferResource(Resource):
 
             return jsonify({
                 'code': 200,
-                'code_status': 'success',
-                'message': data
+                'message': 'success',
+                'data': data
             }), 200
 
         except InternalError:
             return jsonify({
                 'code': 500,
-                'code_status': 'internal server - internal server error',
-                'message': 'could not fetch data'
+                'message': 'internal server - internal server error',
+                'data': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - operation and disconnection error',
-                'message': 'could not fetch data'
+                'message': 'database error - operation and disconnection error',
+                'data': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - programming error',
-                'message': 'could not fetch table'
+                'message': 'database error - programming error',
+                'data': 'could not fetch table'
             }), 500
 
     @staticmethod
@@ -392,35 +392,35 @@ class PayverveTransferResource(Resource):
             if not payverve_transfer:
                 return jsonify({
                     'code': 404,
-                    'code_status': 'data not found',
-                    'message': 'no payverve transfer was found'
+                    'message': 'data not found',
+                    'data': 'no payverve transfer was found'
                 }), 404
 
             payverve_transfer.delete()
 
             return jsonify({
                 'code': 200,
-                'code_status': 'success',
-                'message': 'swap history was deleted successfully'
+                'message': 'success',
+                'data': 'swap history was deleted successfully'
             }), 200
 
         except InternalError:
             return jsonify({
                 'code': 500,
-                'code_status': 'internal server - internal server error',
-                'message': 'could not fetch data'
+                'message': 'internal server - internal server error',
+                'data': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - operation and disconnection error',
-                'message': 'could not fetch data'
+                'message': 'database error - operation and disconnection error',
+                'data': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - programming error',
-                'message': 'could not fetch table'
+                'message': 'database error - programming error',
+                'data': 'could not fetch table'
             }), 500

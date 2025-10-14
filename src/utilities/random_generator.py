@@ -25,15 +25,15 @@ class RandomGenerator:
         except ArithmeticError:
             return jsonify({
                 'code': 500,
-                'code_status': 'arithmetic error',
-                'message': 'could not generate wallet identifier'
+                'message': 'arithmetic error',
+                'data': 'could not generate wallet identifier'
             }), 500
 
         except RecursionError:
             return jsonify({
                 'code': 500,
-                'code_status': 'recursion error',
-                'message': 'could not generate wallet identifier'
+                'message': 'recursion error',
+                'data': 'could not generate wallet identifier'
             }), 500
 
     @staticmethod
@@ -46,14 +46,14 @@ class RandomGenerator:
         except ArithmeticError:
             return jsonify({
                 'code': 500,
-                'code_status': 'arithmetic error',
-                'message': 'could not generate reference number'
+                'message': 'arithmetic error',
+                'data': 'could not generate reference number'
             }), 500
         except RecursionError:
             return jsonify({
                 'code': 500,
-                'code_status': 'recursion error',
-                'message': 'could not generate reference number'
+                'message': 'recursion error',
+                'data': 'could not generate reference number'
             }), 500
 
     @staticmethod
@@ -66,14 +66,14 @@ class RandomGenerator:
         except ArithmeticError:
             return jsonify({
                 'code': 500,
-                'code_status': 'arithmetic error',
-                'message': 'could not generate reference number'
+                'message': 'arithmetic error',
+                'data': 'could not generate reference number'
             }), 500
         except RecursionError:
             return jsonify({
                 'code': 500,
-                'code_status': 'recursion error',
-                'message': 'could not generate reference number'
+                'message': 'recursion error',
+                'data': 'could not generate reference number'
             }), 500
 
     @staticmethod
@@ -86,12 +86,12 @@ class RandomGenerator:
         except ArithmeticError:
             return jsonify({
                 'code': 500,
-                'code_status': 'arithmetic error',
-                'message': 'could not generate reference number'
+                'message': 'arithmetic error',
+                'data': 'could not generate reference number'
             }), 500
         except RecursionError:
             return jsonify({
                 'code': 500,
-                'code_status': 'recursion error',
-                'message': 'could not generate reference number'
+                'message': 'recursion error',
+                'data': 'could not generate reference number'
             }), 500

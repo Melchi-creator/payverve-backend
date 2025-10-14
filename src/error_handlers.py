@@ -11,7 +11,7 @@ def bad_request_handler(e):
     return jsonify({
         'code': 400,
         'message': 'bad request',
-        'details': message
+        'data': message
     }), 400
 
 
@@ -43,8 +43,8 @@ def server_error_handler(e):
 def internal_error_handler(e):
     return jsonify({
         'code': 500,
-        'code_status': 'internal server - internal server error',
-        'message': 'could not fetch data'
+        'message': 'internal server - internal server error',
+        'data': 'could not fetch data'
     }), 500
 
 
@@ -52,8 +52,8 @@ def internal_error_handler(e):
 def operational_error_handler(e):
     return jsonify({
         'code': 500,
-        'code_status': 'database error - operation error',
-        'message': 'could not fetch data'
+        'message': 'database error - operation error',
+        'data': 'could not fetch data'
     }), 500
 
 
@@ -61,8 +61,8 @@ def operational_error_handler(e):
 def SQLAlchemy_error_handler(e):
     return jsonify({
         'code': 500,
-        'code_status': 'database error - sqlalchemy error',
-        'message': 'could not fetch data'
+        'message': 'database error - sqlalchemy error',
+        'data': 'could not fetch data'
     }), 500
 
 
@@ -70,8 +70,8 @@ def SQLAlchemy_error_handler(e):
 def disconnection_error_handler(e):
     return jsonify({
         'code': 500,
-        'code_status': 'database error - disconnection error',
-        'message': 'could not fetch data'
+        'message': 'database error - disconnection error',
+        'data': 'could not fetch data'
     }), 500
 
 
@@ -79,8 +79,8 @@ def disconnection_error_handler(e):
 def programming_error_handler(e):
     return jsonify({
         'code': 500,
-        'code_status': 'database error - programming error',
-        'message': 'could not fetch table'
+        'message': 'database error - programming error',
+        'data': 'could not fetch table'
     }), 500
 
 
@@ -88,8 +88,8 @@ def programming_error_handler(e):
 def intergrity_error_handler(e):
     return jsonify({
         'code': 409,
-        'code_status': 'conflict - integrity error',
-        'message': 'account already has an account'
+        'message': 'conflict - integrity error',
+        'data': 'account already has an account'
     }), 409
 
 
@@ -97,6 +97,6 @@ def intergrity_error_handler(e):
 def data_error_handler(e):
     return jsonify({
         'code': 400,
-        'code_status': 'bad request - data error',
-        'message': 'ensure input data are correct'
+        'message': 'bad request - data error',
+        'data': 'ensure input data are correct'
     }), 400
