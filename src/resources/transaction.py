@@ -26,8 +26,8 @@ class TransactionResource(Resource):
             if not transactions:
                 return jsonify({
                     'code': 404,
-                    'code_status': 'data not found',
-                    'message': 'no transactions was found'
+                    'message': 'data not found',
+                    'data': 'no transactions was found'
                 }), 404
 
             data = []
@@ -48,28 +48,28 @@ class TransactionResource(Resource):
 
             return jsonify({
                 'code': 200,
-                'code_status': 'success',
-                'message': data
+                'message': 'success',
+                'data': data
             }), 200
 
         except InternalError:
             return jsonify({
                 'code': 500,
-                'code_status': 'internal server - internal server error',
+                'message': 'internal server - internal server error',
                 'mesaage': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - operation and disconnection error',
+                'message': 'database error - operation and disconnection error',
                 'mesaage': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - programming error',
+                'message': 'database error - programming error',
                 'mesaage': 'could not fetch table'
             }), 500
 
@@ -83,8 +83,8 @@ class TransactionResource(Resource):
             if not transaction:
                 return jsonify({
                     'code': 404,
-                    'code_status': 'data not found',
-                    'message': 'transaction was not found'
+                    'message': 'data not found',
+                    'data': 'transaction was not found'
                 }), 404
 
             data = {
@@ -102,29 +102,29 @@ class TransactionResource(Resource):
 
             return jsonify({
                 'code': 200,
-                'code_status': 'success',
-                'message': data
+                'message': 'success',
+                'data': data
             }), 200
 
         except InternalError:
             return jsonify({
                 'code': 500,
-                'code_status': 'internal server - internal server error',
-                'message': 'could not fetch data'
+                'message': 'internal server - internal server error',
+                'data': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - operation and disconnection error',
-                'message': 'could not fetch data'
+                'message': 'database error - operation and disconnection error',
+                'data': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - programming error',
-                'message': 'could not fetch table'
+                'message': 'database error - programming error',
+                'data': 'could not fetch table'
             }), 500
 
     @staticmethod
@@ -137,8 +137,8 @@ class TransactionResource(Resource):
             if not transactions:
                 return jsonify({
                     'code': 404,
-                    'code_status': 'data not found',
-                    'message': 'transaction was not found for this user'
+                    'message': 'data not found',
+                    'data': 'transaction was not found for this user'
                 }), 404
 
             data = []
@@ -159,27 +159,27 @@ class TransactionResource(Resource):
 
             return jsonify({
                 'code': 200,
-                'code_status': 'success',
-                'message': data
+                'message': 'success',
+                'data': data
             }), 200
 
         except InternalError:
             return jsonify({
                 'code': 500,
-                'code_status': 'internal server - internal server error',
-                'message': 'could not fetch data'
+                'message': 'internal server - internal server error',
+                'data': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - operation and disconnection error',
-                'message': 'could not fetch data'
+                'message': 'database error - operation and disconnection error',
+                'data': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - programming error',
+                'message': 'database error - programming error',
                 'mesaage': 'could not fetch table'
             }), 500

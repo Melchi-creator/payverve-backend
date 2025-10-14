@@ -35,15 +35,15 @@ class BeneficiaryResource(Resource):
             if not _user:
                 return jsonify({
                     'code': 404,
-                    'code_status': 'data not found',
-                    'message': 'no user account was found'
+                    'message': 'data not found',
+                    'data': 'no user account was found'
                 }), 404
 
             if _beneficiary:
                 return jsonify({
                     'code': 409,
-                    'code_status': 'conflict',
-                    'message': 'You already have this account as a beneficiary'
+                    'message': 'conflict',
+                    'data': 'You already have this account as a beneficiary'
                 }), 409
 
             # noinspection PyArgumentList
@@ -67,45 +67,45 @@ class BeneficiaryResource(Resource):
 
             return jsonify({
                 'code': 201,
-                'code_status': 'created',
-                # 'message': 'beneficiary was succefully added',
-                'message': data  # 'message': 'beneficiary was succefully added',
+                'message': 'created',
+                # 'data': 'beneficiary was succefully added',
+                'data': data  # 'data': 'beneficiary was succefully added',
 
             }), 201
 
         except DataError:
             return jsonify({
                 'code': 400,
-                'code_status': 'bad request - data error',
-                'message': 'ensure input data are correct'
+                'message': 'bad request - data error',
+                'data': 'ensure input data are correct'
             }), 400
 
         except IntegrityError:
             return jsonify({
                 'code': 409,
-                'code_status': 'conflict - integrity error',
-                'message': 'this beneficiary has already been listed'
+                'message': 'conflict - integrity error',
+                'data': 'this beneficiary has already been listed'
             }), 409
 
         except InternalError:
             return jsonify({
                 'code': 500,
-                'code_status': 'Internal server - internal server error',
-                'message': 'could not fetch data'
+                'message': 'Internal server - internal server error',
+                'data': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'code_status': 'databaser error - programming error',
-                'message': 'could not fetch table'
+                'message': 'databaser error - programming error',
+                'data': 'could not fetch table'
             }), 500
 
         except (OperationalError, DisconnectionError, SQLAlchemyError):
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - operation, sqlalchemy and disconnection error',
-                'message': 'could not reach data'
+                'message': 'database error - operation, sqlalchemy and disconnection error',
+                'data': 'could not reach data'
             }), 500
 
     @staticmethod
@@ -120,8 +120,8 @@ class BeneficiaryResource(Resource):
             if not __beneficiaries:
                 return jsonify({
                     'code': 404,
-                    'code_status': 'data not found',
-                    'message': 'no beneficiary was found'
+                    'message': 'data not found',
+                    'data': 'no beneficiary was found'
                 }), 404
 
             for beneficiary in __beneficiaries:
@@ -135,29 +135,29 @@ class BeneficiaryResource(Resource):
                 })
             return jsonify({
                 'code': 200,
-                'code_status': 'success',
-                'message': data
+                'message': 'success',
+                'data': data
             }), 200
 
         except InternalError:
             return jsonify({
                 'code': 500,
-                'code_status': 'internal server - internal server error',
-                'message': 'could not fetch data'
+                'message': 'internal server - internal server error',
+                'data': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - operation and disconnection error',
-                'message': 'could not fetch data'
+                'message': 'database error - operation and disconnection error',
+                'data': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - programming error',
-                'message': 'could not fetch table'
+                'message': 'database error - programming error',
+                'data': 'could not fetch table'
             }), 500
 
     @staticmethod
@@ -170,8 +170,8 @@ class BeneficiaryResource(Resource):
             if not beneficiary:
                 return jsonify({
                     'code': 404,
-                    'code_status': 'data not found',
-                    'message': 'no beneficiary was found'
+                    'message': 'data not found',
+                    'data': 'no beneficiary was found'
                 }), 404
 
             data = {
@@ -185,29 +185,29 @@ class BeneficiaryResource(Resource):
 
             return jsonify({
                 'code': 200,
-                'code_status': 'success',
-                'message': data
+                'message': 'success',
+                'data': data
             }), 200
 
         except InternalError:
             return jsonify({
                 'code': 500,
-                'code_status': 'internal server - internal server error',
-                'message': 'could not fetch data'
+                'message': 'internal server - internal server error',
+                'data': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - operation and disconnection error',
-                'message': 'could not fetch data'
+                'message': 'database error - operation and disconnection error',
+                'data': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - programming error',
-                'message': 'could not fetch table'
+                'message': 'database error - programming error',
+                'data': 'could not fetch table'
             }), 500
 
     @staticmethod
@@ -226,8 +226,8 @@ class BeneficiaryResource(Resource):
             if not beneficiary:
                 return jsonify({
                     'code': 404,
-                    'code_status': 'data not found',
-                    'message': 'no benficiary was found'
+                    'message': 'data not found',
+                    'data': 'no benficiary was found'
                 }), 404
 
             for key, value in fields.items():
@@ -247,30 +247,30 @@ class BeneficiaryResource(Resource):
 
             return jsonify({
                 'code': 200,
-                'code_status': 'success',
-                'message': data
+                'message': 'success',
+                'data': data
             }), 200
 
 
         except InternalError:
             return jsonify({
                 'code': 500,
-                'code_status': 'internal server - internal server error',
-                'message': 'could not fetch data'
+                'message': 'internal server - internal server error',
+                'data': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - operation and disconnection error',
-                'message': 'could not fetch data'
+                'message': 'database error - operation and disconnection error',
+                'data': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - programming error',
-                'message': 'could not fetch table'
+                'message': 'database error - programming error',
+                'data': 'could not fetch table'
             }), 500
 
     @staticmethod
@@ -283,35 +283,35 @@ class BeneficiaryResource(Resource):
             if not beneficiay:
                 return jsonify({
                     'code': 404,
-                    'code_status': 'data not found',
-                    'message': 'no beneficiary was found'
+                    'message': 'data not found',
+                    'data': 'no beneficiary was found'
                 }), 404
 
             beneficiay.delete()
 
             return jsonify({
                 'code': 200,
-                'code_status': 'success',
-                'message': 'beneficiary was deleted successfully'
+                'message': 'success',
+                'data': 'beneficiary was deleted successfully'
             }), 200
 
         except InternalError:
             return jsonify({
                 'code': 500,
-                'code_status': 'internal server - internal server error',
-                'message': 'could not fetch data'
+                'message': 'internal server - internal server error',
+                'data': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - operation and disconnection error',
-                'message': 'could not fetch data'
+                'message': 'database error - operation and disconnection error',
+                'data': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - programming error',
-                'message': 'could not fetch table'
+                'message': 'database error - programming error',
+                'data': 'could not fetch table'
             }), 500

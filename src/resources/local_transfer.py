@@ -40,15 +40,15 @@ class LocalTransferResource(Resource):
             if not check_balance:
                 return jsonify({
                     'code': 404,
-                    'code_message': 'not found',
-                    'message': 'could not find the wallet'
+                    'message': 'not found',
+                    'data': 'could not find the wallet'
                 }), 404
 
             if float(amount) > check_balance.fund:
                 return jsonify({
                     'code': 400,
-                    'code_message': 'bad request',
-                    'message': 'your balance is not up to the inputted amount'
+                    'message': 'bad request',
+                    'data': 'your balance is not up to the inputted amount'
                 }), 400
 
             # TODO: Check which currency is the recipient curreny
@@ -98,9 +98,9 @@ class LocalTransferResource(Resource):
 
             return jsonify({
                 'code': 201,
-                'code_status': 'created',
-                'message': {
-                    'message': 'transfer was done successfully',
+                'message': 'created',
+                'data': {
+                    'data': 'transfer was done successfully',
                     'details': data
                 }
             }), 201
@@ -108,43 +108,43 @@ class LocalTransferResource(Resource):
         except IntegrityError:
             return jsonify({
                 'code': 409,
-                'code_status': 'conflict - integrity error',
-                'message': 'this currency has already been listed'
+                'message': 'conflict - integrity error',
+                'data': 'this currency has already been listed'
             }), 409
 
         except DataError:
             return jsonify({
                 'code': 400,
-                'code_status': 'bad request - data error',
-                'message': 'ensure input data are correct'
+                'message': 'bad request - data error',
+                'data': 'ensure input data are correct'
             }), 400
 
         except InternalError:
             return jsonify({
                 'code': 500,
-                'code_status': 'internal server - internal server error',
-                'message': 'could not fetch data'
+                'message': 'internal server - internal server error',
+                'data': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError, SQLAlchemyError):
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - operation, sqlalchemy and disconnection error',
-                'message': 'could not fetch data'
+                'message': 'database error - operation, sqlalchemy and disconnection error',
+                'data': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - programming error',
-                'message': 'could not fetch table'
+                'message': 'database error - programming error',
+                'data': 'could not fetch table'
             }), 500
 
         except (ArithmeticError, ValueError, ZeroDivisionError):
             return jsonify({
                 'code': 500,
-                'code_status': 'calculation error - arithmetic, value, zerodivision error',
-                'message': 'could run an arithmetic calculation'
+                'message': 'calculation error - arithmetic, value, zerodivision error',
+                'data': 'could run an arithmetic calculation'
             }), 500
 
     @staticmethod
@@ -157,8 +157,8 @@ class LocalTransferResource(Resource):
             if not local_transfers:
                 return jsonify({
                     'code': 404,
-                    'code_status': 'data not found',
-                    'message': 'no local transfer history was found'
+                    'message': 'data not found',
+                    'data': 'no local transfer history was found'
                 }), 404
 
             data = []
@@ -181,29 +181,29 @@ class LocalTransferResource(Resource):
 
             return jsonify({
                 'code': 200,
-                'code_status': 'success',
-                'message': data
+                'message': 'success',
+                'data': data
             }), 200
 
         except InternalError:
             return jsonify({
                 'code': 500,
-                'code_status': 'internal server - internal server error',
-                'message': 'could not fetch data'
+                'message': 'internal server - internal server error',
+                'data': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - operation and disconnection error',
-                'message': 'could not fetch data'
+                'message': 'database error - operation and disconnection error',
+                'data': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - programming error',
-                'message': 'could not fetch table'
+                'message': 'database error - programming error',
+                'data': 'could not fetch table'
             }), 500
 
     @staticmethod
@@ -216,8 +216,8 @@ class LocalTransferResource(Resource):
             if not swapped_currency:
                 return jsonify({
                     'code': 404,
-                    'code_status': 'data not found',
-                    'message': 'no swapped currency was found'
+                    'message': 'data not found',
+                    'data': 'no swapped currency was found'
                 }), 404
 
             data = {
@@ -236,29 +236,29 @@ class LocalTransferResource(Resource):
 
             return jsonify({
                 'code': 200,
-                'code_status': 'success',
-                'message': data
+                'message': 'success',
+                'data': data
             }), 200
 
         except InternalError:
             return jsonify({
                 'code': 500,
-                'code_status': 'internal server - internal server error',
-                'message': 'could not fetch data'
+                'message': 'internal server - internal server error',
+                'data': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - operation and disconnection error',
-                'message': 'could not fetch data'
+                'message': 'database error - operation and disconnection error',
+                'data': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - programming error',
-                'message': 'could not fetch table'
+                'message': 'database error - programming error',
+                'data': 'could not fetch table'
             }), 500
 
     @staticmethod
@@ -271,35 +271,35 @@ class LocalTransferResource(Resource):
             if not swapped_currency:
                 return jsonify({
                     'code': 404,
-                    'code_status': 'data not found',
-                    'message': 'no swapped currency was found'
+                    'message': 'data not found',
+                    'data': 'no swapped currency was found'
                 }), 404
 
             swapped_currency.delete()
 
             return jsonify({
                 'code': 200,
-                'code_status': 'success',
-                'message': 'swap history was deleted successfully'
+                'message': 'success',
+                'data': 'swap history was deleted successfully'
             }), 200
 
         except InternalError:
             return jsonify({
                 'code': 500,
-                'code_status': 'internal server - internal server error',
-                'message': 'could not fetch data'
+                'message': 'internal server - internal server error',
+                'data': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - operation and disconnection error',
-                'message': 'could not fetch data'
+                'message': 'database error - operation and disconnection error',
+                'data': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - programming error',
-                'message': 'could not fetch table'
+                'message': 'database error - programming error',
+                'data': 'could not fetch table'
             }), 500

@@ -32,8 +32,8 @@ class BankAccountResource(Resource):
             if not customer:
                 return jsonify({
                     'code': 404,
-                    'code_message': 'not found',
-                    'message': 'Customer not found'
+                    'message': 'not found',
+                    'data': 'Customer not found'
                 }), 404
 
             # @TODO: Know your customer
@@ -43,8 +43,8 @@ class BankAccountResource(Resource):
             if not existing_kyc or existing_kyc.bvn is None:
                 return jsonify({
                     'code': 400,
-                    'code_message': 'bad request',
-                    'message': 'You need to complete your KYC before adding bank account details'
+                    'message': 'bad request',
+                    'data': 'You need to complete your KYC before adding bank account details'
                 }), 400
 
             number_of_account = BankAccountModel.query.filter_by(user_id=user_id).count()
@@ -52,8 +52,8 @@ class BankAccountResource(Resource):
             if number_of_account >= 2:
                 return jsonify({
                     'code': 400,
-                    'code_message': 'bad request',
-                    'message': 'You can only add two bank account details'
+                    'message': 'bad request',
+                    'data': 'You can only add two bank account details'
                 }), 400
 
             bank_detail = BankAccountModel.query.filter_by(user_id=user_id,
@@ -62,8 +62,8 @@ class BankAccountResource(Resource):
             if bank_detail:
                 return jsonify({
                     'code': 409,
-                    'code_message': 'conflict',
-                    'message': 'You\'ve already added this bank account details'
+                    'message': 'conflict',
+                    'data': 'You\'ve already added this bank account details'
                 }), 409
 
             response = PaystackHelper.verify_bank(account_number, bank_code)
@@ -71,8 +71,8 @@ class BankAccountResource(Resource):
             if response.status_code != 200:
                 return jsonify({
                     'code': 400,
-                    'code_message': 'bad request',
-                    'message': 'bank addition failed'
+                    'message': 'bad request',
+                    'data': 'bank addition failed'
                 }), 400
 
             bank_verified = response.json()['data']
@@ -84,8 +84,8 @@ class BankAccountResource(Resource):
             if first_name not in verified_list or last_name not in verified_list:
                 return jsonify({
                     'code': 400,
-                    'code_message': 'bad request',
-                    'message': 'The account name does not match the account number'
+                    'message': 'bad request',
+                    'data': 'The account name does not match the account number'
                 }), 400
 
             get_bank = PaystackHelper.paystack_bank('/bank', "GET")
@@ -145,8 +145,8 @@ class BankAccountResource(Resource):
             #         print('final fail')
             #         return jsonify({
             #             'code': 400,
-            #             'code_message': 'bad request',
-            #             'message': 'bank addition failed'
+            #             'message': 'bad request',
+            #             'data': 'bank addition failed'
             #         }), 400
 
             # @TODO: Know your customer
@@ -172,42 +172,42 @@ class BankAccountResource(Resource):
 
             return jsonify({
                 'code': 201,
-                'code_status': 'created',
-                'message': 'bank account was successfully added'
+                'message': 'created',
+                'data': 'bank account was successfully added'
             }), 201
         except IntegrityError:
             return jsonify({
                 'code': 409,
-                'code_status': 'conflict - integrity error',
-                'message': 'this currency has already been listed'
+                'message': 'conflict - integrity error',
+                'data': 'this currency has already been listed'
             }), 409
 
         except DataError:
             return jsonify({
                 'code': 400,
-                'code_status': 'bad request - data error',
-                'message': 'ensure input data are correct'
+                'message': 'bad request - data error',
+                'data': 'ensure input data are correct'
             }), 400
 
         except InternalError:
             return jsonify({
                 'code': 500,
-                'code_status': 'internal server - internal server error',
-                'message': 'could not fetch data'
+                'message': 'internal server - internal server error',
+                'data': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError, SQLAlchemyError):
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - operation, sqlalchemy and disconnection error',
-                'message': 'could not fetch data'
+                'message': 'database error - operation, sqlalchemy and disconnection error',
+                'data': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - programming error',
-                'message': 'could not fetch table'
+                'message': 'database error - programming error',
+                'data': 'could not fetch table'
             }), 500
 
     @staticmethod
@@ -220,8 +220,8 @@ class BankAccountResource(Resource):
             if not bank_accounts:
                 return jsonify({
                     'code': 404,
-                    'code_status': 'data not found',
-                    'message': 'no account was found'
+                    'message': 'data not found',
+                    'data': 'no account was found'
                 }), 404
 
             data = []
@@ -239,29 +239,29 @@ class BankAccountResource(Resource):
 
             return jsonify({
                 'code': 200,
-                'code_status': 'success',
-                'message': data
+                'message': 'success',
+                'data': data
             }), 200
 
         except InternalError:
             return jsonify({
                 'code': 500,
-                'code_status': 'internal server - internal server error',
-                'message': 'could not fetch data'
+                'message': 'internal server - internal server error',
+                'data': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - operation and disconnection error',
-                'message': 'could not fetch data'
+                'message': 'database error - operation and disconnection error',
+                'data': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - programming error',
-                'message': 'could not fetch table'
+                'message': 'database error - programming error',
+                'data': 'could not fetch table'
             }), 500
 
     @staticmethod
@@ -274,8 +274,8 @@ class BankAccountResource(Resource):
             if not bank_accounts:
                 return jsonify({
                     'code': 404,
-                    'code_status': 'data not found',
-                    'message': 'no account was found'
+                    'message': 'data not found',
+                    'data': 'no account was found'
                 }), 404
 
             data = {
@@ -290,29 +290,29 @@ class BankAccountResource(Resource):
 
             return jsonify({
                 'code': 200,
-                'code_status': 'success',
-                'message': data
+                'message': 'success',
+                'data': data
             }), 200
 
         except InternalError:
             return jsonify({
                 'code': 500,
-                'code_status': 'internal server - internal server error',
-                'message': 'could not fetch data'
+                'message': 'internal server - internal server error',
+                'data': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - operation and disconnection error',
-                'message': 'could not fetch data'
+                'message': 'database error - operation and disconnection error',
+                'data': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - programming error',
-                'message': 'could not fetch table'
+                'message': 'database error - programming error',
+                'data': 'could not fetch table'
             }), 500
 
     @staticmethod
@@ -333,8 +333,8 @@ class BankAccountResource(Resource):
             if not bank_accounts:
                 return jsonify({
                     'code': 404,
-                    'code_status': 'data not found',
-                    'message': 'no bank account was found'
+                    'message': 'data not found',
+                    'data': 'no bank account was found'
                 }), 404
 
             if 'bankname' in fields and fields['bankname'] is not None:
@@ -366,29 +366,29 @@ class BankAccountResource(Resource):
 
             return jsonify({
                 'code': 200,
-                'code_status': 'success',
-                'message': data
+                'message': 'success',
+                'data': data
             }), 200
 
         except InternalError:
             return jsonify({
                 'code': 500,
-                'code_status': 'internal server - internal server error',
-                'message': 'could not fetch data'
+                'message': 'internal server - internal server error',
+                'data': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - operation and disconnection error',
-                'message': 'could not fetch data'
+                'message': 'database error - operation and disconnection error',
+                'data': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - programming error',
-                'message': 'could not fetch table'
+                'message': 'database error - programming error',
+                'data': 'could not fetch table'
             }), 500
 
     @staticmethod
@@ -401,35 +401,35 @@ class BankAccountResource(Resource):
             if not bank_accounts:
                 return jsonify({
                     'code': 404,
-                    'code_status': 'data not found',
-                    'message': 'no user account was found'
+                    'message': 'data not found',
+                    'data': 'no user account was found'
                 }), 404
 
             bank_accounts.delete()
 
             return jsonify({
                 'code': 200,
-                'code_status': 'success',
-                'message': 'account was deleted successfully'
+                'message': 'success',
+                'data': 'account was deleted successfully'
             }), 200
 
         except InternalError:
             return jsonify({
                 'code': 500,
-                'code_status': 'internal server - internal server error',
-                'message': 'could not fetch data'
+                'message': 'internal server - internal server error',
+                'data': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - operation and disconnection error',
-                'message': 'could not fetch data'
+                'message': 'database error - operation and disconnection error',
+                'data': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - programming error',
-                'message': 'could not fetch table'
+                'message': 'database error - programming error',
+                'data': 'could not fetch table'
             }), 500

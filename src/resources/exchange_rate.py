@@ -73,8 +73,8 @@ class ExchangeRateResource(Resource):
                 if response.status_code != 200:
                     return jsonify({
                         'code': response.status_code,
-                        'code_status': 'error',
-                        'message': 'could not fetch exchange rate'
+                        'message': 'error',
+                        'data': 'could not fetch exchange rate'
                     }), response.status_code
 
                 today_rate = float(response.text)
@@ -94,8 +94,8 @@ class ExchangeRateResource(Resource):
 
             return jsonify({
                 'code': 200,
-                'code_status': 'successful',
-                'message': {
+                'message': 'successful',
+                'data': {
                     'rate': today_rate,
                     'markup_percentage': markup_percentage,
                 }
@@ -104,36 +104,36 @@ class ExchangeRateResource(Resource):
         except IntegrityError:
             return jsonify({
                 'code': 409,
-                'code_status': 'conflict - integrity error',
-                'message': 'this currency pair has already been listed'
+                'message': 'conflict - integrity error',
+                'data': 'this currency pair has already been listed'
             }), 409
 
         except DataError:
             return jsonify({
                 'code': 400,
-                'code_status': 'bad request - data error',
-                'message': 'ensure input data are correct'
+                'message': 'bad request - data error',
+                'data': 'ensure input data are correct'
             }), 400
 
         except InternalError:
             return jsonify({
                 'code': 500,
-                'code_status': 'internal server - internal server error',
-                'message': 'could not fetch data'
+                'message': 'internal server - internal server error',
+                'data': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError, SQLAlchemyError):
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - operation, sqlalchemy and disconnection error',
-                'message': 'could not fetch data'
+                'message': 'database error - operation, sqlalchemy and disconnection error',
+                'data': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - programming error',
-                'message': 'could not fetch table'
+                'message': 'database error - programming error',
+                'data': 'could not fetch table'
             }), 500
 
     @staticmethod
@@ -146,8 +146,8 @@ class ExchangeRateResource(Resource):
             if not exchange_rates:
                 return jsonify({
                     'code': 404,
-                    'code_status': 'data not found',
-                    'message': 'no currency pair was found'
+                    'message': 'data not found',
+                    'data': 'no currency pair was found'
                 }), 404
 
             data = []
@@ -164,29 +164,29 @@ class ExchangeRateResource(Resource):
 
             return jsonify({
                 'code': 200,
-                'code_status': 'success',
-                'message': data
+                'message': 'success',
+                'data': data
             }), 200
 
         except InternalError:
             return jsonify({
                 'code': 500,
-                'code_status': 'internal server - internal server error',
-                'message': 'could not fetch data'
+                'message': 'internal server - internal server error',
+                'data': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - operation and disconnection error',
-                'message': 'could not fetch data'
+                'message': 'database error - operation and disconnection error',
+                'data': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - programming error',
-                'message': 'could not fetch table'
+                'message': 'database error - programming error',
+                'data': 'could not fetch table'
             }), 500
 
     @staticmethod
@@ -199,8 +199,8 @@ class ExchangeRateResource(Resource):
             if not exchange_rate:
                 return jsonify({
                     'code': 404,
-                    'code_status': 'data not found',
-                    'message': 'no currency pair was found'
+                    'message': 'data not found',
+                    'data': 'no currency pair was found'
                 }), 404
 
             data = {
@@ -214,29 +214,29 @@ class ExchangeRateResource(Resource):
 
             return jsonify({
                 'code': 200,
-                'code_status': 'success',
-                'message': data
+                'message': 'success',
+                'data': data
             }), 200
 
         except InternalError:
             return jsonify({
                 'code': 500,
-                'code_status': 'internal server - internal server error',
-                'message': 'could not fetch data'
+                'message': 'internal server - internal server error',
+                'data': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - operation and disconnection error',
-                'message': 'could not fetch data'
+                'message': 'database error - operation and disconnection error',
+                'data': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - programming error',
-                'message': 'could not fetch table'
+                'message': 'database error - programming error',
+                'data': 'could not fetch table'
             }), 500
 
     @staticmethod
@@ -250,8 +250,8 @@ class ExchangeRateResource(Resource):
             if not exchange_rate:
                 return jsonify({
                     'code': 404,
-                    'code_status': 'data not found',
-                    'message': 'no currency pair was found'
+                    'message': 'data not found',
+                    'data': 'no currency pair was found'
                 }), 404
 
             confirm_is_today = False
@@ -298,8 +298,8 @@ class ExchangeRateResource(Resource):
                 if response.status_code != 200:
                     return jsonify({
                         'code': response.status_code,
-                        'code_status': 'error',
-                        'message': 'could not fetch exchange rate'
+                        'message': 'error',
+                        'data': 'could not fetch exchange rate'
                     }), response.status_code
 
                 today_rate = float(response.text)
@@ -328,29 +328,29 @@ class ExchangeRateResource(Resource):
 
             return jsonify({
                 'code': 200,
-                'code_status': 'success',
-                'message': data
+                'message': 'success',
+                'data': data
             }), 200
 
         except InternalError:
             return jsonify({
                 'code': 500,
-                'code_status': 'internal server - internal server error',
-                'message': 'could not fetch data'
+                'message': 'internal server - internal server error',
+                'data': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - operation and disconnection error',
-                'message': 'could not fetch data'
+                'message': 'database error - operation and disconnection error',
+                'data': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - programming error',
-                'message': 'could not fetch table'
+                'message': 'database error - programming error',
+                'data': 'could not fetch table'
             }), 500
 
     @staticmethod
@@ -364,8 +364,8 @@ class ExchangeRateResource(Resource):
             if not exchange_rates:
                 return jsonify({
                     'code': 404,
-                    'code_status': 'data not found',
-                    'message': 'no currency pair was found'
+                    'message': 'data not found',
+                    'data': 'no currency pair was found'
                 }), 404
 
             data = [
@@ -382,27 +382,27 @@ class ExchangeRateResource(Resource):
 
             return jsonify({
                 'code': 200,
-                'code_status': 'success',
-                'message': data
+                'message': 'success',
+                'data': data
             }), 200
 
         except InternalError:
             return jsonify({
                 'code': 500,
-                'code_status': 'internal server - internal server error',
-                'message': 'could not fetch data'
+                'message': 'internal server - internal server error',
+                'data': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - operation and disconnection error',
-                'message': 'could not fetch data'
+                'message': 'database error - operation and disconnection error',
+                'data': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - programming error',
-                'message': 'could not fetch table'
+                'message': 'database error - programming error',
+                'data': 'could not fetch table'
             }), 500

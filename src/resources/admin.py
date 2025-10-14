@@ -36,15 +36,15 @@ class AdminResource(Resource):
         if admin_email:
             return jsonify({
                 'code': 409,
-                'code_status': 'conflict',
-                'message': 'email address already has an account'
+                'message': 'conflict',
+                'data': 'email address already has an account'
             }), 409
 
         if admin_number:
             return jsonify({
                 'code': 409,
-                'code_status': 'conflict',
-                'message': 'mobile number already has an account'
+                'message': 'conflict',
+                'data': 'mobile number already has an account'
             }), 409
 
         # noinspection PyArgumentList
@@ -76,8 +76,8 @@ class AdminResource(Resource):
 
         return jsonify({
             'code': 201,
-            'code_status': 'created',
-            'message': 'admin account was successfully created',
+            'message': 'created',
+            'data': 'admin account was successfully created',
             # 'token': token
         }), 201
 
@@ -90,8 +90,8 @@ class AdminResource(Resource):
         if not admins:
             return jsonify({
                 'code': 404,
-                'code_status': 'data not found',
-                'message': 'no admin account was found'
+                'message': 'data not found',
+                'data': 'no admin account was found'
             }), 404
 
         data = []
@@ -119,8 +119,8 @@ class AdminResource(Resource):
 
         return jsonify({
             'code': 200,
-            'code_status': 'success',
-            'message': data
+            'message': 'success',
+            'data': data
         }), 200
 
     @staticmethod
@@ -133,8 +133,8 @@ class AdminResource(Resource):
         if not admin:
             return jsonify({
                 'code': 404,
-                'code_status': 'data not found',
-                'message': 'no admin account was found'
+                'message': 'data not found',
+                'data': 'no admin account was found'
             }), 404
 
         data = {
@@ -160,8 +160,8 @@ class AdminResource(Resource):
 
         return jsonify({
             'code': 200,
-            'code_status': 'success',
-            'message': data
+            'message': 'success',
+            'data': data
         }), 200
 
     @staticmethod
@@ -191,8 +191,8 @@ class AdminResource(Resource):
         if not admin:
             return jsonify({
                 'code': 404,
-                'code_status': 'data not found',
-                'message': 'no admin account was found'
+                'message': 'data not found',
+                'data': 'no admin account was found'
             }), 404
 
         for (key, value) in fields.items():
@@ -223,8 +223,8 @@ class AdminResource(Resource):
 
         return jsonify({
             'code': 200,
-            'code_status': 'success',
-            'message': data
+            'message': 'success',
+            'data': data
         }), 200
 
     @staticmethod
@@ -237,16 +237,16 @@ class AdminResource(Resource):
         if not admin:
             return jsonify({
                 'code': 404,
-                'code_status': 'data not found',
-                'message': 'no admin account was found'
+                'message': 'data not found',
+                'data': 'no admin account was found'
             }), 404
 
         admin.delete()
 
         return jsonify({
             'code': 200,
-            'code_status': 'success',
-            'message': 'admin ccount has been deleted'
+            'message': 'success',
+            'data': 'admin ccount has been deleted'
         }), 200
 
     # @staticmethod
@@ -262,8 +262,8 @@ class AdminResource(Resource):
     #     if not admin:
     #         return jsonify({
     #             'code': 404,
-    #             'code_status': 'data not found',
-    #             'message': 'no admin account was found'
+    #             'message': 'data not found',
+    #             'data': 'no admin account was found'
     #         }), 404
     #
     #     if admin and admin.check_password(password=password):
@@ -271,7 +271,7 @@ class AdminResource(Resource):
     #
     #     return jsonify({
     #         'code': 401,
-    #         'code_status': 'Invalid credentials',
+    #         'message': 'Invalid credentials',
     #     }), 401
     #
     # @staticmethod
@@ -307,8 +307,8 @@ class AdminResource(Resource):
     #     if not admin:
     #         return jsonify({
     #             'code': 404,
-    #             'code_status': 'data not found',
-    #             'message': 'no account with that email'
+    #             'message': 'data not found',
+    #             'data': 'no account with that email'
     #         }), 404
     #
     #     token = validation.generate_token(admin.get_id(), context='reset-password')
@@ -338,8 +338,8 @@ class AdminResource(Resource):
     #
     #     return jsonify({
     #         'code': 200,
-    #         'code_status': 'email sent',
-    #         'message': 'reset link sent to registered email',
+    #         'message': 'email sent',
+    #         'data': 'reset link sent to registered email',
     #         'url': reset_url
     #     }), 200
     #
@@ -352,12 +352,12 @@ class AdminResource(Resource):
     #     if not admin:
     #         return jsonify({
     #             'code': 401,
-    #             'message': "Token is invalid or expired!"
+    #             'data': "Token is invalid or expired!"
     #         }), 401
     #
     #     return jsonify({
     #         'code': 202,
-    #         'message': 'Token is valid',
+    #         'data': 'Token is valid',
     #     }), 202
     #
     # @staticmethod
@@ -373,7 +373,7 @@ class AdminResource(Resource):
     #     if not admin:
     #         return jsonify({
     #             'code': 401,
-    #             'message': "Token is invalid or expired!"
+    #             'data': "Token is invalid or expired!"
     #         }), 401
     #
     #     admin.set_password(password=new_password)
@@ -381,5 +381,5 @@ class AdminResource(Resource):
     #
     #     return jsonify({
     #         'code': 200,
-    #         'message': 'password reset successful',
+    #         'data': 'password reset successful',
     #     }), 200

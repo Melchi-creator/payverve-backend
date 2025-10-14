@@ -34,8 +34,8 @@ class TokenVerification(Resource):
             if not token_verifications:
                 return jsonify({
                     'code': 404,
-                    'code_message': 'not found',
-                    'message': 'no token found'
+                    'message': 'not found',
+                    'data': 'no token found'
                 }), 404
 
             data = [
@@ -55,15 +55,15 @@ class TokenVerification(Resource):
 
             return jsonify({
                 'code': 200,
-                'code_message': 'successful',
-                'message': data
+                'message': 'successful',
+                'data': data
             }), 200
 
         except (ProgrammingError, DBAPIError, DisconnectionError, InternalError, OperationalError):
             return jsonify({
                 "code": 500,
-                'code_message': 'database error',
-                'message': "this error is a database error",
+                'message': 'database error',
+                'data': "this error is a database error",
             }), 500
 
     @staticmethod
@@ -92,29 +92,29 @@ class TokenVerification(Resource):
             if not checked_user:
                 return jsonify({
                     'code': 404,
-                    'code_status': 'not_found',
-                    'message': f'{email_address} email address does not have an account'
+                    'message': 'not_found',
+                    'data': f'{email_address} email address does not have an account'
                 }), 404
 
             if not checked_user.email_verified:
                 return jsonify({
                     "code": 403,
-                    "code_message": "forbidden",
-                    "message": "User is not verified"
+                    'message': "forbidden",
+                    'data': "User is not verified"
                 }), 403
 
             if not checked_user.account_active:
                 return jsonify({
                     "code": 403,
-                    "code_message": "forbidden",
-                    "message": "Your account is not active"
+                    'message': "forbidden",
+                    'data': "Your account is not active"
                 }), 403
 
             if checked_user.deleted:
                 return jsonify({
                     "code": 403,
-                    "code_message": "forbidden",
-                    "message": "Your account has been deleted"
+                    'message': "forbidden",
+                    'data': "Your account has been deleted"
                 }), 403
 
             verification_code = str(secrets.randbelow(1000000)).zfill(6)
@@ -164,43 +164,43 @@ class TokenVerification(Resource):
 
             return jsonify({
                 'code': 200,
-                'code_status': 'success',
-                'message': f'password reset code has been sent to {checked_user.email_address}'
+                'message': 'success',
+                'data': f'password reset code has been sent to {checked_user.email_address}'
             }), 200
 
         except InternalError:
             return jsonify({
                 'code': 500,
-                'code_status': 'internal server - internal server error',
-                'message': 'could not fetch data'
+                'message': 'internal server - internal server error',
+                'data': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - operation and disconnection error',
-                'message': 'could not fetch data'
+                'message': 'database error - operation and disconnection error',
+                'data': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - programming error',
-                'message': 'could not fetch table'
+                'message': 'database error - programming error',
+                'data': 'could not fetch table'
             }), 500
 
         except ValueError as e:
             return jsonify({
                 'code': 400,
-                'code_status': 'bad request - value error',
-                'message': str(e)
+                'message': 'bad request - value error',
+                'data': str(e)
             }), 400
 
         except TypeError as e:
             return jsonify({
                 'code': 400,
-                'code_status': 'bad request - type error',
-                'message': str(e)
+                'message': 'bad request - type error',
+                'data': str(e)
             }), 400
 
     @staticmethod
@@ -216,22 +216,22 @@ class TokenVerification(Resource):
             if not verification_code:
                 return jsonify({
                     "code": 401,
-                    "code_message": "Verification code is missing",
-                    "message": "Verification code not found in request"
+                    'message': "Verification code is missing",
+                    'data': "Verification code not found in request"
                 }), 401
 
             if len(verification_code) != 6:
                 return jsonify({
                     'code': 400,
-                    'code_message': 'bad request',
-                    'message': 'verification code must be 6 digits'
+                    'message': 'bad request',
+                    'data': 'verification code must be 6 digits'
                 }), 400
 
             if not password:
                 return jsonify({
                     "code": 400,
-                    "code_message": "Bad request",
-                    "message": "New password is required"
+                    'message': "Bad request",
+                    'data': "New password is required"
                 }), 400
 
             PasswordValidation(password)
@@ -250,29 +250,29 @@ class TokenVerification(Resource):
             if not checked_user:
                 return jsonify({
                     "code": 404,
-                    "code_message": "not found",
-                    "message": "no current request for a password reset or inccorrect verification code"
+                    'message': "not found",
+                    'data': "no current request for a password reset or inccorrect verification code"
                 }), 404
 
             if not checked_user.email_verified:
                 return jsonify({
                     "code": 403,
-                    "code_message": "forbidden",
-                    "message": "User is not verified"
+                    'message': "forbidden",
+                    'data': "User is not verified"
                 }), 403
 
             if not checked_user.account_active:
                 return jsonify({
                     "code": 403,
-                    "code_message": "forbidden",
-                    "message": "Your account is not active"
+                    'message': "forbidden",
+                    'data': "Your account is not active"
                 }), 403
 
             if checked_user.deleted:
                 return jsonify({
                     "code": 403,
-                    "code_message": "forbidden",
-                    "message": "Your account has been deleted"
+                    'message': "forbidden",
+                    'data': "Your account has been deleted"
                 }), 403
 
             confirmation = TokenVerificationModel.query.filter_by(
@@ -283,8 +283,8 @@ class TokenVerification(Resource):
             if not confirmation:
                 return jsonify({
                     'code': 404,
-                    'code_message': 'not found',
-                    'message': 'verification code not found'
+                    'message': 'not found',
+                    'data': 'verification code not found'
                 }), 400
 
             confirmation_code = confirmation.code_sent
@@ -293,8 +293,8 @@ class TokenVerification(Resource):
             if not compare_digest(decrypt_confirmation_code, verification_code):
                 return jsonify({
                     'code': 400,
-                    'code_message': 'bad request',
-                    'message': 'verification code does not match, try again'
+                    'message': 'bad request',
+                    'data': 'verification code does not match, try again'
                 }), 400
 
             expected_expiry = confirmation.timestamp + timedelta(seconds=confirmation.expiration_time)
@@ -305,15 +305,15 @@ class TokenVerification(Resource):
 
                 return jsonify({
                     'code': 403,
-                    'code_message': 'forbidden',
-                    'message': 'this code has expired'
+                    'message': 'forbidden',
+                    'data': 'this code has expired'
                 }), 403
 
             if confirmation.status == "verified":
                 return jsonify({
                     'code': 400,
-                    'code_message': 'bad request',
-                    'message': 'this code has been verified'
+                    'message': 'bad request',
+                    'data': 'this code has been verified'
                 }), 400
 
             confirmation.status = 'verified'
@@ -325,41 +325,41 @@ class TokenVerification(Resource):
 
             return jsonify({
                 'code': 200,
-                'code_status': 'success',
-                'message': 'password reset successful'
+                'message': 'success',
+                'data': 'password reset successful'
             }), 200
 
         except InternalError:
             return jsonify({
                 'code': 500,
-                'code_status': 'internal server - internal server error',
-                'message': 'could not fetch data'
+                'message': 'internal server - internal server error',
+                'data': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - operation and disconnection error',
-                'message': 'could not fetch data'
+                'message': 'database error - operation and disconnection error',
+                'data': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'code_status': 'database error - programming error',
-                'message': 'could not fetch table'
+                'message': 'database error - programming error',
+                'data': 'could not fetch table'
             }), 500
 
         except ValueError as e:
             return jsonify({
                 'code': 400,
-                'code_status': 'bad request - value error',
-                'message': str(e)
+                'message': 'bad request - value error',
+                'data': str(e)
             }), 400
 
         except TypeError as e:
             return jsonify({
                 'code': 400,
-                'code_status': 'bad request - type error',
-                'message': str(e)
+                'message': 'bad request - type error',
+                'data': str(e)
             }), 400
