@@ -5,6 +5,7 @@ Holds all variables configuration required for the app to successfully run
 Fetch all variables from .env
 """
 
+import json
 import os
 
 import boto3
