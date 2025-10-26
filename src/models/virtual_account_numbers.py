@@ -23,7 +23,7 @@ class VirtualAccountNumberModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     frequency = db.Column(db.String(), nullable=False)
     created_at_by_flw = db.Column(db.DateTime(), nullable=False)
     expiry_date = db.Column(db.String(), nullable=False)
-    account_number = db.Column(db.String(), nullable=False, unique=True)
+    account_number = db.Column(db.BigInteger(), nullable=False, unique=True)
     bank_name = db.Column(db.String(), nullable=False)
     note = db.Column(db.Text, nullable=False)
     amount = db.Column(db.Float, nullable=False)

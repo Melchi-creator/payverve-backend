@@ -24,7 +24,7 @@ def jwt_required(f):
             auth_header = request.headers['Authorization']
             if auth_header.startswith('Bearer '):
                 try:
-                    token = auth_header.split(' ')[1].encode('utf-8')
+                    token = auth_header.split(' ')[1]
 
                 except IndexError:
                     return jsonify({
@@ -54,7 +54,7 @@ def jwt_required(f):
             if "status" in current_user and current_user["status"] in ["invalid"]:  # noqa
                 return jsonify({
                     'code': 401,
-                    'message': "Verification failed. Expired Token",
+                    'message': "Verification failed. Invalid Token",
                     'data': "Invalid token"
                 }), 401
 
@@ -98,19 +98,19 @@ def jwt_required(f):
                     "data": "Token does not passs validation"
                 }), 401
 
-            # if not checked_user.email_verified:
-            #     return jsonify({
-            #         "code": 403,
-            #         'message': "forbidden",
-            #         'data': "User is not verified"
-            #     }), 403
-            #
-            # if not checked_user.account_active:
-            #     return jsonify({
-            #         "code": 403,
-            #         'message': "forbidden",
-            #         'data': "Your account is not active"
-            #     }), 403
+            if not checked_user.email_verified:
+                return jsonify({
+                    "code": 403,
+                    'message': "forbidden",
+                    'data': "User is not verified"
+                }), 403
+
+            if not checked_user.account_active:
+                return jsonify({
+                    "code": 403,
+                    'message': "forbidden",
+                    'data': "Your account is not active"
+                }), 403
 
             if checked_user.deleted:
                 return jsonify({

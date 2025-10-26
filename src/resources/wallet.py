@@ -63,7 +63,7 @@ class WalletResource(Resource):
                 wallet_identifier=wallet_identifier,
                 user_id=user_id,
                 currency_id=currency_id,
-                account_number=secrets.randbits(10)
+                account_number=secrets.randbelow(9000000000) + 1000000000
             )
             new_wallet.save()
 

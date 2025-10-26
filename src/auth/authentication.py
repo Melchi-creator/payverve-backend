@@ -40,19 +40,19 @@ class Authentication(Resource):
                     'data': 'user not found'
                 }), 404
 
-            # if not check_user.email_verified:
-            #     return jsonify({
-            #         'code': 403,
-            #         'message': 'forbidden',
-            #         'data': 'email not verified'
-            #     }), 403
-            # 
-            # if not check_user.account_active:
-            #     return jsonify({
-            #         'code': 403,
-            #         'message': 'forbidden',
-            #         'data': 'user account is inactive, contact admin'
-            #     }), 403
+            if not check_user.email_verified:
+                return jsonify({
+                    'code': 403,
+                    'message': 'forbidden',
+                    'data': 'email not verified'
+                }), 403
+
+            if not check_user.account_active:
+                return jsonify({
+                    'code': 403,
+                    'message': 'forbidden',
+                    'data': 'user account is inactive, contact admin'
+                }), 403
 
             if check_user.deleted:
                 return jsonify({
@@ -79,8 +79,10 @@ class Authentication(Resource):
             access_token = encode_token(extra_payload, jti, config.access_token_time, config.access_secret_key)
             refresh_token = encode_token(extra_payload, jti, config.refresh_token_time, config.refresh_secret_key)
 
-            # Build response body
-            response_body = {
+            check_user.jti = Cryptographer.encrypt(jti)
+            check_user.save()
+
+            return jsonify({
                 'code': 200,
                 'message': 'successful',
                 'data': {
@@ -96,33 +98,7 @@ class Authentication(Resource):
                     'account_active': check_user.account_active,
                     'account_deleted': check_user.deleted
                 }
-            }
-
-            # Create a response object
-            response = make_response(jsonify(response_body))
-
-            # Set secure HTTP-only cookie for access token
-            response.set_cookie(
-                'access_token', access_token,
-                httponly=False if config.debug is True else True,
-                secure=False if config.debug is True else True,  # Only over HTTPS
-                samesite='None',  # Prevent CSRF
-                max_age=config.access_token_time
-            )
-
-            # Set secure HTTP-only cookie for refresh token
-            response.set_cookie(
-                'refresh_token', refresh_token,
-                httponly=False if config.debug is True else True,
-                secure=False if config.debug is True else True,
-                samesite='None',
-                max_age=config.refresh_token_time
-            )
-
-            check_user.jti = Cryptographer.encrypt(jti)
-            check_user.save()
-
-            return response
+            })
 
         except DataError:
             return jsonify({

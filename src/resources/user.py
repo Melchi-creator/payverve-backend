@@ -24,7 +24,7 @@ from ..middlewares import MailtrapHelper
 from ..models import CurrencyModel, UserModel, WalletModel
 from ..models.token_verification import TokenVerificationModel
 from ..utilities import Cryptographer, parse_params
-from ..value_object import EmailCheck, MinimumBalance, PasswordValidation
+from ..value_object import EmailCheck, MinimumBalance, MobileNumberCheck, PasswordValidation, UsernameCheck
 
 
 class UserResource(Resource):
@@ -47,6 +47,8 @@ class UserResource(Resource):
 
             EmailCheck(email_address)
             PasswordValidation(password)
+            MobileNumberCheck(mobile_number)
+            UsernameCheck(username)
 
             user_model = UserModel.query
             user_email = user_model.filter_by(email_address=email_address).first()
