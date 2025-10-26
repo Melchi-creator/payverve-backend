@@ -21,7 +21,7 @@ class WalletModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     fund = db.Column(db.Text, nullable=False)
     wallet_identifier = db.Column(db.BigInteger, nullable=False, unique=True)
-    account_number = db.Column(db.String(), nullable=False, unique=True, default='00000000000')
+    account_number = db.Column(db.BigInteger(), nullable=False, unique=True, default='00000000000')
     bank_name = db.Column(db.String(), nullable=False, default='payverve bank')
     currency_ticker = db.Column(db.String(), nullable=False, default='ngn')
     is_active = db.Column(db.Boolean(), default=False, nullable=False)
