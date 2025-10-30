@@ -36,36 +36,36 @@ class Authentication(Resource):
             if not check_user:
                 return jsonify({
                     'code': 404,
-                    'message': 'not found',
-                    'data': 'user not found'
+                    'status_status_message': 'not found',
+                    'status_message': 'user not found'
                 }), 404
 
             if not check_user.email_verified:
                 return jsonify({
                     'code': 403,
-                    'message': 'forbidden',
-                    'data': 'email not verified'
+                    'status_status_message': 'forbidden',
+                    'status_message': 'email not verified'
                 }), 403
 
             if not check_user.account_active:
                 return jsonify({
                     'code': 403,
-                    'message': 'forbidden',
-                    'data': 'user account is inactive, contact admin'
+                    'status_status_message': 'forbidden',
+                    'status_message': 'user account is inactive, contact admin'
                 }), 403
 
             if check_user.deleted:
                 return jsonify({
                     'code': 403,
-                    'message': 'forbidden',
-                    'data': 'user account has been deleted, contact admin'
+                    'status_status_message': 'forbidden',
+                    'status_message': 'user account has been deleted, contact admin'
                 }), 403
 
             if not check_user.check_password(password):
                 return jsonify({
                     'code': 401,
-                    'message': 'unauthorized',
-                    'data': 'invalid password'
+                    'status_status_message': 'unauthorized',
+                    'status_message': 'invalid password'
                 }), 401
 
             extra_payload = {
@@ -84,7 +84,7 @@ class Authentication(Resource):
 
             return jsonify({
                 'code': 200,
-                'message': 'successful',
+                'status_message': 'successful',
                 'data': {
                     'access_token': access_token,
                     'refresh_token': refresh_token,
@@ -103,15 +103,15 @@ class Authentication(Resource):
         except DataError:
             return jsonify({
                 "code": 400,
-                'message': 'bad request',
-                'data': "this error is a datatype error",
+                'status_message': 'bad request',
+                'message': "this error is a datatype error",
             }), 400
 
         except (ProgrammingError, DBAPIError, DisconnectionError, InternalError, OperationalError):
             return jsonify({
                 "code": 500,
-                'message': 'database error',
-                'data': "this error is a database error",
+                'status_message': 'database error',
+                'message': "this error is a database error",
             }), 500
 
     @staticmethod
@@ -131,36 +131,36 @@ class Authentication(Resource):
             if not check_admin:
                 return jsonify({
                     'code': 404,
-                    'message': 'not found',
-                    'data': 'user not found'
+                    'status_message': 'not found',
+                    'message': 'user not found'
                 }), 404
 
             if not check_admin.email_verified:
                 return jsonify({
                     'code': 403,
-                    'message': 'forbidden',
-                    'data': 'email not verified'
+                    'status_message': 'forbidden',
+                    'message': 'email not verified'
                 }), 403
 
             if not check_admin.account_active:
                 return jsonify({
                     'code': 403,
-                    'message': 'forbidden',
-                    'data': 'admin account is inactive, contact super admin'
+                    'status_message': 'forbidden',
+                    'message': 'admin account is inactive, contact super admin'
                 }), 403
 
             if check_admin.deleted:
                 return jsonify({
                     'code': 403,
-                    'message': 'forbidden',
-                    'data': 'admin account has been deleted, contact super admin'
+                    'status_message': 'forbidden',
+                    'message': 'admin account has been deleted, contact super admin'
                 }), 403
 
             if not check_admin.check_password(password):
                 return jsonify({
                     'code': 401,
-                    'message': 'unauthorized',
-                    'data': 'invalid password'
+                    'status_message': 'unauthorized',
+                    'message': 'invalid password'
                 }), 401
 
             extra_payload = {
@@ -179,7 +179,7 @@ class Authentication(Resource):
 
             return jsonify({
                 'code': 200,
-                'message': 'successful',
+                'status_message': 'successful',
                 'data': {
                     'access_token': access_token,
                     'refresh_token': refresh_token,
@@ -198,15 +198,15 @@ class Authentication(Resource):
         except DataError:
             return jsonify({
                 "code": 400,
-                'message': 'bad request',
-                'data': "this error is a datatype error",
+                'status_message': 'bad request',
+                'message': "this error is a datatype error",
             }), 400
 
         except (ProgrammingError, DBAPIError, DisconnectionError, InternalError, OperationalError):
             return jsonify({
                 "code": 500,
-                'message': 'database error',
-                'data': "this error is a database error",
+                'status_message': 'database error',
+                'message': "this error is a database error",
             }), 500
 
     @staticmethod
@@ -215,7 +215,7 @@ class Authentication(Resource):
         Generate a new access token using a valid refresh token from cookies
 
         Returns:
-            Flask response with new access token or error message
+            Flask response with new access token or error status_message
         """
         try:
             # Get refresh token from cookie
@@ -228,8 +228,8 @@ class Authentication(Resource):
             if not refresh_token:
                 return jsonify({
                     "code": 401,
-                    'message': "unauthorized",
-                    'data': "Refresh token is missing"
+                    'status_message': "unauthorized",
+                    'message': "Refresh token is missing"
                 }), 401
 
             # Decode and verify the refresh token
@@ -238,15 +238,15 @@ class Authentication(Resource):
             if "status" in decoded_token and decoded_token["status"] in ["invalid"]:
                 return jsonify({
                     "code": 401,
-                    'message': "unauthorized",
-                    'data': "Invalid refresh token"
+                    'status_message': "unauthorized",
+                    'message': "Invalid refresh token"
                 }), 401
 
             if "status" in decoded_token and decoded_token["status"] in ["expired"]:
                 return jsonify({
                     "code": 401,
-                    'message': "unauthorized",
-                    'data': "Expired refresh token"
+                    'status_message': "unauthorized",
+                    'message': "Expired refresh token"
                 }), 401
 
             # Get user ID from the decoded refresh token
@@ -258,29 +258,29 @@ class Authentication(Resource):
             if not user:
                 return jsonify({
                     "code": 404,
-                    'message': 'not found',
-                    'data': "The requested customer was not found",
+                    'status_message': 'not found',
+                    'message': "The requested customer was not found",
                 }), 404
 
             if not user.email_verified:
                 return jsonify({
                     'code': 403,
-                    'message': 'forbidden',
-                    'data': 'email not verified'
+                    'status_message': 'forbidden',
+                    'message': 'email not verified'
                 }), 403
 
             if not user.account_active:
                 return jsonify({
                     'code': 400,
-                    'message': 'bad request',
-                    'data': 'User account is not active'
+                    'status_message': 'bad request',
+                    'message': 'User account is not active'
                 }), 400
 
             if user.deleted:
                 return jsonify({
                     'code': 403,
-                    'message': 'forbidden',
-                    'data': 'user account has been deleted, contact admin'
+                    'status_message': 'forbidden',
+                    'message': 'user account has been deleted, contact admin'
                 }), 403
 
             # Create payload for the new access token
@@ -299,7 +299,7 @@ class Authentication(Resource):
             # Build response body
             response_body = {
                 'code': 200,
-                'message': 'successful',
+                'status_message': 'successful',
                 'data': {
                     'access_token': access_token,
                     'refresh_token': refresh_token,
@@ -343,6 +343,6 @@ class Authentication(Resource):
         except (ProgrammingError, DBAPIError, DisconnectionError, InternalError, OperationalError):
             return jsonify({
                 "code": 500,
-                'message': 'database error',
-                'data': "this error is a database error",
+                'status_message': 'database error',
+                'message': "this error is a database error",
             }), 500

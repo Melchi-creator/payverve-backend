@@ -1,7 +1,7 @@
 """
 src/utilities/mailtrap_helper.py
 This module contains a helper class for sending emails using Mailtrap.
-It provides a method to send emails with specified recipients, subject, message, and optional attachments.
+It provides a method to send emails with specified recipients, subject, status_message, and optional attachments.
 """
 
 import requests
@@ -13,7 +13,7 @@ class MailtrapHelper:
     """ A helper class for sending emails using Mailtrap """
 
     @staticmethod
-    def mailtrap_email_sender(sender_name:str, sender_email:str, endpoint: str, receipient: list, subject: str, mail_message, attachments: list = None):
+    def mailtrap_email_sender(sender_name:str, sender_email:str, endpoint: str, receipient: list, subject: str, mail_status_message, attachments: list = None):
         """ This method sends an email using Mailtrap API."""
 
         try:
@@ -31,7 +31,7 @@ class MailtrapHelper:
                     "email": config.mailtrap_payverve_helpdesk_email
                 },
                 "subject": subject,
-                "html": mail_message,
+                "html": mail_status_message,
                 "attachments": attachments,
             }
             headers = {
@@ -47,6 +47,6 @@ class MailtrapHelper:
         except Exception as e:
             return {
                 'code': 500,
-                'message': 'server error',
-                'data': f'an error occurred: {str(e)}'
+                'status_message': 'server error',
+                'message': f'an error occurred: {str(e)}'
             }

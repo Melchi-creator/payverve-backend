@@ -32,8 +32,8 @@ class PaystackHelper:
         except Exception as e:
             return jsonify({
                 'code': 500,
-                'message': 'server error',
-                'data': f'an error occurred: {str(e)}'
+                'status_message': 'server error',
+                'message': f'an error occurred: {str(e)}'
             }), 500
 
     @staticmethod
@@ -56,8 +56,8 @@ class PaystackHelper:
         except Exception as e:
             return jsonify({
                 'code': 500,
-                'message': 'server error',
-                'data': f'an error occurred: {str(e)}'
+                'status_message': 'server error',
+                'message': f'an error occurred: {str(e)}'
             }), 500
 
     @staticmethod
@@ -79,8 +79,8 @@ class PaystackHelper:
         except Exception as e:
             return jsonify({
                 'code': 500,
-                'message': 'server error',
-                'data': f'an error occurred: {str(e)}'
+                'status_message': 'server error',
+                'message': f'an error occurred: {str(e)}'
             }), 500
 
     @staticmethod
@@ -102,8 +102,8 @@ class PaystackHelper:
         except Exception as e:
             return jsonify({
                 'code': 500,
-                'message': 'server error',
-                'data': f'an error occurred: {str(e)}'
+                'status_message': 'server error',
+                'message': f'an error occurred: {str(e)}'
             }), 500
 
     @staticmethod
@@ -119,16 +119,13 @@ class PaystackHelper:
                 'authorization': f'Bearer {config.paystack_secret_key}'
             }
 
-            print(url)
-
             response = requests.request('POST', url, headers=headers, json=data)
-            print(response)
 
             return response
 
         except Exception as e:
             return jsonify({
                 'code': 500,
-                'message': 'server error',
-                'data': f'an error occurred: {str(e)}'
+                'status_message': 'server error',
+                'message': f'an error occurred: {str(e)}'
             }), 500

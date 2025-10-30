@@ -48,15 +48,15 @@ class FltterwaveHelper:
 
             return jsonify({
                 'code': response.status_code,
-                'message': 'success' if response.status_code == 200 else 'failed',
+                'status_message': 'success' if response.status_code == 200 else 'failed',
                 'data': response.json()
             }), response.status_code
 
         except Exception as e:
             return jsonify({
                 'code': 500,
-                'message': 'server error',
-                'data': f'an error occurred: {str(e)}'
+                'status_message': 'server error',
+                'message': f'an error occurred: {str(e)}'
             }), 500
 
     @staticmethod
@@ -95,15 +95,15 @@ class FltterwaveHelper:
 
             return jsonify({
                 'code': response.status_code,
-                'message': 'success' if response.status_code == 200 else 'failed',
+                'status_message': 'success' if response.status_code == 200 else 'failed',
                 'data': response.json()
             }), response.status_code
 
         except Exception as e:
             return jsonify({
                 'code': 500,
-                'message': 'server error',
-                'data': f'an error occurred: {str(e)}'
+                'status_message': 'server error',
+                'message': f'an error occurred: {str(e)}'
             }), 500
 
     @staticmethod
@@ -125,15 +125,15 @@ class FltterwaveHelper:
 
             return jsonify({
                 'code': response.status_code,
-                'message': 'success' if response.status_code == 200 else 'failed',
+                'status_message': 'success' if response.status_code == 200 else 'failed',
                 'data': response.json()
             }), response.status_code
 
         except Exception as e:
             return jsonify({
                 'code': 500,
-                'message': 'server error',
-                'data': f'an error occurred: {str(e)}'
+                'status_message': 'server error',
+                'message': f'an error occurred: {str(e)}'
             }), 500
 
     @staticmethod
@@ -147,8 +147,8 @@ class FltterwaveHelper:
             if signature is None or (signature != secret_hash):
                 return jsonify({
                     'code': 401,
-                    'message': 'signature verification failed',
-                    'data': 'signature verification failed'
+                    'status_message': 'signature verification failed',
+                    'message': 'signature verification failed'
                 }), 401
 
             data = request.get_json()
@@ -157,8 +157,8 @@ class FltterwaveHelper:
             if not data or "event" not in data:
                 return jsonify({
                     'code': 400,
-                    'message': 'invalid request',
-                    'data': 'invalid request'
+                    'status_message': 'invalid request',
+                    'message': 'invalid request'
                 }), 400
 
             event = data.get("event")
@@ -210,13 +210,13 @@ class FltterwaveHelper:
 
             return jsonify({
                 'code': 200,
-                'message': 'success',
-                'data': 'transaction successful'
+                'status_message': 'success',
+                'message': 'transaction successful'
             }), 200
 
         except Exception as e:
             return jsonify({
                 'code': 500,
-                'message': 'server error',
-                'data': f'an error occurred: {str(e)}'
+                'status_message': 'server error',
+                'message': f'an error occurred: {str(e)}'
             })

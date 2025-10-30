@@ -24,15 +24,15 @@ class VirtualAccountNumberResource(Resource):
             if not virtual_account_numbers:
                 return jsonify({
                     'code': 404,
-                    'message': 'data not found',
-                    'data': 'no virtual accounts was found'
+                    'status_message': 'data not found',
+                    'message': 'no virtual accounts was found'
                 }), 404
 
             data = [
                 {
                     'id': virtual_account_number.id,
                     'response_code': virtual_account_number.response_code,
-                    'response_message': virtual_account_number.response_message,
+                    'response_status_message': virtual_account_number.response_status_message,
                     'flw_ref': virtual_account_number.flw_ref,
                     'order_ref': virtual_account_number.order_ref,
                     'frequency': virtual_account_number.frequency,
@@ -54,29 +54,29 @@ class VirtualAccountNumberResource(Resource):
 
             return jsonify({
                 'code': 200,
-                'message': 'success',
+                'status_message': 'success',
                 'data': data
             }), 200
 
         except InternalError:
             return jsonify({
                 'code': 500,
-                'message': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'status_message': 'internal server - internal server error',
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
-                'message': 'database error - operation and disconnection error',
-                'data': 'could not fetch data'
+                'status_message': 'database error - operation and disconnection error',
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'message': 'database error - programming error',
-                'data': 'could not fetch table'
+                'status_message': 'database error - programming error',
+                'message': 'could not fetch table'
             }), 500
 
     @staticmethod
@@ -89,14 +89,14 @@ class VirtualAccountNumberResource(Resource):
             if not virtual_account_number:
                 return jsonify({
                     'code': 404,
-                    'message': 'data not found',
-                    'data': 'no virtual account was found'
+                    'status_message': 'data not found',
+                    'message': 'no virtual account was found'
                 }), 404
 
             data = {
                 'id': virtual_account_number.id,
                 'response_code': virtual_account_number.response_code,
-                'response_message': virtual_account_number.response_message,
+                'response_status_message': virtual_account_number.response_status_message,
                 'flw_ref': virtual_account_number.flw_ref,
                 'order_ref': virtual_account_number.order_ref,
                 'frequency': virtual_account_number.frequency,
@@ -116,29 +116,29 @@ class VirtualAccountNumberResource(Resource):
 
             return jsonify({
                 'code': 200,
-                'message': 'success',
+                'status_message': 'success',
                 'data': data
             }), 200
 
         except InternalError:
             return jsonify({
                 'code': 500,
-                'message': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'status_message': 'internal server - internal server error',
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
-                'message': 'database error - operation and disconnection error',
-                'data': 'could not fetch data'
+                'status_message': 'database error - operation and disconnection error',
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'message': 'database error - programming error',
-                'data': 'could not fetch table'
+                'status_message': 'database error - programming error',
+                'message': 'could not fetch table'
             }), 500
 
     @staticmethod
@@ -151,15 +151,15 @@ class VirtualAccountNumberResource(Resource):
             if not virtual_account_numbers:
                 return jsonify({
                     'code': 404,
-                    'message': 'data not found',
-                    'data': 'no virtual accounts was found'
+                    'status_message': 'data not found',
+                    'message': 'no virtual accounts was found'
                 }), 404
 
             data = [
                 {
                     'id': virtual_account_number.id,
                     'response_code': virtual_account_number.response_code,
-                    'response_message': virtual_account_number.response_message,
+                    'response_status_message': virtual_account_number.response_status_message,
                     'flw_ref': virtual_account_number.flw_ref,
                     'order_ref': virtual_account_number.order_ref,
                     'frequency': virtual_account_number.frequency,
@@ -181,34 +181,34 @@ class VirtualAccountNumberResource(Resource):
 
             return jsonify({
                 'code': 200,
-                'message': 'success',
+                'status_message': 'success',
                 'data': data
             }), 200
 
         except InternalError:
             return jsonify({
                 'code': 500,
-                'message': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'status_message': 'internal server - internal server error',
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
-                'message': 'database error - operation and disconnection error',
-                'data': 'could not fetch data'
+                'status_message': 'database error - operation and disconnection error',
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'message': 'database error - programming error',
-                'data': 'could not fetch table'
+                'status_message': 'database error - programming error',
+                'message': 'could not fetch table'
             }), 500
 
         except ValueError as ve:
             return jsonify({
                 'code': 400,
-                'message': 'bad request - value error',
-                'data': str(ve)
+                'status_message': 'bad request - value error',
+                'message': str(ve)
             }), 400
