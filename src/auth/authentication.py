@@ -36,36 +36,36 @@ class Authentication(Resource):
             if not check_user:
                 return jsonify({
                     'code': 404,
-                    'status_status_message': 'not found',
-                    'status_message': 'user not found'
+                    'status_message': 'not found',
+                    'message': 'user not found'
                 }), 404
 
             if not check_user.email_verified:
                 return jsonify({
                     'code': 403,
-                    'status_status_message': 'forbidden',
-                    'status_message': 'email not verified'
+                    'status_message': 'forbidden',
+                    'message': 'email not verified'
                 }), 403
 
             if not check_user.account_active:
                 return jsonify({
                     'code': 403,
-                    'status_status_message': 'forbidden',
-                    'status_message': 'user account is inactive, contact admin'
+                    'status_message': 'forbidden',
+                    'message': 'user account is inactive, contact admin'
                 }), 403
 
             if check_user.deleted:
                 return jsonify({
                     'code': 403,
-                    'status_status_message': 'forbidden',
-                    'status_message': 'user account has been deleted, contact admin'
+                    'status_message': 'forbidden',
+                    'message': 'user account has been deleted, contact admin'
                 }), 403
 
             if not check_user.check_password(password):
                 return jsonify({
                     'code': 401,
-                    'status_status_message': 'unauthorized',
-                    'status_message': 'invalid password'
+                    'status_message': 'unauthorized',
+                    'message': 'invalid password'
                 }), 401
 
             extra_payload = {
