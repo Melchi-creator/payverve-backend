@@ -47,14 +47,14 @@ class SwapCurrencyResource(Resource):
                 return jsonify({
                     'code': 400,
                     'code_messgae': 'bad request',
-                    'data': 'swapping is currently not available, check back shortyly'
+                    'message': 'swapping is currently not available, check back shortyly'
                 })
 
             if len(wallet_identifier) != 10 or not wallet_identifier.isdigit():
                 return jsonify({
                     'code': 400,
-                    'message': 'bad request',
-                    'data': 'the wallet id is not correct'
+                    'status_message': 'bad request',
+                    'message': 'the wallet id is not correct'
                 }), 400
 
             MinimumBalance(int(amount))
@@ -64,15 +64,15 @@ class SwapCurrencyResource(Resource):
             if not base_currency_wallet.is_active:
                 return jsonify({
                     'code': 403,
-                    'message': 'forbidden',
-                    'data': f'your {base_currency_wallet.currencies.short_code} wallet does not have the facility to perform this operation'
+                    'status_message': 'forbidden',
+                    'message': f'your {base_currency_wallet.currencies.short_code} wallet does not have the facility to perform this operation'
                 }), 403
 
             if not base_currency_wallet:
                 return jsonify({
                     'code': 404,
-                    'message': 'not found',
-                    'data': 'the base currency wallet was not found'
+                    'status_message': 'not found',
+                    'message': 'the base currency wallet was not found'
                 }), 404
 
             decrypted_funds = Cryptographer.decrypt(base_currency_wallet.fund)
@@ -80,8 +80,8 @@ class SwapCurrencyResource(Resource):
             if float(decrypted_funds) < float(amount):
                 return jsonify({
                     'code': 400,
-                    'message': 'bad request',
-                    'data': 'insufficient funds in base currency wallet'
+                    'status_message': 'bad request',
+                    'message': 'insufficient funds in base currency wallet'
                 }), 400
 
             target_currency_wallet = WalletModel.query.filter_by(wallet_identifier=wallet_identifier,
@@ -90,15 +90,15 @@ class SwapCurrencyResource(Resource):
             if not target_currency_wallet.is_active:
                 return jsonify({
                     'code': 403,
-                    'message': 'forbidden',
-                    'data': f'your {target_currency_wallet.currencies.short_code} wallet does not have the facility to perform this operation'
+                    'status_message': 'forbidden',
+                    'message': f'your {target_currency_wallet.currencies.short_code} wallet does not have the facility to perform this operation'
                 }), 403
 
             if not target_currency_wallet:
                 return jsonify({
                     'code': 404,
-                    'message': 'not found',
-                    'data': 'the target currency wallet id was not found'
+                    'status_message': 'not found',
+                    'message': 'the target currency wallet id was not found'
                 }), 404
 
             base_currency = base_currency_wallet.currencies.short_code
@@ -110,8 +110,8 @@ class SwapCurrencyResource(Resource):
             if compare_digest(str(base_currency), str(target_currency)):
                 return jsonify({
                     'code': 400,
-                    'message': 'bad request',
-                    'data': f'you can\'t convert from {base_currency} to {target_currency}'
+                    'status_message': 'bad request',
+                    'message': f'you can\'t convert from {base_currency} to {target_currency}'
                 }), 400
 
             if not compare_digest(str(base_currency), str(target_currency)):
@@ -132,8 +132,8 @@ class SwapCurrencyResource(Resource):
                 if response.status_code != 200:
                     return jsonify({
                         'code': response.status_code,
-                        'message': response.json().get('code_status', 'error'),
-                        'data': response.json().get('data', 'could not fetch exchange rate')
+                        'status_message': response.json().get('code_status', 'error'),
+                        'message': response.json().get('data', 'could not fetch exchange rate')
                     }), response.status_code
 
                 exchange_rate = response.json().get("data")
@@ -183,50 +183,50 @@ class SwapCurrencyResource(Resource):
 
             return jsonify({
                 'code': 201,
-                'message': 'created',
-                'data': 'currencies swapped successfully'
+                'status_message': 'created',
+                'message': 'currencies swapped successfully'
             }), 201
 
         except IntegrityError:
             return jsonify({
                 'code': 409,
-                'message': 'conflict - integrity error',
-                'data': 'this currency has already been listed'
+                'status_message': 'conflict - integrity error',
+                'message': 'this currency has already been listed'
             }), 409
 
         except DataError:
             return jsonify({
                 'code': 400,
-                'message': 'bad request - data error',
-                'data': 'ensure input data are correct'
+                'status_message': 'bad request - data error',
+                'message': 'ensure input data are correct'
             }), 400
 
         except InternalError:
             return jsonify({
                 'code': 500,
-                'message': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'status_message': 'internal server - internal server error',
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError, SQLAlchemyError):
             return jsonify({
                 'code': 500,
-                'message': 'database error - operation, sqlalchemy and disconnection error',
-                'data': 'could not fetch data'
+                'status_message': 'database error - operation, sqlalchemy and disconnection error',
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'message': 'database error - programming error',
-                'data': 'could not fetch table'
+                'status_message': 'database error - programming error',
+                'message': 'could not fetch table'
             }), 500
 
         except (ArithmeticError, ValueError, ZeroDivisionError):
             return jsonify({
                 'code': 500,
-                'message': 'calculation error - arithmetic, value, zerodivision error',
-                'data': 'could run an arithmetic calculation'
+                'status_message': 'calculation error - arithmetic, value, zerodivision error',
+                'message': 'could run an arithmetic calculation'
             }), 500
 
     @staticmethod
@@ -239,8 +239,8 @@ class SwapCurrencyResource(Resource):
             if not swapped_currencies:
                 return jsonify({
                     'code': 404,
-                    'message': 'data not found',
-                    'data': 'no swapped currency was found'
+                    'status_message': 'data not found',
+                    'message': 'no swapped currency was found'
                 }), 404
 
             data = []
@@ -265,29 +265,29 @@ class SwapCurrencyResource(Resource):
 
             return jsonify({
                 'code': 200,
-                'message': 'success',
+                'status_message': 'success',
                 'data': data
             }), 200
 
         except InternalError:
             return jsonify({
                 'code': 500,
-                'message': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'status_message': 'internal server - internal server error',
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
-                'message': 'database error - operation and disconnection error',
-                'data': 'could not fetch data'
+                'status_message': 'database error - operation and disconnection error',
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'message': 'database error - programming error',
-                'data': 'could not fetch table'
+                'status_message': 'database error - programming error',
+                'message': 'could not fetch table'
             }), 500
 
     @staticmethod
@@ -300,8 +300,8 @@ class SwapCurrencyResource(Resource):
             if not swapped_currency:
                 return jsonify({
                     'code': 404,
-                    'message': 'data not found',
-                    'data': 'no swapped currency was found'
+                    'status_message': 'data not found',
+                    'message': 'no swapped currency was found'
                 }), 404
 
             data = {
@@ -323,29 +323,29 @@ class SwapCurrencyResource(Resource):
 
             return jsonify({
                 'code': 200,
-                'message': 'success',
+                'status_message': 'success',
                 'data': data
             }), 200
 
         except InternalError:
             return jsonify({
                 'code': 500,
-                'message': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'status_message': 'internal server - internal server error',
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
-                'message': 'database error - operation and disconnection error',
-                'data': 'could not fetch data'
+                'status_message': 'database error - operation and disconnection error',
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'message': 'database error - programming error',
-                'data': 'could not fetch table'
+                'status_message': 'database error - programming error',
+                'message': 'could not fetch table'
             }), 500
 
     @staticmethod
@@ -358,35 +358,35 @@ class SwapCurrencyResource(Resource):
             if not swapped_currency:
                 return jsonify({
                     'code': 404,
-                    'message': 'data not found',
-                    'data': 'no swapped currency was found'
+                    'status_message': 'data not found',
+                    'message': 'no swapped currency was found'
                 }), 404
 
             swapped_currency.delete()
 
             return jsonify({
                 'code': 200,
-                'message': 'success',
-                'data': 'swap history was deleted successfully'
+                'status_message': 'success',
+                'message': 'swap history was deleted successfully'
             }), 200
 
         except InternalError:
             return jsonify({
                 'code': 500,
-                'message': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'status_message': 'internal server - internal server error',
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
-                'message': 'database error - operation and disconnection error',
-                'data': 'could not fetch data'
+                'status_message': 'database error - operation and disconnection error',
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'message': 'database error - programming error',
-                'data': 'could not fetch table'
+                'status_message': 'database error - programming error',
+                'message': 'could not fetch table'
             }), 500

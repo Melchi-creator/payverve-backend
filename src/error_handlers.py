@@ -6,12 +6,12 @@ from sqlalchemy.exc import (DataError, DisconnectionError, IntegrityError,
 
 @app.errorhandler(400)
 def bad_request_handler(e):
-    message = e.data['message'] if getattr(e, 'data', None) else e.description.split(':')[0]
+    status_message = e.data['status_message'] if getattr(e, 'data', None) else e.description.split(':')[0]
 
     return jsonify({
         'code': 400,
-        'message': 'bad request',
-        'data': message
+        'status_message': 'bad request',
+        'message': status_message
     }), 400
 
 
@@ -19,7 +19,7 @@ def bad_request_handler(e):
 def not_found_handler(e):
     return jsonify({
         'code': 404,
-        'message': 'url not found'
+        'status_message': 'url not found'
     }), 404
 
 
@@ -27,7 +27,7 @@ def not_found_handler(e):
 def method_not_allowed_handler(e):
     return jsonify({
         'code': 405,
-        'message': 'method not allowed for requested url'
+        'status_message': 'method not allowed for requested url'
     }), 405
 
 
@@ -35,7 +35,7 @@ def method_not_allowed_handler(e):
 def server_error_handler(e):
     return jsonify({
         'code': 500,
-        'message': 'something went wrong!'
+        'status_message': 'something went wrong!'
     }), 500
 
 
@@ -43,8 +43,8 @@ def server_error_handler(e):
 def internal_error_handler(e):
     return jsonify({
         'code': 500,
-        'message': 'internal server - internal server error',
-        'data': 'could not fetch data'
+        'status_message': 'internal server - internal server error',
+        'message': 'could not fetch data'
     }), 500
 
 
@@ -52,8 +52,8 @@ def internal_error_handler(e):
 def operational_error_handler(e):
     return jsonify({
         'code': 500,
-        'message': 'database error - operation error',
-        'data': 'could not fetch data'
+        'status_message': 'database error - operation error',
+        'message': 'could not fetch data'
     }), 500
 
 
@@ -61,8 +61,8 @@ def operational_error_handler(e):
 def SQLAlchemy_error_handler(e):
     return jsonify({
         'code': 500,
-        'message': 'database error - sqlalchemy error',
-        'data': 'could not fetch data'
+        'status_message': 'database error - sqlalchemy error',
+        'message': 'could not fetch data'
     }), 500
 
 
@@ -70,8 +70,8 @@ def SQLAlchemy_error_handler(e):
 def disconnection_error_handler(e):
     return jsonify({
         'code': 500,
-        'message': 'database error - disconnection error',
-        'data': 'could not fetch data'
+        'status_message': 'database error - disconnection error',
+        'message': 'could not fetch data'
     }), 500
 
 
@@ -79,8 +79,8 @@ def disconnection_error_handler(e):
 def programming_error_handler(e):
     return jsonify({
         'code': 500,
-        'message': 'database error - programming error',
-        'data': 'could not fetch table'
+        'status_message': 'database error - programming error',
+        'message': 'could not fetch table'
     }), 500
 
 
@@ -88,8 +88,8 @@ def programming_error_handler(e):
 def intergrity_error_handler(e):
     return jsonify({
         'code': 409,
-        'message': 'conflict - integrity error',
-        'data': 'account already has an account'
+        'status_message': 'conflict - integrity error',
+        'message': 'account already has an account'
     }), 409
 
 
@@ -97,6 +97,6 @@ def intergrity_error_handler(e):
 def data_error_handler(e):
     return jsonify({
         'code': 400,
-        'message': 'bad request - data error',
-        'data': 'ensure input data are correct'
+        'status_message': 'bad request - data error',
+        'message': 'ensure input data are correct'
     }), 400

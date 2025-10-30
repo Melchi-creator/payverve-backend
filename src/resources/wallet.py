@@ -38,15 +38,15 @@ class WalletResource(Resource):
         if not customer_confirmation:
             return jsonify({
                 'code': 404,
-                'message': 'not found',
-                'data': 'user not found'
+                'status_message': 'not found',
+                'message': 'user not found'
             }), 404
 
         if not created_by_payverve:
             return jsonify({
                 'code': 403,
-                'message': 'forbidden',
-                'data': 'you are not allowed to create a wallet'
+                'status_message': 'forbidden',
+                'message': 'you are not allowed to create a wallet'
             }), 403
 
         try:
@@ -69,43 +69,43 @@ class WalletResource(Resource):
 
             return jsonify({
                 'code': 201,
-                'message': 'created',
-                'data': 'wallet was successfully created'
+                'status_message': 'created',
+                'message': 'wallet was successfully created'
             }), 201
 
         except IntegrityError:
             return jsonify({
                 'code': 409,
-                'message': 'conflict - integrity error',
-                'data': 'a wallet with this currency has already been listed'
+                'status_message': 'conflict - integrity error',
+                'message': 'a wallet with this currency has already been listed'
             }), 409
 
         except DataError:
             return jsonify({
                 'code': 400,
-                'message': 'bad request - data error',
-                'data': 'ensure input data are correct'
+                'status_message': 'bad request - data error',
+                'message': 'ensure input data are correct'
             }), 400
 
         except InternalError:
             return jsonify({
                 'code': 500,
-                'message': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'status_message': 'internal server - internal server error',
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError, SQLAlchemyError):
             return jsonify({
                 'code': 500,
-                'message': 'database error - operation, sqlalchemy and disconnection error',
-                'data': 'could not fetch data'
+                'status_message': 'database error - operation, sqlalchemy and disconnection error',
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'message': 'database error - programming error',
-                'data': 'could not fetch table'
+                'status_message': 'database error - programming error',
+                'message': 'could not fetch table'
             }), 500
 
     @staticmethod
@@ -120,8 +120,8 @@ class WalletResource(Resource):
         if not customer_confirmation:
             return jsonify({
                 'code': 404,
-                'message': 'not found',
-                'data': 'user not found'
+                'status_message': 'not found',
+                'message': 'user not found'
             }), 404
 
         own_wallet = WalletModel.query.filter_by(user_id=user_id, currency_id=currency_id).first()
@@ -133,15 +133,15 @@ class WalletResource(Resource):
             if own_wallet and not compare_digest(str(ngn_currency_id), str(currency_id)):
                 return jsonify({
                     'code': 409,
-                    'message': 'conflict',
-                    'data': 'you already own a wallet with this currency'
+                    'status_message': 'conflict',
+                    'message': 'you already own a wallet with this currency'
                 }), 409
 
             if currency_id == ngn_currency_id and own_wallet.is_active:
                 return jsonify({
                     'code': 403,
-                    'message': 'forbidden',
-                    'data': 'you can only create one ngn wallet'
+                    'status_message': 'forbidden',
+                    'message': 'you can only create one ngn wallet'
                 }), 403
 
             kyc_check = KYCModel.query.filter_by(user_id=user_id).first()
@@ -149,8 +149,8 @@ class WalletResource(Resource):
             if not kyc_check.bvn_present or not kyc_check.nin_present:
                 return jsonify({
                     'code': 409,
-                    'message': 'unauthorise',
-                    'data': 'complete your kyc before proceeding'
+                    'status_message': 'unauthorise',
+                    'message': 'complete your kyc before proceeding'
                 }), 409
 
             token = request.headers.get('Authorization').split(" ")[1]
@@ -180,8 +180,8 @@ class WalletResource(Resource):
                 if response.status_code != 200:
                     return jsonify({
                         'code': response.status_code,
-                        'message': 'failed',
-                        'data': 'could not create wallet at the moment, try again later'
+                        'status_message': 'failed',
+                        'message': 'could not create wallet at the moment, try again later'
                     }), response.status_code
 
             wallet_identifier = RandomGenerator.wallet_identifier()
@@ -212,7 +212,7 @@ class WalletResource(Resource):
                 # noinspection PyArgumentList
                 new_virtual_ngn_account = VirtualAccountNumberModel(
                     response_code=inner_data.get('response_code'),
-                    response_message=inner_data.get('response_message'),
+                    response_status_message=inner_data.get('response_status_message'),
                     flw_ref=inner_data.get('flw_ref'),
                     order_ref=inner_data.get('order_ref'),
                     frequency=inner_data.get('frequency'),
@@ -230,8 +230,8 @@ class WalletResource(Resource):
 
                 return jsonify({
                     'code': 200,
-                    'message': 'success',
-                    'data': 'ngn wallet created successfully and activated'
+                    'status_message': 'success',
+                    'message': 'ngn wallet created successfully and activated'
                 }), 200
 
             # noinspection PyArgumentList
@@ -250,7 +250,7 @@ class WalletResource(Resource):
             # noinspection PyArgumentList
             new_virtual_ngn_account = VirtualAccountNumberModel(
                 response_code=inner_data.get('response_code'),
-                response_message=inner_data.get('response_message'),
+                response_status_message=inner_data.get('response_status_message'),
                 flw_ref=inner_data.get('flw_ref'),
                 order_ref=inner_data.get('order_ref'),
                 frequency=inner_data.get('frequency'),
@@ -268,43 +268,43 @@ class WalletResource(Resource):
 
             return jsonify({
                 'code': 201,
-                'message': 'created',
-                'data': 'wallet was successfully created'
+                'status_message': 'created',
+                'message': 'wallet was successfully created'
             }), 201
 
         except IntegrityError:
             return jsonify({
                 'code': 409,
-                'message': 'conflict - integrity error',
-                'data': 'a wallet with this currency has already been listed'
+                'status_message': 'conflict - integrity error',
+                'message': 'a wallet with this currency has already been listed'
             }), 409
 
         except DataError:
             return jsonify({
                 'code': 400,
-                'message': 'bad request - data error',
-                'data': 'ensure input data are correct'
+                'status_message': 'bad request - data error',
+                'message': 'ensure input data are correct'
             }), 400
 
         except InternalError:
             return jsonify({
                 'code': 500,
-                'message': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'status_message': 'internal server - internal server error',
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError, SQLAlchemyError):
             return jsonify({
                 'code': 500,
-                'message': 'database error - operation, sqlalchemy and disconnection error',
-                'data': 'could not fetch data'
+                'status_message': 'database error - operation, sqlalchemy and disconnection error',
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'message': 'database error - programming error',
-                'data': 'could not fetch table'
+                'status_message': 'database error - programming error',
+                'message': 'could not fetch table'
             }), 500
 
     @staticmethod
@@ -317,8 +317,8 @@ class WalletResource(Resource):
             if not wallets:
                 return jsonify({
                     'code': 404,
-                    'message': 'data not found',
-                    'data': 'no wallet was found'
+                    'status_message': 'data not found',
+                    'message': 'no wallet was found'
                 }), 404
 
             data = []
@@ -344,29 +344,29 @@ class WalletResource(Resource):
 
             return jsonify({
                 'code': 200,
-                'message': 'success',
+                'status_message': 'success',
                 'data': data
             }), 200
 
         except InternalError:
             return jsonify({
                 'code': 500,
-                'message': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'status_message': 'internal server - internal server error',
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
-                'message': 'database error - operation and disconnection error',
-                'data': 'could not fetch data'
+                'status_message': 'database error - operation and disconnection error',
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'message': 'database error - programming error',
-                'data': 'could not fetch table'
+                'status_message': 'database error - programming error',
+                'message': 'could not fetch table'
             }), 500
 
     @staticmethod
@@ -379,8 +379,8 @@ class WalletResource(Resource):
             if not wallet:
                 return jsonify({
                     'code': 404,
-                    'message': 'data not found',
-                    'data': 'no wallet was found'
+                    'status_message': 'data not found',
+                    'message': 'no wallet was found'
                 }), 404
 
             data = {
@@ -403,29 +403,29 @@ class WalletResource(Resource):
 
             return jsonify({
                 'code': 200,
-                'message': 'success',
+                'status_message': 'success',
                 'data': data
             }), 200
 
         except InternalError:
             return jsonify({
                 'code': 500,
-                'message': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'status_message': 'internal server - internal server error',
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
-                'message': 'database error - operation and disconnection error',
-                'data': 'could not fetch data'
+                'status_message': 'database error - operation and disconnection error',
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'message': 'database error - programming error',
-                'data': 'could not fetch table'
+                'status_message': 'database error - programming error',
+                'message': 'could not fetch table'
             }), 500
 
     @staticmethod
@@ -438,8 +438,8 @@ class WalletResource(Resource):
             if not wallets:
                 return jsonify({
                     'code': 404,
-                    'message': 'data not found',
-                    'data': 'no wallet was found'
+                    'status_message': 'data not found',
+                    'message': 'no wallet was found'
                 }), 404
 
             data = []
@@ -465,29 +465,29 @@ class WalletResource(Resource):
 
             return jsonify({
                 'code': 200,
-                'message': 'success',
+                'status_message': 'success',
                 'data': data
             }), 200
 
         except InternalError:
             return jsonify({
                 'code': 500,
-                'message': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'status_message': 'internal server - internal server error',
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
-                'message': 'database error - operation and disconnection error',
-                'data': 'could not fetch data'
+                'status_message': 'database error - operation and disconnection error',
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'message': 'database error - programming error',
-                'data': 'could not fetch table'
+                'status_message': 'database error - programming error',
+                'message': 'could not fetch table'
             }), 500
 
     @staticmethod
@@ -504,8 +504,8 @@ class WalletResource(Resource):
             if not wallet:
                 return jsonify({
                     'code': 404,
-                    'message': 'data not found',
-                    'data': 'no wallet was found'
+                    'status_message': 'data not found',
+                    'message': 'no wallet was found'
                 }), 404
 
             MinimumBalance(fund)
@@ -519,41 +519,41 @@ class WalletResource(Resource):
 
             return jsonify({
                 'code': 200,
-                'message': 'success',
-                'data': 'wallet was successfully updated'
+                'status_message': 'success',
+                'message': 'wallet was successfully updated'
             }), 200
 
         except IntegrityError:
             return jsonify({
                 'code': 409,
-                'message': 'conflict - integrity error',
-                'data': 'a wallet with this currency has already been listed'
+                'status_message': 'conflict - integrity error',
+                'message': 'a wallet with this currency has already been listed'
             }), 409
 
         except DataError:
             return jsonify({
                 'code': 400,
-                'message': 'bad request - data error',
-                'data': 'ensure input data are correct'
+                'status_message': 'bad request - data error',
+                'message': 'ensure input data are correct'
             }), 400
 
         except InternalError:
             return jsonify({
                 'code': 500,
-                'message': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'status_message': 'internal server - internal server error',
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError, SQLAlchemyError):
             return jsonify({
                 'code': 500,
-                'message': 'database error - operation, sqlalchemy and disconnection error',
-                'data': 'could not fetch data'
+                'status_message': 'database error - operation, sqlalchemy and disconnection error',
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'message': 'database error - programming error',
-                'data': 'could not fetch table'
+                'status_message': 'database error - programming error',
+                'message': 'could not fetch table'
             }), 500

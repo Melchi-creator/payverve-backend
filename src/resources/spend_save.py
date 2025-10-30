@@ -37,8 +37,8 @@ class SpendSaveResource(Resource):
             if not confirm_user:
                 return jsonify({
                     'code': 404,
-                    'message': 'not found',
-                    'data': 'user not found',
+                    'status_message': 'not found',
+                    'message': 'user not found',
                 }), 404
 
             already_setup = SpendSaveModel.query.filter_by(user_id=user_id).first()
@@ -46,8 +46,8 @@ class SpendSaveResource(Resource):
             if already_setup:
                 return jsonify({
                     'code': 409,
-                    'message': 'user already setup',
-                    'data': 'spend and save already setup, please update instead',
+                    'status_message': 'user already setup',
+                    'message': 'spend and save already setup, please update instead',
                 })
 
             initial_balance = Cryptographer.encrypt(float(0))
@@ -63,50 +63,50 @@ class SpendSaveResource(Resource):
 
             return jsonify({
                 'code': 201,
-                'message': 'created',
-                'data': 'spend and send successfully setup'
+                'status_message': 'created',
+                'message': 'spend and send successfully setup'
             }), 201
 
         except IntegrityError:
             return jsonify({
                 'code': 409,
-                'message': 'conflict - integrity error',
-                'data': 'this currency has already been listed'
+                'status_message': 'conflict - integrity error',
+                'message': 'this currency has already been listed'
             }), 409
 
         except DataError:
             return jsonify({
                 'code': 400,
-                'message': 'bad request - data error',
-                'data': 'ensure input data are correct'
+                'status_message': 'bad request - data error',
+                'message': 'ensure input data are correct'
             }), 400
 
         except InternalError:
             return jsonify({
                 'code': 500,
-                'message': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'status_message': 'internal server - internal server error',
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError, SQLAlchemyError):
             return jsonify({
                 'code': 500,
-                'message': 'database error - operation, sqlalchemy and disconnection error',
-                'data': 'could not fetch data'
+                'status_message': 'database error - operation, sqlalchemy and disconnection error',
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'message': 'database error - programming error',
-                'data': 'could not fetch table'
+                'status_message': 'database error - programming error',
+                'message': 'could not fetch table'
             }), 500
 
         except (ArithmeticError, ValueError, ZeroDivisionError):
             return jsonify({
                 'code': 500,
-                'message': 'calculation error - arithmetic, value, zerodivision error',
-                'data': 'could run an arithmetic calculation'
+                'status_message': 'calculation error - arithmetic, value, zerodivision error',
+                'message': 'could run an arithmetic calculation'
             }), 500
 
     @staticmethod
@@ -119,8 +119,8 @@ class SpendSaveResource(Resource):
             if not spend_saves:
                 return jsonify({
                     'code': 404,
-                    'message': 'data not found',
-                    'data': 'no spend and save found'
+                    'status_message': 'data not found',
+                    'message': 'no spend and save found'
                 }), 404
 
             data = []
@@ -139,29 +139,29 @@ class SpendSaveResource(Resource):
 
             return jsonify({
                 'code': 200,
-                'message': 'success',
+                'status_message': 'success',
                 'data': data
             }), 200
 
         except InternalError:
             return jsonify({
                 'code': 500,
-                'message': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'status_message': 'internal server - internal server error',
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
-                'message': 'database error - operation and disconnection error',
-                'data': 'could not fetch data'
+                'status_message': 'database error - operation and disconnection error',
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'message': 'database error - programming error',
-                'data': 'could not fetch table'
+                'status_message': 'database error - programming error',
+                'message': 'could not fetch table'
             }), 500
 
     @staticmethod
@@ -174,8 +174,8 @@ class SpendSaveResource(Resource):
             if not spend_save:
                 return jsonify({
                     'code': 404,
-                    'message': 'data not found',
-                    'data': 'no spend and save was found'
+                    'status_message': 'data not found',
+                    'message': 'no spend and save was found'
                 }), 404
 
             data = {
@@ -191,29 +191,29 @@ class SpendSaveResource(Resource):
 
             return jsonify({
                 'code': 200,
-                'message': 'success',
+                'status_message': 'success',
                 'data': data
             }), 200
 
         except InternalError:
             return jsonify({
                 'code': 500,
-                'message': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'status_message': 'internal server - internal server error',
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError):
             return jsonify({
                 'code': 500,
-                'message': 'database error - operation and disconnection error',
-                'data': 'could not fetch data'
+                'status_message': 'database error - operation and disconnection error',
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'message': 'database error - programming error',
-                'data': 'could not fetch table'
+                'status_message': 'database error - programming error',
+                'message': 'could not fetch table'
             }), 500
 
     @staticmethod
@@ -231,8 +231,8 @@ class SpendSaveResource(Resource):
             if not spend_save:
                 return jsonify({
                     'code': 404,
-                    'message': 'data not found',
-                    'data': 'user doesn\'t have spend and save setup'
+                    'status_message': 'data not found',
+                    'message': 'user doesn\'t have spend and save setup'
                 }), 404
 
             if 'percentage_to_save' in fields and fields['percentage_to_save'] is not None:
@@ -245,43 +245,43 @@ class SpendSaveResource(Resource):
 
             return jsonify({
                 'code': 200,
-                'message': 'success',
-                'data': 'spend and save was successfully updated'
+                'status_message': 'success',
+                'message': 'spend and save was successfully updated'
             }), 200
 
         except IntegrityError:
             return jsonify({
                 'code': 409,
-                'message': 'conflict - integrity error',
-                'data': 'a wallet with this currency has already been listed'
+                'status_message': 'conflict - integrity error',
+                'message': 'a wallet with this currency has already been listed'
             }), 409
 
         except DataError:
             return jsonify({
                 'code': 400,
-                'message': 'bad request - data error',
-                'data': 'ensure input data are correct'
+                'status_message': 'bad request - data error',
+                'message': 'ensure input data are correct'
             }), 400
 
         except InternalError:
             return jsonify({
                 'code': 500,
-                'message': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'status_message': 'internal server - internal server error',
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError, SQLAlchemyError):
             return jsonify({
                 'code': 500,
-                'message': 'database error - operation, sqlalchemy and disconnection error',
-                'data': 'could not fetch data'
+                'status_message': 'database error - operation, sqlalchemy and disconnection error',
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'message': 'database error - programming error',
-                'data': 'could not fetch table'
+                'status_message': 'database error - programming error',
+                'message': 'could not fetch table'
             }), 500
 
     @staticmethod
@@ -298,8 +298,8 @@ class SpendSaveResource(Resource):
             if not confirm_user:
                 return jsonify({
                     'code': 404,
-                    'message': 'not found',
-                    'data': 'user not found',
+                    'status_message': 'not found',
+                    'message': 'user not found',
                 }), 404
 
             decrypt_balance = Cryptographer.decrypt(confirm_user.balance)
@@ -307,8 +307,8 @@ class SpendSaveResource(Resource):
             if float(amount) > float(decrypt_balance):
                 return jsonify({
                     'code': 400,
-                    'message': 'bad request',
-                    'data': f'amount too high, you have {decrypt_balance} as you balance',
+                    'status_message': 'bad request',
+                    'message': f'amount too high, you have {decrypt_balance} as you balance',
                 }), 400
 
             final_balance = float(decrypt_balance) - float(amount)
@@ -316,8 +316,8 @@ class SpendSaveResource(Resource):
             if final_balance < 0:
                 return jsonify({
                     'code': 400,
-                    'message': 'bad request',
-                    'data': f'amount too low, you {decrypt_balance} as you balance',
+                    'status_message': 'bad request',
+                    'message': f'amount too low, you {decrypt_balance} as you balance',
                 }), 400
 
             encrypt_balance = Cryptographer.encrypt(final_balance)
@@ -326,48 +326,48 @@ class SpendSaveResource(Resource):
 
             return jsonify({
                 'code': 201,
-                'message': 'created',
-                'data': 'Withdrawal was successful from your spend and send'
+                'status_message': 'created',
+                'message': 'Withdrawal was successful from your spend and send'
             }), 201
 
         except IntegrityError:
             return jsonify({
                 'code': 409,
-                'message': 'conflict - integrity error',
-                'data': 'this currency has already been listed'
+                'status_message': 'conflict - integrity error',
+                'message': 'this currency has already been listed'
             }), 409
 
         except DataError:
             return jsonify({
                 'code': 400,
-                'message': 'bad request - data error',
-                'data': 'ensure input data are correct'
+                'status_message': 'bad request - data error',
+                'message': 'ensure input data are correct'
             }), 400
 
         except InternalError:
             return jsonify({
                 'code': 500,
-                'message': 'internal server - internal server error',
-                'data': 'could not fetch data'
+                'status_message': 'internal server - internal server error',
+                'message': 'could not fetch data'
             }), 500
 
         except (OperationalError, DisconnectionError, SQLAlchemyError):
             return jsonify({
                 'code': 500,
-                'message': 'database error - operation, sqlalchemy and disconnection error',
-                'data': 'could not fetch data'
+                'status_message': 'database error - operation, sqlalchemy and disconnection error',
+                'message': 'could not fetch data'
             }), 500
 
         except ProgrammingError:
             return jsonify({
                 'code': 500,
-                'message': 'database error - programming error',
-                'data': 'could not fetch table'
+                'status_message': 'database error - programming error',
+                'message': 'could not fetch table'
             }), 500
 
         except (ArithmeticError, ValueError, ZeroDivisionError):
             return jsonify({
                 'code': 500,
-                'message': 'calculation error - arithmetic, value, zerodivision error',
-                'data': 'could run an arithmetic calculation'
+                'status_message': 'calculation error - arithmetic, value, zerodivision error',
+                'message': 'could run an arithmetic calculation'
             }), 500

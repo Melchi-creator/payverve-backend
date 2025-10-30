@@ -18,13 +18,13 @@ class ServerResource(Resource):
         try:
             return jsonify({
                 'code': 200,
-                'message': 'success',
-                'data': 'The server is running succuessfully'
+                'status_message': 'success',
+                'message': 'The server is running succuessfully'
             }), 200
 
         except (ConnectionError, ConnectionRefusedError):
             return jsonify({
                 'code': 500,
-                'message': 'interval server error',
-                'data': 'The server is not running, something went wrong'
+                'status_message': 'interval server error',
+                'message': 'The server is not running, something went wrong'
             }), 500
