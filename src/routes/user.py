@@ -30,6 +30,8 @@ UserBlueprint.route("/users/<uuid:id>/change-transaction-pin",
                     methods=['POST'])(jwt_required(UserResource.user_change_transaction_pin))
 UserBlueprint.route("/users/<uuid:id>/confirm-transaction-pin",
                     methods=['POST'])(jwt_required(UserResource.confirm_transaction_pin))
+UserBlueprint.route("/users/<uuid:id>/confirm-auth-pin",
+                    methods=['POST'])(jwt_required(UserResource.confirm_auth_pin))
 
 # UserBlueprint.route("/users/verify-email/<token>", methods=['GET'])(UserResource.verify_email)
 # UserBlueprint.route("/users/login", methods=['POST', 'GET'])(UserResource.login)
