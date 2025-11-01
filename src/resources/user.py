@@ -1077,6 +1077,13 @@ class UserResource(Resource):
                     'message': 'no user account was found'
                 }), 404
 
+            if not user.auth_pin:
+                return jsonify({
+                    'code': 400,
+                    'status_message': 'bad request',
+                    'message': 'no auth pin set for this user, set/create one first'
+                }), 400
+
             check_pin = user.check_auth_pin(str(old_auth_pin))
 
             if not check_pin:
@@ -1262,7 +1269,14 @@ class UserResource(Resource):
                     'message': 'no user account was found'
                 }), 404
 
-            old_transaction_pin_check = user.check_transaction_pin(old_transaction_pin)
+            if not user.transaction_pin:
+                return jsonify({
+                    'code': 400,
+                    'status_message': 'bad request',
+                    'message': 'you do not have a transaction pin, create one'
+                }), 400
+
+            old_transaction_pin_check = user.check_transaction_pin(str(old_transaction_pin))
 
             if not old_transaction_pin_check:
                 return jsonify({
@@ -1374,6 +1388,95 @@ class UserResource(Resource):
                 'code': 200,
                 'status_message': 'success',
                 'message': "transaction pin is correct"
+            }), 200
+
+        except InternalError:
+            return jsonify({
+                'code': 500,
+                'status_message': 'internal server - internal server error',
+                'message': 'could not fetch data'
+            }), 500
+
+        except (OperationalError, DisconnectionError):
+            return jsonify({
+                'code': 500,
+                'status_message': 'database error - operation and disconnection error',
+                'message': 'could not fetch data'
+            }), 500
+
+        except ProgrammingError:
+            return jsonify({
+                'code': 500,
+                'status_message': 'database error - programming error',
+                'message': 'could not fetch table'
+            }), 500
+
+        except ValueError as e:
+            return jsonify({
+                'code': 400,
+                'status_message': 'bad request - value error',
+                'message': str(e)
+            }), 400
+
+        except TypeError as e:
+            return jsonify({
+                'code': 400,
+                'status_message': 'bad request - type error',
+                'message': str(e)
+            }), 400
+
+    @staticmethod
+    @parse_params(
+        Argument("auth_pin", location="json", required=True, type=int),
+    )
+    def confirm_auth_pin(auth_pin, id=None):
+        """  """
+
+        try:
+
+            if auth_pin is None or len(str(auth_pin)) != 6:
+                return jsonify({
+                    'code': 400,
+                    'status_message': 'bad request',
+                    'message': 'auth pin must be a 6 digit number'
+                }), 400
+
+            if not isinstance(auth_pin, int):
+                return jsonify({
+                    'code': 400,
+                    'status_message': 'bad request',
+                    'message': 'auth pin must be a number'
+                }), 400
+
+            user = UserModel.query.filter_by(id=id).first()
+
+            if not user:
+                return jsonify({
+                    'code': 404,
+                    'status_message': 'data not found',
+                    'message': 'no user account was found'
+                }), 404
+
+            if not user.auth_pin:
+                return jsonify({
+                    'code': 400,
+                    'status_message': 'bad request',
+                    'message': 'you do not have a auth pin, create one'
+                }), 400
+
+            auth_pin_check = user.check_auth_pin(str(auth_pin))
+
+            if not auth_pin_check:
+                return jsonify({
+                    'code': 400,
+                    'status_message': 'bad request',
+                    'message': 'auth pin is incorrect'
+                }), 400
+
+            return jsonify({
+                'code': 200,
+                'status_message': 'success',
+                'message': "auth pin is correct"
             }), 200
 
         except InternalError:

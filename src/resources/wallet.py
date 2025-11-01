@@ -157,6 +157,13 @@ class WalletResource(Resource):
 
             response = None
 
+            if not  compare_digest(str(ngn_currency_id), str(currency_id)):
+                return jsonify({
+                    'code': 400,
+                    'status_message': 'bad request',
+                    'message': 'the currency id used is not the ngn currency id'
+                }), 400
+
             if compare_digest(str(ngn_currency_id), str(currency_id)):
 
                 headers = {
