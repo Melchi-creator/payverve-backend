@@ -21,7 +21,7 @@ from sqlalchemy.exc import DBAPIError, DataError, \
 
 import config
 from ..middlewares import MailtrapHelper
-from ..models import CurrencyModel, UserModel, WalletModel
+from ..models import CurrencyModel, UserModel, WalletModel, db
 from ..models.token_verification import TokenVerificationModel
 from ..utilities import Cryptographer, parse_params
 from ..value_object import EmailCheck, MinimumBalance, MobileNumberCheck, PasswordValidation, UsernameCheck
@@ -372,6 +372,7 @@ class UserResource(Resource):
                     'deleted_date': user.deleted_date,
                     'email_verified': user.email_verified,
                     'account_active': user.account_active,
+                    'kyc_level': user.kyc.tier,
                 })
 
             return jsonify({
@@ -436,6 +437,7 @@ class UserResource(Resource):
                 'deleted_date': user.deleted_date,
                 'email_verified': user.email_verified,
                 'account_active': user.account_active,
+                'kyc_level': user.kyc.tier,
             }
 
             return jsonify({
