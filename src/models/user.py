@@ -52,7 +52,8 @@ class UserModel(db.Model, BaseModel, metaclass=MetaBaseModel):
 
     bank_accounts = db.relationship('BankAccountModel', backref='users', lazy=True, cascade="all, delete-orphan")
     beneficiaries = db.relationship('BeneficiaryModel', backref='users', lazy=True, cascade="all, delete-orphan")
-    kycs = db.relationship('KYCModel', backref='users', lazy=True, cascade="all, delete-orphan")
+    # kycs = db.relationship('KYCModel', backref='users', lazy=True, cascade="all, delete-orphan")
+    kyc = db.relationship('KYCModel', backref='users', uselist=False, lazy=True, cascade="all, delete-orphan")
     foreign_transfers = db.relationship('ForeignTransferModel',
                                         backref='users',
                                         lazy=True,
