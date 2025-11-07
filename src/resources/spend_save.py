@@ -4,6 +4,7 @@ This module defines the PayverveTransferResource class, which handles Payverve t
 It includes methods for creating, reading, and deleting Payverve transfers, with error handling for
 various database and validation errors.
 """
+from hmac import compare_digest
 
 from flask import jsonify
 from flask_restful import Resource
@@ -15,7 +16,7 @@ from sqlalchemy.exc import DataError, \
     OperationalError, \
     ProgrammingError, SQLAlchemyError
 
-from ..models import SpendSaveModel, UserModel
+from ..models import CurrencyModel, SpendSaveModel, TransactionModel, UserModel, WalletModel
 from ..utilities import Cryptographer, parse_params
 
 
@@ -47,7 +48,7 @@ class SpendSaveResource(Resource):
                 return jsonify({
                     'code': 409,
                     'status_message': 'user already setup',
-                    'message': 'spend and save already setup, please update instead',
+                    'message': 'spend and save already setup, please update percentage instead or turn it on if off',
                 })
 
             initial_balance = Cryptographer.encrypt(float(0))
@@ -218,10 +219,9 @@ class SpendSaveResource(Resource):
 
     @staticmethod
     @parse_params(
-        Argument('percentage_to_save', type=int, location='json'),
-        Argument('is_active', location='json'),
+        Argument('percentage_to_save', type=int, location='json', required=True),
     )
-    def update(id=None, **fields):
+    def update_percentage(id=None, **fields):
         """ Update a wallet's fund """
 
         try:
@@ -238,6 +238,82 @@ class SpendSaveResource(Resource):
             if 'percentage_to_save' in fields and fields['percentage_to_save'] is not None:
                 spend_save.percentage_to_save = int(fields['percentage_to_save'])
 
+            spend_save.save()
+
+            return jsonify({
+                'code': 200,
+                'status_message': 'success',
+                'message': 'spend and save percentage was successfully updated'
+            }), 200
+
+        except IntegrityError:
+            return jsonify({
+                'code': 409,
+                'status_message': 'conflict - integrity error',
+                'message': 'a wallet with this currency has already been listed'
+            }), 409
+
+        except DataError:
+            return jsonify({
+                'code': 400,
+                'status_message': 'bad request - data error',
+                'message': 'ensure input data are correct'
+            }), 400
+
+        except InternalError:
+            return jsonify({
+                'code': 500,
+                'status_message': 'internal server - internal server error',
+                'message': 'could not fetch data'
+            }), 500
+
+        except (OperationalError, DisconnectionError, SQLAlchemyError):
+            return jsonify({
+                'code': 500,
+                'status_message': 'database error - operation, sqlalchemy and disconnection error',
+                'message': 'could not fetch data'
+            }), 500
+
+        except ProgrammingError:
+            return jsonify({
+                'code': 500,
+                'status_message': 'database error - programming error',
+                'message': 'could not fetch table'
+            }),
+
+    @staticmethod
+    @parse_params(
+        Argument('is_active', location='json', type=bool, required=True),
+    )
+    def toggle_spend_save(id=None, **fields):
+        """ Update a wallet's fund """
+
+        try:
+
+            spend_save = SpendSaveModel.query.filter_by(user_id=id).first()
+
+            if not spend_save:
+                return jsonify({
+                    'code': 404,
+                    'status_message': 'data not found',
+                    'message': 'user doesn\'t have spend and save setup'
+                }), 404
+
+            if compare_digest(str(fields['is_active']).lower(), 'true') and str(spend_save.is_active).lower() == 'true':
+                return jsonify({
+                    'code': 400,
+                    'status_message': 'bad request',
+                    'message': 'spend and save is already active'
+                }), 400
+
+            if compare_digest(str(fields['is_active']).lower(),
+                              'false') and str(spend_save.is_active).lower() == 'false':
+                return jsonify({
+                    'code': 400,
+                    'status_message': 'bad request',
+                    'message': 'spend and save is already inactive'
+                }), 400
+
             if 'is_active' in fields and fields['is_active'] is not None:
                 spend_save.is_active = fields['is_active']
 
@@ -246,7 +322,7 @@ class SpendSaveResource(Resource):
             return jsonify({
                 'code': 200,
                 'status_message': 'success',
-                'message': 'spend and save was successfully updated'
+                'message': f'spend and save has be {'enabled' if compare_digest(str(fields['is_active']).lower(), 'true') else 'disabled'} successfully'
             }), 200
 
         except IntegrityError:
@@ -324,6 +400,35 @@ class SpendSaveResource(Resource):
             confirm_user.balance = encrypt_balance
             confirm_user.save()
 
+            user_wallet = WalletModel.query.filter_by(user_id=id, currency_ticker='ngn').first()
+
+            if not user_wallet:
+                return jsonify({
+                    'code': 404,
+                    'status_message': 'not found',
+                    'message': f'wallet to fund not found',
+                }), 404
+
+            decrypt_wallet_balance = Cryptographer.decrypt(user_wallet.fund)
+            final_wallet_balance = float(decrypt_wallet_balance) + float(amount)
+            encrypt_wallet_balance = Cryptographer.encrypt(final_wallet_balance)
+
+            user_wallet.fund = encrypt_wallet_balance
+            user_wallet.save()
+
+            currency_id = CurrencyModel.query.filter_by(short_code='ngn').first().id
+
+            # noinspection PyArgumentList
+            new_transaction = TransactionModel(
+                amount=Cryptographer.encrypt(amount),
+                transaction_type='spend_and_save_withdrawal',
+                user_id=id,
+                currency_id=currency_id,
+                note=f'{amount} NGN was withdrawn from spend and save to wallet',
+                status='successful',
+            )
+            new_transaction.save()
+
             return jsonify({
                 'code': 201,
                 'status_message': 'created',
@@ -371,3 +476,75 @@ class SpendSaveResource(Resource):
                 'status_message': 'calculation error - arithmetic, value, zerodivision error',
                 'message': 'could run an arithmetic calculation'
             }), 500
+
+    # @TODO: update funds function and route to be deleted
+
+    @staticmethod
+    @parse_params(
+        Argument('balance', type=float, location='json', required=True),
+    )
+    def update_fund(id=None, **fields):
+        """ Update a wallet's fund """
+
+        try:
+
+            spend_save = SpendSaveModel.query.filter_by(user_id=id).first()
+
+            if not spend_save:
+                return jsonify({
+                    'code': 404,
+                    'status_message': 'data not found',
+                    'message': 'user doesn\'t have spend and save setup'
+                }), 404
+
+            if 'balance' in fields and fields['balance'] is not None:
+                decrypt_balance = Cryptographer.decrypt(spend_save.balance)
+                fund_balance = float(fields['balance']) + float(decrypt_balance)
+                encrypt_balance = Cryptographer.encrypt(fund_balance)
+
+                spend_save.balance = encrypt_balance
+
+            spend_save.save()
+
+            return jsonify({
+                'code': 200,
+                'status_message': 'success',
+                'message': 'spend and save percentage was successfully updated'
+            }), 200
+
+        except IntegrityError:
+            return jsonify({
+                'code': 409,
+                'status_message': 'conflict - integrity error',
+                'message': 'a wallet with this currency has already been listed'
+            }), 409
+
+        except DataError:
+            return jsonify({
+                'code': 400,
+                'status_message': 'bad request - data error',
+                'message': 'ensure input data are correct'
+            }), 400
+
+        except InternalError:
+            return jsonify({
+                'code': 500,
+                'status_message': 'internal server - internal server error',
+                'message': 'could not fetch data'
+            }), 500
+
+        except (OperationalError, DisconnectionError, SQLAlchemyError):
+            return jsonify({
+                'code': 500,
+                'status_message': 'database error - operation, sqlalchemy and disconnection error',
+                'message': 'could not fetch data'
+            }), 500
+
+        except ProgrammingError:
+            return jsonify({
+                'code': 500,
+                'status_message': 'database error - programming error',
+                'message': 'could not fetch table'
+            }),
+
+

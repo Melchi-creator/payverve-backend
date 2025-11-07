@@ -281,6 +281,13 @@ class KYCResource(Resource):
                 'message': "kyc successfully updated"
             }), 200
 
+        except IntegrityError:
+            return jsonify({
+                'code': 409,
+                'status_message': 'conflict',
+                'message': 'bvn or nin has already been used, try another one'
+            }), 409
+
         except InternalError:
             return jsonify({
                 'code': 500,
