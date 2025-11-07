@@ -157,7 +157,7 @@ class WalletResource(Resource):
 
             response = None
 
-            if not  compare_digest(str(ngn_currency_id), str(currency_id)):
+            if not compare_digest(str(ngn_currency_id), str(currency_id)):
                 return jsonify({
                     'code': 400,
                     'status_message': 'bad request',
@@ -204,9 +204,9 @@ class WalletResource(Resource):
             bank_name = inner_data.get('bank_name')
 
             # # @TODO thia following block of code will be removed
-            # if config.env == 'dev':
-            #     code = str(secrets.randbelow(10 ** 5)).zfill(5)
-            #     account_number = str(code) + str(account_number)[-5:]
+            if config.env == 'dev':
+                code = str(secrets.randbelow(10 ** 5)).zfill(5)
+                account_number = str(code) + str(account_number)[-5:]
 
             currency_ticker = CurrencyModel.query.filter_by(id=currency_id).first().short_code
 
@@ -219,7 +219,7 @@ class WalletResource(Resource):
                 # noinspection PyArgumentList
                 new_virtual_ngn_account = VirtualAccountNumberModel(
                     response_code=inner_data.get('response_code'),
-                    response_status_message=inner_data.get('response_status_message'),
+                    response_message=inner_data.get('response_message'),
                     flw_ref=inner_data.get('flw_ref'),
                     order_ref=inner_data.get('order_ref'),
                     frequency=inner_data.get('frequency'),
@@ -241,37 +241,38 @@ class WalletResource(Resource):
                     'message': 'ngn wallet created successfully and activated'
                 }), 200
 
-            # noinspection PyArgumentList
-            new_wallet = WalletModel(
-                fund=encrypt_fund,
-                wallet_identifier=wallet_identifier,
-                user_id=user_id,
-                currency_id=currency_id,
-                account_number=account_number,
-                bank_name=bank_name,
-                is_active=True,
-                currency_ticker=currency_ticker
-            )
-            new_wallet.save()
+            if not compare_digest(str(ngn_currency_id), str(currency_id)):
+                # noinspection PyArgumentList
+                new_wallet = WalletModel(
+                    fund=encrypt_fund,
+                    wallet_identifier=wallet_identifier,
+                    user_id=user_id,
+                    currency_id=currency_id,
+                    account_number=account_number,
+                    bank_name=bank_name,
+                    is_active=True,
+                    currency_ticker=currency_ticker
+                )
+                new_wallet.save()
 
-            # noinspection PyArgumentList
-            new_virtual_ngn_account = VirtualAccountNumberModel(
-                response_code=inner_data.get('response_code'),
-                response_status_message=inner_data.get('response_status_message'),
-                flw_ref=inner_data.get('flw_ref'),
-                order_ref=inner_data.get('order_ref'),
-                frequency=inner_data.get('frequency'),
-                created_at_by_flw=inner_data.get('created_at'),
-                expiry_date=inner_data.get('expiry_date'),
-                account_number=account_number,
-                bank_name=bank_name,
-                note=inner_data.get('note'),
-                amount=inner_data.get('amount'),
-                currency_ticker=currency_ticker,
-                user_id=user_id,
-                currency_id=currency_id
-            )
-            new_virtual_ngn_account.save()
+                # noinspection PyArgumentList
+                new_virtual_ngn_account = VirtualAccountNumberModel(
+                    response_code=inner_data.get('response_code'),
+                    response_message=inner_data.get('response_message'),
+                    flw_ref=inner_data.get('flw_ref'),
+                    order_ref=inner_data.get('order_ref'),
+                    frequency=inner_data.get('frequency'),
+                    created_at_by_flw=inner_data.get('created_at'),
+                    expiry_date=inner_data.get('expiry_date'),
+                    account_number=account_number,
+                    bank_name=bank_name,
+                    note=inner_data.get('note'),
+                    amount=inner_data.get('amount'),
+                    currency_ticker=currency_ticker,
+                    user_id=user_id,
+                    currency_id=currency_id
+                )
+                new_virtual_ngn_account.save()
 
             return jsonify({
                 'code': 201,

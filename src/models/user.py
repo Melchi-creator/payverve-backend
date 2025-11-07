@@ -52,12 +52,14 @@ class UserModel(db.Model, BaseModel, metaclass=MetaBaseModel):
 
     bank_accounts = db.relationship('BankAccountModel', backref='users', lazy=True, cascade="all, delete-orphan")
     beneficiaries = db.relationship('BeneficiaryModel', backref='users', lazy=True, cascade="all, delete-orphan")
-    # kycs = db.relationship('KYCModel', backref='users', lazy=True, cascade="all, delete-orphan")
-    kyc = db.relationship('KYCModel', backref='users', uselist=False, lazy=True, cascade="all, delete-orphan")
+    fixed_deposits = db.relationship('FixedDepositModel', backref='users', lazy=True, cascade="all, delete-orphan")
+
     foreign_transfers = db.relationship('ForeignTransferModel',
                                         backref='users',
                                         lazy=True,
                                         cascade="all, delete-orphan")
+    # kycs = db.relationship('KYCModel', backref='users', lazy=True, cascade="all, delete-orphan")
+    kyc = db.relationship('KYCModel', backref='users', uselist=False, lazy=True, cascade="all, delete-orphan")
     local_transfers = db.relationship('LocalTransferModel', backref='users', lazy=True, cascade="all, delete-orphan")
     payverve_transfers = db.relationship('PayverveTransferModel',
                                          backref='users',
@@ -65,6 +67,7 @@ class UserModel(db.Model, BaseModel, metaclass=MetaBaseModel):
                                          cascade="all, delete-orphan")
     spend_saves = db.relationship('SpendSaveModel', backref='users', lazy=True, cascade="all, delete-orphan")
     swapped_currencies = db.relationship('SwapCurrencyModel', backref='users', lazy=True, cascade="all, delete-orphan")
+    target_saves = db.relationship('TargetSaveModel', backref='users', lazy=True, cascade="all, delete-orphan")
     transactions = db.relationship('TransactionModel', backref='users', lazy=True, cascade="all, delete-orphan")
     virtual_account_numbers = db.relationship('VirtualAccountNumberModel',
                                               backref='users',

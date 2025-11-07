@@ -21,6 +21,7 @@ class TransactionModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     amount = db.Column(db.Text, nullable=False)
     transaction_type = db.Column(db.String(), nullable=False)
     note = db.Column(db.String(), nullable=True)
+    status = db.Column(db.String(), nullable=False)  # successful, failed
 
     created_at = db.Column(db.DateTime(), default=datetime.now(), nullable=False)
     updated_at = db.Column(db.DateTime(), onupdate=datetime.now(), nullable=True)

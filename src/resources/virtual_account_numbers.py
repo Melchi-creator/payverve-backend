@@ -32,7 +32,7 @@ class VirtualAccountNumberResource(Resource):
                 {
                     'id': virtual_account_number.id,
                     'response_code': virtual_account_number.response_code,
-                    'response_status_message': virtual_account_number.response_status_message,
+                    'response_message': virtual_account_number.response_message,
                     'flw_ref': virtual_account_number.flw_ref,
                     'order_ref': virtual_account_number.order_ref,
                     'frequency': virtual_account_number.frequency,
@@ -96,7 +96,7 @@ class VirtualAccountNumberResource(Resource):
             data = {
                 'id': virtual_account_number.id,
                 'response_code': virtual_account_number.response_code,
-                'response_status_message': virtual_account_number.response_status_message,
+                'response_message': virtual_account_number.response_message,
                 'flw_ref': virtual_account_number.flw_ref,
                 'order_ref': virtual_account_number.order_ref,
                 'frequency': virtual_account_number.frequency,
@@ -159,7 +159,7 @@ class VirtualAccountNumberResource(Resource):
                 {
                     'id': virtual_account_number.id,
                     'response_code': virtual_account_number.response_code,
-                    'response_status_message': virtual_account_number.response_status_message,
+                    'response_message': virtual_account_number.response_message,
                     'flw_ref': virtual_account_number.flw_ref,
                     'order_ref': virtual_account_number.order_ref,
                     'frequency': virtual_account_number.frequency,

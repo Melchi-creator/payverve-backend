@@ -192,10 +192,10 @@ class PayverveTransferResource(Resource):
                 if spend_save.is_active:
                     sender = WalletModel.query.filter_by(id=wallet_id).first()
 
-                    percentage_cal = (int(spend_save.percentage_to_save) / int(100))
-                    amount_to_save = int(amount) * int(percentage_cal)
+                    percentage_cal = (float(spend_save.percentage_to_save) / float(100))
+                    amount_to_save = float(amount) * float(percentage_cal)
 
-                    if sender.fund > amount_to_save:
+                    if float(Cryptographer.decrypt(sender.fund)) > float(amount_to_save):
                         init_balance = Cryptographer.decrypt(spend_save.balance)
                         final_balance = float(init_balance) + float(amount_to_save)
 
@@ -210,7 +210,8 @@ class PayverveTransferResource(Resource):
                             transaction_type='spend_and_save',
                             user_id=user_id,
                             currency_id=currency_id,
-                            note=f'spend and save at {spend_save.percentage_to_save}%',
+                            note=f"{spend_save.percentage_to_save}% of this transaction was saved under Spend & Save plan",
+                            status='successful'
                         )
 
                         new_transaction.save()
@@ -381,6 +382,8 @@ class PayverveTransferResource(Resource):
                 'status_message': 'database error - programming error',
                 'message': 'could not fetch table'
             }), 500
+
+    # @TODO: remove the delete method or restrict its access in production
 
     @staticmethod
     def delete(id=None):

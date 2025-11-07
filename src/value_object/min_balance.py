@@ -10,7 +10,7 @@ class MinimumBalance:
 
     def __init__(self, value: float):
         if not self.minimum_value(value):
-            raise ValueError("must be a positive number.")
+            raise ValueError("Balance cannot be less than zero, must be a positive number.")
 
         self._value = value
 
