@@ -5,14 +5,14 @@ It also configures CORS, database migrations, and security features.
 It serves as the entry point for the application, allowing it to run in development mode.
 """
 
-from flask import Flask, app
+from flask import Flask
 from flask.blueprints import Blueprint
 from flask_cors import CORS
 from flask_migrate import Migrate
 from flask_talisman import Talisman
 
-from src import routes
 import config
+from src import routes
 from src.models import CurrencyModel, db
 
 server = Flask(__name__)
@@ -46,12 +46,10 @@ for blueprint in vars(routes).values():
         server.register_blueprint(
             blueprint, url_prefix=config.app_root)
 
-
 with server.app_context():
     check_currenies = CurrencyModel.query.all()
 
     if not check_currenies:
-
         # noinspection  PyArgumentList
         ngn_currency = CurrencyModel(
             name="Nigerian Naira",

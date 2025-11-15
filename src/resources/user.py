@@ -20,8 +20,8 @@ from sqlalchemy.exc import DBAPIError, DataError, \
     ProgrammingError, SQLAlchemyError
 
 import config
-from ..middlewares import MailtrapHelper
-from ..models import CurrencyModel, UserModel, WalletModel, db
+from ..middlewares import FlutterwaveHelper, MailtrapHelper
+from ..models import CurrencyModel, UserModel, WalletModel
 from ..models.token_verification import TokenVerificationModel
 from ..utilities import Cryptographer, parse_params
 from ..value_object import EmailCheck, MinimumBalance, MobileNumberCheck, PasswordValidation, UsernameCheck
@@ -81,6 +81,44 @@ class UserResource(Resource):
             alphabet = string.ascii_letters + string.digits
             user_code = ''.join(secrets.choice(alphabet) for _ in range(11))
 
+            first_name = first_name.strip().title()
+            last_name = last_name.strip().title()
+
+            if len(mobile_number) > 10:
+                mobile_number = mobile_number[-10:]
+
+            auth = FlutterwaveHelper.flutterwave_authentication()
+            flutter_account = FlutterwaveHelper.create_flutterwave_account(auth,
+                                                                           email_address,
+                                                                           mobile_number,
+                                                                           first_name, last_name)
+
+            flutter_account_json = flutter_account.json().get('data')
+
+            if not compare_digest(str(flutter_account.status_code),
+                                  '201') and not compare_digest(str(flutter_account.status_code), '409'):
+                return jsonify({
+                    'code': flutter_account.status_code,
+                    'status_message': flutter_account_json.get('status'),
+                    'message': flutter_account_json.get('error').get('message')
+                }), flutter_account.status_code
+
+            if compare_digest(str(flutter_account.status_code), '409'):
+                search_account = FlutterwaveHelper.search_for_customer(auth, email_address)
+
+                search_account_json = search_account.json()
+
+                if not compare_digest(str(search_account.status_code), '200'):
+                    return jsonify({
+                        'code': search_account.status_code,
+                        'status_message': search_account_json.get('status'),
+                        'message': search_account_json.get('error').get('message')
+                    }), flutter_account.status_code
+
+                flutter_account_json = search_account_json.get('data')[0]
+
+            customer_code = flutter_account_json.get('id')
+
             # noinspection PyArgumentList
             new_user = UserModel(
                 first_name=first_name,
@@ -88,7 +126,8 @@ class UserResource(Resource):
                 email_address=email_address,
                 username=username.lower(),
                 mobile_number=mobile_number,
-                user_code=user_code
+                user_code=user_code,
+                customer_code=customer_code
             )
             new_user.set_password(password)
             new_user.save()
@@ -98,9 +137,10 @@ class UserResource(Resource):
                 'currency_id': str(CurrencyModel.query.filter_by(short_code='ngn').first().id),
                 'created_by_payverve': True,
                 'email_address': new_user.email_address,
+                'auth': auth
             }
 
-            response = requests.request("POST", f'{config.app_path}/inapp-wallets', json=payload)
+            response = requests.request("POST", f'{config.app_path}/ngn-wallets', json=payload)
 
             if response.status_code != 201:
                 user_to_delete = UserModel.query.filter_by(id=new_user.id).first()
@@ -368,6 +408,7 @@ class UserResource(Resource):
                     'zipcode': user.zipcode,
                     'country': user.country,
                     'photo': user.photo,
+                    'customer_code': user.customer_code,
                     'deleted': user.deleted,
                     'deleted_date': user.deleted_date,
                     'email_verified': user.email_verified,
@@ -433,6 +474,7 @@ class UserResource(Resource):
                 'zipcode': user.zipcode,
                 'country': user.country,
                 'photo': user.photo,
+                'customer_code': user.customer_code,
                 'deleted': user.deleted,
                 'deleted_date': user.deleted_date,
                 'email_verified': user.email_verified,

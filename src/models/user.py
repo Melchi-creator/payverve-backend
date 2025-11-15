@@ -44,6 +44,7 @@ class UserModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     user_code = db.Column(db.String(), nullable=False)
     password_reset_code = db.Column(db.String(), nullable=True)
     jti = db.Column(db.Text(), nullable=True)  # JWT ID for token revocation
+    customer_code = db.Column(db.String(), nullable=True)  # for payment gateway customer code
 
     created_at = db.Column(db.DateTime(), default=datetime.now(), nullable=False)
     updated_at = db.Column(db.DateTime(), onupdate=datetime.now(), nullable=True)

@@ -42,6 +42,14 @@ class FixedDepositResource(Resource):
                 }), 400
 
             ngn_wallet = WalletModel.query.filter_by(user_id=user_id, currency_ticker='ngn').first()
+
+            if not ngn_wallet:
+                return jsonify({
+                    'code': 404,
+                    'status_message': 'not found',
+                    'message': 'ngn wallet not found for this user or user does not exist',
+                }), 404
+
             decrypt_balance = Cryptographer.decrypt(ngn_wallet.fund)
 
             end_date = None
@@ -91,7 +99,11 @@ class FixedDepositResource(Resource):
                 user_id=user_id,
                 currency_id=currency_id,
                 note=f"₦{float(target_amount):,} has been saved in your fixed deposit -> {title}",
-                status='successful'
+                status='successful',
+                name=f'{ngn_wallet.users.first_name} {ngn_wallet.users.last_name}',
+                transaction_title='Money Saved',
+                transaction_flow='debit',
+                currency_ticker='ngn',
             )
 
             new_transaction.save()
@@ -388,7 +400,11 @@ class FixedDepositResource(Resource):
                 user_id=user_id,
                 currency_id=currency_id,
                 note=f"₦{float(decrypt_balance):,} has been withdrawn from your fixed deposit -> {fixed_deposits.title}",
-                status='successful'
+                status='successful',
+                name=f'{wallet.users.first_name} {wallet.users.last_name}',
+                transaction_title='Money Withdrawn',
+                transaction_flow='credit',
+                currency_ticker='ngn',
             )
 
             new_transaction.save()

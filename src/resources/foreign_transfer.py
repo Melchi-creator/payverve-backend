@@ -3,7 +3,8 @@
 """
 from hmac import compare_digest
 
-from flask import jsonify
+import requests
+from flask import jsonify, request
 from flask_restful import Resource
 from flask_restful.reqparse import Argument
 from sqlalchemy.exc import DataError, \
@@ -14,13 +15,20 @@ from sqlalchemy.exc import DataError, \
     ProgrammingError, \
     SQLAlchemyError
 
+import config
 from ..middlewares import FlutterwaveHelper
-from ..models import CurrencyModel, LocalTransferModel, SpendSaveModel, TransactionModel, UserModel, WalletModel
+from ..models import CurrencyModel, \
+    ForeignTransferModel, \
+    PayverveWalletModel, \
+    SpendSaveModel, \
+    TransactionModel, \
+    UserModel, \
+    WalletModel
 from ..utilities import Cryptographer, RandomGenerator, parse_params
 
 
-class LocalTransferResource(Resource):
-    """ This class is concern with Local Transfer Resources """
+class ForeignTransferResource(Resource):
+    """ T"""
 
     @staticmethod
     @parse_params(
@@ -156,12 +164,21 @@ class LocalTransferResource(Resource):
                     'message': 'you do not have access to this wallet'
                 }), 403
 
-            if not compare_digest(str(wallet_check.currency_ticker).lower(), 'ngn'):
+            if compare_digest(str(wallet_check.currency_ticker).lower(), 'ngn'):
                 return jsonify({
                     'code': 400,
                     'status_message': 'bad request',
-                    'message': 'local transfers can only be made from NGN wallets'
+                    'message': 'foreign transfers cannot be made from NGN wallets'
                 }), 400
+
+            # @TODO: refactor the below to ensure the wallet currency is same as receipient bank currency
+
+            # if not compare_digest(str(wallet_check.currency_ticker).lower(), 'ngn'):
+            #     return jsonify({
+            #         'code': 400,
+            #         'status_message': 'bad request',
+            #         'message': 'foreign transfers can only be made from NGN wallets'
+            #     }), 400
 
             decrypt_fund = Cryptographer.decrypt(wallet_check.fund)
 
@@ -172,7 +189,7 @@ class LocalTransferResource(Resource):
                     'message': 'insufficient funds'
                 }), 400
 
-            # @TODO: integrate with payverve local bank transfer api here
+            # @TODO: integrate with payverve foreign bank transfer api here
 
             # whithdraw from sender Virtual Account and credit to receiver bank account
             # verify transaction status
@@ -181,11 +198,15 @@ class LocalTransferResource(Resource):
             wallet_check.fund = Cryptographer.encrypt(wallet_balance)
             wallet_check.save()
 
-            reference_number = RandomGenerator.local_transfer_reference_number()
+            reference_number = RandomGenerator.foreign_transfer_reference_number()
             amount = Cryptographer.encrypt(amount)
 
+            # @TODO: get swift code from bank details api
+
+            swift_code = int(RandomGenerator.swift_code())
+
             # noinspection PyArgumentList
-            new_local_transfer = LocalTransferModel(
+            new_foreign_transfer = ForeignTransferModel(
                 amount=amount,
                 sender_name=f"{user_check.first_name} {user_check.last_name}",
                 narration=narration,
@@ -193,16 +214,18 @@ class LocalTransferResource(Resource):
                 recipient_bank=recipient_bank,
                 recipient_account_number=account_number,
                 reference_number=reference_number,
+                swift_code=swift_code,
                 user_id=user_id,
                 wallet_id=wallet_id,
+                transfer_pair=f"{wallet_check.currency_ticker}-{wallet_check.currency_ticker}",
                 transaction_status='successful'  # @TODO: change according to api response
             )
-            new_local_transfer.save()
+            new_foreign_transfer.save()
 
             # noinspection PyArgumentList
             new_transaction = TransactionModel(
                 amount=amount,
-                transaction_type='domestic_transfer',
+                transaction_type='international_transfer',
                 user_id=user_id,
                 currency_id=wallet_check.currency_id,
                 note=narration,
@@ -210,24 +233,81 @@ class LocalTransferResource(Resource):
                 name=recipient_name,
                 transaction_flow='debit',
                 transaction_title='Money Sent',
-                currency_ticker='ngn'
+                currency_ticker=wallet_check.currency_ticker
             )
 
             new_transaction.save()
 
             # Spend and Save Transactions
-
+            # @TODO: spend and save for foreign transfer should consider currency to ngn before saving
             spend_save = SpendSaveModel.query.filter_by(user_id=user_id).first()
 
             if spend_save:
                 if spend_save.is_active:
-                    sender = WalletModel.query.filter_by(id=wallet_id).first()
+                    sender = WalletModel.query.filter_by(user_id=user_id, currency_ticker='ngn').first()
                     currency_ticker = sender.currency_ticker.lower()
 
                     amount = Cryptographer.decrypt(amount)
 
+                    # convert amount to NGN
+
+                    token = None
+
+                    # Extract token from Authorization header
+                    if 'Authorization' in request.headers:
+                        auth_header = request.headers['Authorization']
+                        if auth_header.startswith('Bearer '):
+                            try:
+                                token = auth_header.split(' ')[1]
+
+                            except IndexError:
+                                return jsonify({
+                                    "code": 401,
+                                    'status_message': "Authentication token is missing",
+                                    'message': "Token not found in Authorization header"
+                                }), 401
+
+                    payload = {
+                        'base_currency': wallet_check.currency_ticker.lower(),
+                        'target_currency': 'ngn',
+                        'access_token': token
+                    }
+
+                    headers = {
+                        "Authorization": f"Bearer {token}"
+                    }
+
+                    response = requests.request("POST",
+                                                f"{config.app_path}/exchange-rates",
+                                                headers=headers,
+                                                json=payload)
+
+                    if response.status_code != 200:
+                        return jsonify({
+                            'code': response.status_code,
+                            'status_message': response.json().get('code_status', 'error'),
+                            'message': response.json().get('data', 'could not fetch exchange rate')
+                        }), response.status_code
+
+                    exchange_rate = response.json().get("data").get("rate")
+
+                    if int(exchange_rate) < 1:
+                        payverve_charge = config.low_fx_payvevrve_charge  # charge for low exchange rates
+                    else:
+                        payverve_charge = config.high_fx_payverve_charge  # charge for high exchange rates
+
+                    swap_amount = ((float(amount)) - (float(amount) * float(payverve_charge))) * float(exchange_rate)
+
+                    payverve_balance = PayverveWalletModel.query.first()
+                    payverve_charge_amount = (float(amount) * float(payverve_charge)) + float(Cryptographer.decrypt(payverve_balance.fund))
+
+                    payverve_balance.fund = Cryptographer.encrypt(payverve_charge_amount)
+                    payverve_balance.save()
+
+                    # End of currency conversion
+
                     percentage_cal = (float(spend_save.percentage_to_save) / float(100))
-                    amount_to_save = float(amount) * float(percentage_cal)
+                    amount_to_save = float(swap_amount) * float(percentage_cal)
 
                     if float(Cryptographer.decrypt(sender.fund)) > float(amount_to_save):
                         init_balance = Cryptographer.decrypt(spend_save.balance)
@@ -238,9 +318,11 @@ class LocalTransferResource(Resource):
 
                         currency_id = CurrencyModel.query.filter_by(short_code=currency_ticker).first().id
 
+                        amount_to_save = Cryptographer.encrypt(amount_to_save)
+
                         # noinspection PyArgumentList
                         new_transaction = TransactionModel(
-                            amount=Cryptographer.encrypt(amount_to_save),
+                            amount=amount_to_save,
                             transaction_type='spend_and_save',
                             user_id=user_id,
                             currency_id=currency_id,
@@ -304,37 +386,37 @@ class LocalTransferResource(Resource):
 
     @staticmethod
     def read_all():
-        """ Retrieve all local transfers """
+        """ Retrieve all foreign transfers """
 
-        local_transfers = LocalTransferModel.query.order_by(LocalTransferModel.created_at.desc()).all()
+        foreign_transfers = ForeignTransferModel.query.order_by(ForeignTransferModel.created_at.desc()).all()
 
         try:
-            if not local_transfers:
+            if not foreign_transfers:
                 return jsonify({
                     'code': 404,
                     'status_message': 'data not found',
-                    'message': 'no local transfer history was found'
+                    'message': 'no foreign transfer history was found'
                 }), 404
 
             data = []
 
-            for local_transfer in local_transfers:
+            for foreign_transfer in foreign_transfers:
                 data.append({
-                    'id': local_transfer.id,
-                    'amount': Cryptographer.decrypt(local_transfer.amount),
-                    'sender_name': local_transfer.sender_name,
-                    'sender_bank': local_transfer.sender_bank,
-                    'narration': local_transfer.narration,
-                    'recipient_name': local_transfer.recipient_name,
-                    'recipient_bank': local_transfer.recipient_bank,
-                    'recipient_account_number': local_transfer.recipient_account_number,
-                    'transfer_type': local_transfer.transfer_type,
-                    'transfer_pair': local_transfer.transfer_pair,
-                    'transaction_status': local_transfer.transaction_status,
-                    'user_id': local_transfer.user_id,
-                    'wallet_id': local_transfer.wallet_id,
-                    'created_at': local_transfer.created_at,
-                    'updated_at': local_transfer.updated_at
+                    'id': foreign_transfer.id,
+                    'amount': Cryptographer.decrypt(foreign_transfer.amount),
+                    'sender_name': foreign_transfer.sender_name,
+                    'sender_bank': foreign_transfer.sender_bank,
+                    'narration': foreign_transfer.narration,
+                    'recipient_name': foreign_transfer.recipient_name,
+                    'recipient_bank': foreign_transfer.recipient_bank,
+                    'recipient_account_number': foreign_transfer.recipient_account_number,
+                    'transfer_type': foreign_transfer.transfer_type,
+                    'transfer_pair': foreign_transfer.transfer_pair,
+                    'transaction_status': foreign_transfer.transaction_status,
+                    'user_id': foreign_transfer.user_id,
+                    'wallet_id': foreign_transfer.wallet_id,
+                    'created_at': foreign_transfer.created_at,
+                    'updated_at': foreign_transfer.updated_at
                 })
 
             return jsonify({
@@ -368,32 +450,32 @@ class LocalTransferResource(Resource):
     def read_one(id=None):
         """  """
 
-        local_transfer = LocalTransferModel.query.filter_by(id=id).first()
+        foreign_transfer = ForeignTransferModel.query.filter_by(id=id).first()
 
         try:
-            if not local_transfer:
+            if not foreign_transfer:
                 return jsonify({
                     'code': 404,
                     'status_message': 'data not found',
-                    'message': 'no local transfer was found'
+                    'message': 'no foreign transfer was found'
                 }), 404
 
             data = {
-                'id': local_transfer.id,
-                'amount': Cryptographer.decrypt(local_transfer.amount),
-                'sender_name': local_transfer.sender_name,
-                'sender_bank': local_transfer.sender_bank,
-                'narration': local_transfer.narration,
-                'recipient_name': local_transfer.recipient_name,
-                'recipient_bank': local_transfer.recipient_bank,
-                'recipient_account_number': local_transfer.recipient_account_number,
-                'transfer_type': local_transfer.transfer_type,
-                'transfer_pair': local_transfer.transfer_pair,
-                'transaction_status': local_transfer.transaction_status,
-                'user_id': local_transfer.user_id,
-                'wallet_id': local_transfer.wallet_id,
-                'created_at': local_transfer.created_at,
-                'updated_at': local_transfer.updated_at
+                'id': foreign_transfer.id,
+                'amount': Cryptographer.decrypt(foreign_transfer.amount),
+                'sender_name': foreign_transfer.sender_name,
+                'sender_bank': foreign_transfer.sender_bank,
+                'narration': foreign_transfer.narration,
+                'recipient_name': foreign_transfer.recipient_name,
+                'recipient_bank': foreign_transfer.recipient_bank,
+                'recipient_account_number': foreign_transfer.recipient_account_number,
+                'transfer_type': foreign_transfer.transfer_type,
+                'transfer_pair': foreign_transfer.transfer_pair,
+                'transaction_status': foreign_transfer.transaction_status,
+                'user_id': foreign_transfer.user_id,
+                'wallet_id': foreign_transfer.wallet_id,
+                'created_at': foreign_transfer.created_at,
+                'updated_at': foreign_transfer.updated_at
             }
 
             return jsonify({
@@ -424,38 +506,38 @@ class LocalTransferResource(Resource):
             }), 500
 
     @staticmethod
-    def user_ltf_all(id):
-        """ Retrieve all local transfers """
+    def user_ftf_all(id):
+        """ Retrieve all foreign transfers """
 
-        local_transfers = LocalTransferModel.query.filter_by(user_id=id).order_by(LocalTransferModel.created_at.desc()).all()
+        foreign_transfers = ForeignTransferModel.query.filter_by(user_id=id).order_by(ForeignTransferModel.created_at.desc()).all()
 
         try:
-            if not local_transfers:
+            if not foreign_transfers:
                 return jsonify({
                     'code': 404,
                     'status_message': 'data not found',
-                    'message': 'no local transfer history was found'
+                    'message': 'no foreign transfer history was found'
                 }), 404
 
             data = []
 
-            for local_transfer in local_transfers:
+            for foreign_transfer in foreign_transfers:
                 data.append({
-                    'id': local_transfer.id,
-                    'amount': Cryptographer.decrypt(local_transfer.amount),
-                    'sender_name': local_transfer.sender_name,
-                    'sender_bank': local_transfer.sender_bank,
-                    'narration': local_transfer.narration,
-                    'recipient_name': local_transfer.recipient_name,
-                    'recipient_bank': local_transfer.recipient_bank,
-                    'recipient_account_number': local_transfer.recipient_account_number,
-                    'transfer_type': local_transfer.transfer_type,
-                    'transfer_pair': local_transfer.transfer_pair,
-                    'transaction_status': local_transfer.transaction_status,
-                    'user_id': local_transfer.user_id,
-                    'wallet_id': local_transfer.wallet_id,
-                    'created_at': local_transfer.created_at,
-                    'updated_at': local_transfer.updated_at
+                    'id': foreign_transfer.id,
+                    'amount': Cryptographer.decrypt(foreign_transfer.amount),
+                    'sender_name': foreign_transfer.sender_name,
+                    'sender_bank': foreign_transfer.sender_bank,
+                    'narration': foreign_transfer.narration,
+                    'recipient_name': foreign_transfer.recipient_name,
+                    'recipient_bank': foreign_transfer.recipient_bank,
+                    'recipient_account_number': foreign_transfer.recipient_account_number,
+                    'transfer_type': foreign_transfer.transfer_type,
+                    'transfer_pair': foreign_transfer.transfer_pair,
+                    'transaction_status': foreign_transfer.transaction_status,
+                    'user_id': foreign_transfer.user_id,
+                    'wallet_id': foreign_transfer.wallet_id,
+                    'created_at': foreign_transfer.created_at,
+                    'updated_at': foreign_transfer.updated_at
                 })
 
             return jsonify({

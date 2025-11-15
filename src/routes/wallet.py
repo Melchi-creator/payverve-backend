@@ -11,8 +11,8 @@ from ..resources import WalletResource
 
 WalletBlueprint = Blueprint("wallet", __name__)
 
-WalletBlueprint.route("/inapp-wallets", methods=['POST'])(WalletResource.create)
-WalletBlueprint.route("/wallets", methods=['POST'])(jwt_required(WalletResource.create_public))
+WalletBlueprint.route("/ngn-wallets", methods=['POST'])(WalletResource.ngn_create)
+WalletBlueprint.route("/wallets", methods=['POST'])(jwt_required(WalletResource.other_wallet))
 WalletBlueprint.route("/wallets", methods=['GET'])(jwt_required(WalletResource.read_all))
 WalletBlueprint.route("/wallets/<uuid:id>", methods=['GET'])(jwt_required(WalletResource.read_one))
 WalletBlueprint.route("/wallets/user/<uuid:id>", methods=['GET'])(jwt_required(WalletResource.read_all_user))

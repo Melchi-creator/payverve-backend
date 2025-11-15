@@ -1,56 +1,84 @@
 """
 
 """
+import hashlib
+import hmac
+import secrets
 
 import requests
-from flask import jsonify, request
+from flask import jsonify
 
 import config
-from src.models import CurrencyModel, WalletModel
-from src.models.transaction import TransactionModel
-from src.utilities import Cryptographer
 
 
-class FltterwaveHelper:
+class FlutterwaveHelper:
     """  """
 
     @staticmethod
-    def flutterwave_create_vna():
-        """ the method creates a virtual naira account (vna) """
+    def flutterwave_authentication():
+        """ """
 
         try:
 
-            email_address = request.json.get('email_address')
-            mobile_number = request.json.get('mobile_number')
-            first_name = request.json.get('first_name')
-            last_name = request.json.get('last_name')
-            bvn = request.json.get('bvn')
+            url = f'{config.flutterwave_auth_url}/realms/flutterwave/protocol/openid-connect/token'
 
-            url = f'{config.flutterwave_base_url}/virtual-account-numbers'
+            data = {
+                "client_id": config.flutterwave_client_id,
+                "client_secret": config.flutterwave_secret_key,
+                "grant_type": "client_credentials"
+            }
+
+            headers = {
+                "Content-Type": "application/x-www-form-urlencoded"
+            }
+
+            response = requests.request('POST', url, headers=headers, data=data)
+            access_token = response.json().get('access_token')
+
+            return access_token
+
+        except Exception as e:
+            return jsonify({
+                'code': 500,
+                'status_message': 'server error',
+                'message': f'an error occurred: {str(e)}'
+            }), 500
+
+    @staticmethod
+    def create_flutterwave_account(access_token, email_address, mobile_number, first_name, last_name, middle_name=None):
+        """ """
+
+        try:
+
+            url = f'{config.flutterwave_base_url}/customers'
+
+            message = f'{email_address}{mobile_number}{first_name}{last_name}{middle_name}'
+            idempotency_key = hmac.new(config.secret_key.encode(), message.encode(), hashlib.sha256).hexdigest()
 
             headers = {
                 'content-type': 'application/json',
-                'Authorization': f'Bearer {config.flutterwave_secret_key}'
+                'accept': 'application/json',
+                'Authorization': f'Bearer {access_token}',
+                'X-Trace-Id': secrets.token_urlsafe(12),
+                'X-Idempotency-Key': idempotency_key
             }
 
             payload = {
                 "email": email_address,
-                "tx_ref": f"ngn-{email_address}",
-                "phonenumber": mobile_number,
-                "is_permanent": True,
-                "firstname": first_name,
-                "lastname": last_name,
-                "narration": f"{email_address} virtual naira account",
-                "bvn": bvn
+                "phone": {
+                    "country_code": "234",
+                    "number": mobile_number
+                },
+                "name": {
+                    "first": first_name,
+                    "middle": middle_name,
+                    "last": last_name
+                }
             }
 
             response = requests.request('POST', url, headers=headers, json=payload)
 
-            return jsonify({
-                'code': response.status_code,
-                'status_message': 'success' if response.status_code == 200 else 'failed',
-                'data': response.json()
-            }), response.status_code
+            return response
 
         except Exception as e:
             return jsonify({
@@ -60,44 +88,31 @@ class FltterwaveHelper:
             }), 500
 
     @staticmethod
-    def flutterwave_ngn_funding():
+    def search_for_customer(access_token, email_address):
         """ """
 
         try:
 
-            account_bank = request.json.get('account_bank')
-            account_number = request.json.get('account_number')
-            amount = request.json.get('amount')
-            currency = request.json.get('currency')
-            reference = request.json.get('reference')
-            callback_url = request.json.get('callback_url')
-            narration = request.json.get('narration')
+            url = f'{config.flutterwave_base_url}/customers/search'
 
-            url = f'{config.flutterwave_base_url}/transfers'
+            message = f'{email_address}'
+            idempotency_key = hmac.new(config.secret_key.encode(), message.encode(), hashlib.sha256).hexdigest()
 
             headers = {
                 'content-type': 'application/json',
-                'Authorization': f'Bearer {config.flutterwave_secret_key}',
-                'accept': 'application/json'
+                'accept': 'application/json',
+                'Authorization': f'Bearer {access_token}',
+                'X-Trace-Id': secrets.token_urlsafe(12),
+                'X-Idempotency-Key': idempotency_key
             }
 
             payload = {
-                "account_bank": account_bank,
-                "account_number": account_number,
-                "amount": amount,
-                "currency": currency.upper(),
-                "reference": reference,
-                "callback_url": callback_url,
-                "narration": narration
+                "email": email_address,
             }
 
             response = requests.request('POST', url, headers=headers, json=payload)
 
-            return jsonify({
-                'code': response.status_code,
-                'status_message': 'success' if response.status_code == 200 else 'failed',
-                'data': response.json()
-            }), response.status_code
+            return response
 
         except Exception as e:
             return jsonify({
@@ -107,27 +122,63 @@ class FltterwaveHelper:
             }), 500
 
     @staticmethod
-    def flutterwave_list_of_banks():
+    def virtual_account(access_token, reference_number, customer_id, email_address):
         """ """
 
         try:
 
-            country = request.json.get('country').upper()
+            url = f'{config.flutterwave_base_url}/virtual-accounts'
+
+            message = f'{email_address}{0}NGN'
+            idempotency_key = hmac.new(config.secret_key.encode(), message.encode(), hashlib.sha256).hexdigest()
+
+            headers = {
+                'content-type': 'application/json',
+                'accept': 'application/json',
+                'Authorization': f'Bearer {access_token}',
+                'X-Trace-Id': secrets.token_urlsafe(12),
+                'X-Idempotency-Key': idempotency_key
+            }
+
+            payload = {
+                "email": email_address,
+                "reference": reference_number,
+                "customer_id": customer_id,
+                "amount": 0,
+                "currency": "NGN",
+                "account_type": "static"
+            }
+
+            response = requests.request('POST', url, headers=headers, json=payload)
+
+            return response
+
+        except Exception as e:
+            return jsonify({
+                'code': 500,
+                'status_message': 'server error',
+                'message': f'an error occurred: {str(e)}'
+            }), 500
+
+    @staticmethod
+    def flutterwave_list_of_banks(country, access_token):
+        """ """
+
+        try:
 
             url = f'{config.flutterwave_base_url}/banks/{country}?include_provider_type=1'
 
             headers = {
                 'content-type': 'application/json',
-                'Authorization': f'Bearer {config.flutterwave_secret_key}'
+                'accept': 'application/json',
+                'Authorization': f'Bearer {access_token}',
+                'X-Idempotency-Key': secrets.token_urlsafe(12),
+                'X-Trace-Id': secrets.token_urlsafe(12)
             }
 
             response = requests.request('GET', url, headers=headers)
 
-            return jsonify({
-                'code': response.status_code,
-                'status_message': 'success' if response.status_code == 200 else 'failed',
-                'data': response.json()
-            }), response.status_code
+            return response
 
         except Exception as e:
             return jsonify({
@@ -137,86 +188,33 @@ class FltterwaveHelper:
             }), 500
 
     @staticmethod
-    def flutterwave_webhook():
+    def resolve_bank(account_number, bank_code, access_token):
         """ """
 
         try:
 
-            secret_hash = config.flutterwave_secret_hash
-            signature = request.headers.get("verifi-hash")
-            if signature is None or (signature != secret_hash):
-                return jsonify({
-                    'code': 401,
-                    'status_message': 'signature verification failed',
-                    'message': 'signature verification failed'
-                }), 401
+            url = f'{config.flutterwave_base_url}/accounts/resolve'
 
-            data = request.get_json()
+            headers = {
+                'content-type': 'application/json',
+                'accept': 'application/json',
+                'Authorization': f'Bearer {access_token}'
+            }
 
-            # Make sure payload is valid
-            if not data or "event" not in data:
-                return jsonify({
-                    'code': 400,
-                    'status_message': 'invalid request',
-                    'message': 'invalid request'
-                }), 400
+            payload = {
+                "account_number": int(account_number),
+                "account_bank": int(bank_code)
+            }
 
-            event = data.get("event")
-            event_type = event.get("event.type")
-            tx_data = data.get("data", {})
+            response = requests.request('POST', url, headers=headers, json=payload)
 
-            # Only handle successful charges
-            if event == "charge.completed" and tx_data.get("status") == "successful":
-                tx_ref = tx_data.get("tx_ref")
-                flw_ref = tx_data.get("flw_ref")
-                amount = tx_data.get("amount")
-                customer_email = tx_data.get("customer", {}).get("email")
-                currency = tx_data.get("currency")
+            print(response.json())
 
-                from src.models import UserModel
-                user_id = UserModel.query.filter_by(email_address=customer_email).first().id
-                transaction = TransactionModel.query.filter_by(user_id=user_id, flw_ref=flw_ref).first()
-
-                transaction_type = None
-
-                if event_type == "BANK_TRANSFER_TRANSACTION":
-                    transaction_type = "wallet_funding"
-
-                encrypt_amount = Cryptographer.encrypt(amount)
-
-                if not transaction:
-                    currency_id = CurrencyModel.query.filter_by(short_code=currency.lower()).first().id
-
-                    # noinspection PyArgumentList
-                    new_transaction = TransactionModel(
-                        tx_ref=tx_ref,
-                        flw_ref=flw_ref,
-                        amount=encrypt_amount,
-                        transaction_type=transaction_type,
-                        user_id=user_id,
-                        currency_id=currency_id,
-                        note='bank transfer'
-                    )
-
-                    user_wallet = WalletModel.query.filter_by(user_id=user_id, currency_ticker=currency.lower()).first()
-                    decrypt_balance = Cryptographer.decrypt(user_wallet.fund)
-
-                    new_balance = float(decrypt_balance) + float(amount)
-                    encrypt_balance = Cryptographer.encrypt(new_balance)
-                    user_wallet.fund = encrypt_balance
-                    user_wallet.save()
-
-                    new_transaction.save()
-
-            return jsonify({
-                'code': 200,
-                'status_message': 'success',
-                'message': 'transaction successful'
-            }), 200
+            return response
 
         except Exception as e:
             return jsonify({
                 'code': 500,
                 'status_message': 'server error',
                 'message': f'an error occurred: {str(e)}'
-            })
+            }), 500

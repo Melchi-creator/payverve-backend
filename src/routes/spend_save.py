@@ -16,4 +16,3 @@ SpendSaveBlueprint.route("/spend-saves/percentage-update/<uuid:id>", methods=['P
 SpendSaveBlueprint.route("/spend-saves/toggle-spend-save/<uuid:id>", methods=['PUT'])(jwt_required(SpendSaveResource.toggle_spend_save))
 SpendSaveBlueprint.route("/spend-saves/withdraw/<uuid:id>",
                          methods=['POST'])(jwt_required(SpendSaveResource.withdraw_spend_save))
-SpendSaveBlueprint.route("/spend-saves/update-fund/<uuid:id>", methods=['PUT'])(jwt_required(SpendSaveResource.update_fund))
