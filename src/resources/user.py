@@ -343,7 +343,7 @@ class UserResource(Resource):
             return jsonify({
                 'code': 409,
                 'status_message': 'conflict - integrity error',
-                'message': 'account already has an account'
+                'message': 'account already has an account, phone number or email has been used'
             }), 409
 
         except DataError:
