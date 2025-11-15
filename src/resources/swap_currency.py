@@ -18,7 +18,7 @@ from sqlalchemy.exc import DataError, \
     SQLAlchemyError
 
 import config
-from ..models import PayverveWalletModel, SwapCurrencyModel, WalletModel
+from ..models import PayverveWalletModel, SwapCurrencyModel, TransactionModel, WalletModel
 from ..utilities import Cryptographer, RandomGenerator, parse_params
 from ..value_object import MinimumBalance
 
@@ -30,27 +30,20 @@ class SwapCurrencyResource(Resource):
     @parse_params(
         Argument("amount", location="json", required=True),
         Argument("narration", location="json", required=True),
-        Argument("wallet_identifier", location="json", required=True),
+        Argument("account_number", location="json", required=True),
         Argument("user_id", location="json", required=True),
         Argument("wallet_id", location="json", required=True),
     )
-    def create(amount, narration, wallet_identifier, user_id, wallet_id):
+    def create(amount, narration, account_number, user_id, wallet_id):
         """ Swap Currency """
 
         # @ TODO: add a real fx charge system
 
         try:
 
-            # @ TODO: to be update when foreign currencies bcome available
+            # @ TODO: to be update when foreign currencies become available
 
-            if amount or narration or wallet_identifier or user_id or wallet_id:
-                return jsonify({
-                    'code': 400,
-                    'code_messgae': 'bad request',
-                    'message': 'swapping is currently not available, check back shortyly'
-                })
-
-            if len(wallet_identifier) != 10 or not wallet_identifier.isdigit():
+            if len(account_number) != 10 or not account_number.isdigit():
                 return jsonify({
                     'code': 400,
                     'status_message': 'bad request',
@@ -84,8 +77,15 @@ class SwapCurrencyResource(Resource):
                     'message': 'insufficient funds in base currency wallet'
                 }), 400
 
-            target_currency_wallet = WalletModel.query.filter_by(wallet_identifier=wallet_identifier,
+            target_currency_wallet = WalletModel.query.filter_by(account_number=account_number,
                                                                  user_id=user_id).first()
+
+            if not target_currency_wallet:
+                return jsonify({
+                    'code': 404,
+                    'status_message': 'not found',
+                    'message': 'you don\'t own the target currency wallet'
+                }), 404
 
             if not target_currency_wallet.is_active:
                 return jsonify({
@@ -115,16 +115,30 @@ class SwapCurrencyResource(Resource):
                 }), 400
 
             if not compare_digest(str(base_currency), str(target_currency)):
-                access_token = request.cookies.get('access_token')
+                token = None
+
+                # Extract token from Authorization header
+                if 'Authorization' in request.headers:
+                    auth_header = request.headers['Authorization']
+                    if auth_header.startswith('Bearer '):
+                        try:
+                            token = auth_header.split(' ')[1]
+
+                        except IndexError:
+                            return jsonify({
+                                "code": 401,
+                                'status_message': "Authentication token is missing",
+                                'message': "Token not found in Authorization header"
+                            }), 401
 
                 payload = {
                     'base_currency': base_currency,
                     'target_currency': target_currency,
-                    'access_token': access_token
+                    'access_token': token
                 }
 
                 headers = {
-                    "Authorization": f"Bearer {access_token}"
+                    "Authorization": f"Bearer {token}"
                 }
 
                 response = requests.request("POST", f"{config.app_path}/exchange-rates", headers=headers, json=payload)
@@ -136,9 +150,9 @@ class SwapCurrencyResource(Resource):
                         'message': response.json().get('data', 'could not fetch exchange rate')
                     }), response.status_code
 
-                exchange_rate = response.json().get("data")
+                exchange_rate = response.json().get("data").get("rate")
 
-                if exchange_rate < 1:
+                if int(exchange_rate) < 1:
                     payverve_charge = config.low_fx_payvevrve_charge  # charge for low exchange rates
                 else:
                     payverve_charge = config.high_fx_payverve_charge  # charge for high exchange rates
@@ -169,7 +183,7 @@ class SwapCurrencyResource(Resource):
                 amount_to_target_currency=Cryptographer.encrypt(swap_amount),
                 coversion_rate=exchange_rate,
                 narration=narration,
-                wallet_identifier=wallet_identifier,
+                account_number=account_number,
                 reference=reference_number,
                 swap_pairs=f'Wallet({base_currency})-Wallet({target_currency})',
                 user_id=user_id,
@@ -180,6 +194,42 @@ class SwapCurrencyResource(Resource):
 
             base_currency_wallet.save()
             target_currency_wallet.save()
+
+            # Log transaction for base currency wallet debit
+
+            # noinspection PyArgumentList
+            new_transaction = TransactionModel(
+                amount=Cryptographer.encrypt(amount),
+                transaction_type='currency_swap',
+                user_id=user_id,
+                currency_id=base_currency_wallet.currency_id,
+                note=narration,
+                status='successful',
+                name=f'{base_currency.upper()} - {target_currency.upper()}',
+                transaction_flow='debit',
+                transaction_title='Currency Swap',
+                currency_ticker=base_currency.lower()
+            )
+
+            new_transaction.save()
+
+            # Log transaction for target currency wallet credit
+
+            # noinspection PyArgumentList
+            new_transaction = TransactionModel(
+                amount=Cryptographer.encrypt(swap_amount),
+                transaction_type='currency_swap',
+                user_id=user_id,
+                currency_id=target_currency_wallet.currency_id,
+                note=narration,
+                status='successful',
+                name=f'{base_currency.upper()} - {target_currency.upper()}',
+                transaction_flow='credit',
+                transaction_title='Currency Swap',
+                currency_ticker=target_currency.lower()
+            )
+
+            new_transaction.save()
 
             return jsonify({
                 'code': 201,
@@ -252,7 +302,7 @@ class SwapCurrencyResource(Resource):
                     'amount_to_target_currency': Cryptographer.decrypt(swapped_currency.amount_to_target_currency),
                     'coversion_rate': swapped_currency.coversion_rate,
                     'narration': swapped_currency.narration,
-                    'wallet_identifier': swapped_currency.wallet_identifier,
+                    'account_number': swapped_currency.account_number,
                     'reference': swapped_currency.reference,
                     'transaction_type': swapped_currency.transaction_type,
                     'swap_pairs': swapped_currency.swap_pairs,
@@ -310,7 +360,7 @@ class SwapCurrencyResource(Resource):
                 'amount_to_target_currency': Cryptographer.decrypt(swapped_currency.amount_to_target_currency),
                 'coversion_rate': swapped_currency.coversion_rate,
                 'narration': swapped_currency.narration,
-                'wallet_identifier': swapped_currency.wallet_identifier,
+                'account_number': swapped_currency.account_number,
                 'reference': swapped_currency.reference,
                 'transaction_type': swapped_currency.transaction_type,
                 'swap_pairs': swapped_currency.swap_pairs,
@@ -349,25 +399,43 @@ class SwapCurrencyResource(Resource):
             }), 500
 
     @staticmethod
-    def delete(id=None):
-        """ Retrieve and delete one swapped currency by id """
+    def user_sc_all(id=None):
+        """ Retrieve all swapped currencies """
 
-        swapped_currency = SwapCurrencyModel.query.filter_by(id=id).first()
+        swapped_currencies = SwapCurrencyModel.query.filter_by(user_id=id).order_by(SwapCurrencyModel.created_at.desc()).all()
 
         try:
-            if not swapped_currency:
+            if not swapped_currencies:
                 return jsonify({
                     'code': 404,
                     'status_message': 'data not found',
                     'message': 'no swapped currency was found'
                 }), 404
 
-            swapped_currency.delete()
+            data = []
+
+            for swapped_currency in swapped_currencies:
+                data.append({
+                    'id': swapped_currency.id,
+                    'amount_from_base_currency': Cryptographer.decrypt(swapped_currency.amount_from_base_currency),
+                    'amount_to_target_currency': Cryptographer.decrypt(swapped_currency.amount_to_target_currency),
+                    'coversion_rate': swapped_currency.coversion_rate,
+                    'narration': swapped_currency.narration,
+                    'account_number': swapped_currency.account_number,
+                    'reference': swapped_currency.reference,
+                    'transaction_type': swapped_currency.transaction_type,
+                    'swap_pairs': swapped_currency.swap_pairs,
+                    'user_id': swapped_currency.user_id,
+                    'user': swapped_currency.users.first_name + ' ' + swapped_currency.users.last_name,
+                    'wallet_id': swapped_currency.wallet_id,
+                    'created_at': swapped_currency.created_at,
+                    'updated_at': swapped_currency.updated_at
+                })
 
             return jsonify({
                 'code': 200,
                 'status_message': 'success',
-                'message': 'swap history was deleted successfully'
+                'data': data
             }), 200
 
         except InternalError:

@@ -6,8 +6,7 @@ various database and validation errors.
 """
 from hmac import compare_digest
 
-import requests
-from flask import jsonify, request
+from flask import jsonify
 from flask_restful import Resource
 from flask_restful.reqparse import Argument
 from sqlalchemy.exc import DataError, \
@@ -17,13 +16,11 @@ from sqlalchemy.exc import DataError, \
     OperationalError, \
     ProgrammingError, SQLAlchemyError
 
-import config
 from ..models import CurrencyModel, \
     PayverveTransferModel, \
-    PayverveWalletModel, \
     SpendSaveModel, \
     TransactionModel, \
-    WalletModel
+    UserModel, WalletModel
 from ..utilities import Cryptographer, RandomGenerator, parse_params
 from ..value_object import MinimumBalance
 
@@ -35,19 +32,29 @@ class PayverveTransferResource(Resource):
     @parse_params(
         Argument("amount", location="json", required=True),
         Argument("narration", location="json", required=True),
-        Argument("wallet_identifier", location="json", required=True),
+        Argument("account_number", location="json", required=True),
         Argument("user_id", location="json", required=True),
         Argument("wallet_id", location="json", required=True),
     )
-    def create(amount, narration, wallet_identifier, user_id, wallet_id):
+    def create(amount, narration, account_number, user_id, wallet_id):
         """ """
 
         try:
-            if len(wallet_identifier) != 10 or not wallet_identifier.isdigit():
+
+            user_check = UserModel.query.filter_by(id=user_id).first()
+
+            if not user_check:
+                return jsonify({
+                    'code': 404,
+                    'status_message': 'not found',
+                    'message': 'the user was not found'
+                }), 404
+
+            if len(account_number) != 10 or not account_number.isdigit():
                 return jsonify({
                     'code': 400,
                     'status_message': 'bad request',
-                    'message': 'the wallet id is not correct'
+                    'message': 'receipient wallet id is not correct'
                 }), 400
 
             MinimumBalance(int(amount))
@@ -74,10 +81,10 @@ class PayverveTransferResource(Resource):
                 return jsonify({
                     'code': 400,
                     'status_message': 'bad request',
-                    'message': 'insufficient funds in sender wallet'
+                    'message': 'insufficient funds'
                 }), 400
 
-            recipient = WalletModel.query.filter_by(wallet_identifier=wallet_identifier).first()
+            recipient = WalletModel.query.filter_by(account_number=account_number).first()
 
             if not recipient:
                 return jsonify({
@@ -96,64 +103,21 @@ class PayverveTransferResource(Resource):
             sender_currency = sender.currencies.short_code
             recipient_currency = recipient.currencies.short_code
 
-            # @TODO to be update (removed) when accepting other currencies
-
-            if not compare_digest(str(sender_currency), 'ngn') or not compare_digest(str(recipient_currency), 'ngn'):
+            if not compare_digest(str(sender_currency), str(recipient_currency)):
                 return jsonify({
                     'code': 400,
                     'status_message': 'bad request',
-                    'message': 'sender currency and recipient currency must be ngn'
-                })
+                    'message': 'you can only transfer money to a wallet with the same currency you are sending from'
+                }), 400
 
-            exchange_rate = 1
-            transfer_amount = None
+            if compare_digest(str(sender.user_id), str(recipient.user_id)):
+                return jsonify({
+                    'code': 400,
+                    'status_message': 'bad request',
+                    'message': 'you cannot transfer money to yourself'
+                }), 400
 
-            if compare_digest(str(sender_currency), str(recipient_currency)):
-                transfer_amount = (float(amount) * float(exchange_rate))
-
-            if not compare_digest(str(sender_currency), str(recipient_currency)):
-                access_token = None
-
-                # Extract token from Authorization header
-                if 'Authorization' in request.headers:
-                    auth_header = request.headers['Authorization']
-                    if auth_header.startswith('Bearer '):
-                        access_token = auth_header.split(' ')[1]
-
-                payload = {
-                    'base_currency': sender_currency,
-                    'target_currency': recipient_currency,
-                    'access_token': access_token
-                }
-
-                headers = {
-                    "Authorization": f"Bearer {access_token}"
-                }
-
-                response = requests.request("POST", f"{config.app_path}/exchange-rates", headers=headers, json=payload)
-
-                if response.status_code != 200:
-                    return jsonify({
-                        'code': response.status_code,
-                        'status_message': response.json().get('code_status', 'error'),
-                        'message': response.json().get('data', 'could not fetch exchange rate')
-                    }), response.status_code
-
-                exchange_rate = response.json().get("data")
-
-                if exchange_rate < 1:
-                    payverve_charge = config.low_fx_payvevrve_charge  # charge for low exchange rates
-                else:
-                    payverve_charge = config.high_fx_payverve_charge  # charge for high exchange rates
-
-                transfer_amount = ((float(amount)) - (float(amount) * float(payverve_charge))) * float(exchange_rate)
-
-                payverve_balance = PayverveWalletModel.query.first()
-                payverve_charge_amount = (float(amount) * float(payverve_charge)) + float(Cryptographer.decrypt(
-                    payverve_balance.fund))
-
-                payverve_balance.fund = Cryptographer.encrypt(payverve_charge_amount)
-                payverve_balance.save()
+            transfer_amount = float(amount)
 
             decrypted_sender_funds = float(Cryptographer.decrypt(sender.fund))
             decrypted_recipient_funds = float(Cryptographer.decrypt(recipient.fund))
@@ -166,23 +130,67 @@ class PayverveTransferResource(Resource):
 
             reference_number = RandomGenerator.payverve_transfer_reference_number()
 
+            # @TODO to be checked/updated to start real fx
+
+            # whithdraw from sender Virtual Account
+            # credit to receiver  Virtual Account
+            # verify transaction status
+
+            amount = Cryptographer.encrypt(amount)
+
             # noinspection PyArgumentList
             new_payverve_transfer = PayverveTransferModel(
-                amount_from_sender=Cryptographer.encrypt(amount),
-                amount_to_recipient=Cryptographer.encrypt(transfer_amount),
-                coversion_rate=exchange_rate,
+                amount=amount,
+                sender_name=f'{sender.users.first_name} {sender.users.last_name}',
                 narration=narration,
-                wallet_identifier=wallet_identifier,
+                recipient_name=f'{recipient.users.first_name} {recipient.users.last_name}',
+                recipient_account_number=account_number,
                 reference=reference_number,
-                transfer_pair=f'Wallet({sender_currency})-Wallet({recipient_currency})',
                 user_id=user_id,
                 wallet_id=wallet_id,
+                transaction_status='successful'  # @TODO to be updated when real fx starts
             )
 
             new_payverve_transfer.save()
 
             sender.save()
             recipient.save()
+
+            # sender transaction record
+
+            # noinspection PyArgumentList
+            new_transaction = TransactionModel(
+                amount=amount,
+                transaction_type='payverve_transfer',
+                user_id=user_id,
+                currency_id=sender.currency_id,
+                note=narration,
+                status='successful',
+                name=f'{recipient.users.first_name} {recipient.users.last_name}',
+                transaction_flow='debit',
+                transaction_title='Money Sent',
+                currency_ticker=sender.currency_ticker.lower()
+            )
+
+            new_transaction.save()
+
+            # recipient transaction record
+
+            # noinspection PyArgumentList
+            new_transaction = TransactionModel(
+                amount=amount,
+                transaction_type='payverve_transfer',
+                user_id=recipient.users.id,
+                currency_id=sender.currency_id,
+                note=narration,
+                status='successful',
+                name=f'{sender.users.first_name} {sender.users.last_name}',
+                transaction_flow='credit',
+                transaction_title='Money Received',
+                currency_ticker=sender.currency_ticker.lower()
+            )
+
+            new_transaction.save()
 
             # Spend and Save Transactions
 
@@ -191,6 +199,8 @@ class PayverveTransferResource(Resource):
             if spend_save:
                 if spend_save.is_active:
                     sender = WalletModel.query.filter_by(id=wallet_id).first()
+
+                    amount = Cryptographer.decrypt(amount)
 
                     percentage_cal = (float(spend_save.percentage_to_save) / float(100))
                     amount_to_save = float(amount) * float(percentage_cal)
@@ -206,12 +216,16 @@ class PayverveTransferResource(Resource):
 
                         # noinspection PyArgumentList
                         new_transaction = TransactionModel(
-                            amount=amount_to_save,
+                            amount=Cryptographer.encrypt(amount_to_save),
                             transaction_type='spend_and_save',
                             user_id=user_id,
                             currency_id=currency_id,
                             note=f"{spend_save.percentage_to_save}% of this transaction was saved under Spend & Save plan",
-                            status='successful'
+                            status='successful',
+                            name=f"{user_check.first_name} {user_check.last_name}",
+                            transaction_flow='debit',
+                            transaction_title='Money Saved',
+                            currency_ticker=sender_currency
                         )
 
                         new_transaction.save()
@@ -219,7 +233,7 @@ class PayverveTransferResource(Resource):
             return jsonify({
                 'code': 201,
                 'status_message': 'created',
-                'message': 'money transfered successfully'
+                'message': 'money transfered successfully'  # @ TODO change according to real fx
             }), 201
 
         except IntegrityError:
@@ -283,16 +297,18 @@ class PayverveTransferResource(Resource):
             for payverve_transfer in payverve_transfers:
                 data.append({
                     'id': payverve_transfer.id,
-                    'amount_from_sender': Cryptographer.decrypt(payverve_transfer.amount_from_sender),
-                    'amount_to_recipient': Cryptographer.decrypt(payverve_transfer.amount_to_recipient),
-                    'coversion_rate': payverve_transfer.coversion_rate,
+                    'amount': Cryptographer.decrypt(payverve_transfer.amount),
+                    'sender_name': payverve_transfer.sender_name,
+                    'sender_bank': payverve_transfer.sender_bank,
                     'narration': payverve_transfer.narration,
-                    'wallet_identifier': payverve_transfer.wallet_identifier,
+                    'recipient_name': payverve_transfer.reference,
+                    'recipient_bank': payverve_transfer.recipient_bank,
+                    'recipient_account_number': payverve_transfer.recipient_account_number,
                     'reference': payverve_transfer.reference,
                     'transaction_type': payverve_transfer.transaction_type,
                     'transfer_pair': payverve_transfer.transfer_pair,
+                    'transaction_status': payverve_transfer.transaction_status,
                     'user_id': payverve_transfer.user_id,
-                    'sender': payverve_transfer.users.first_name + ' ' + payverve_transfer.users.last_name,
                     'wallet_id': payverve_transfer.wallet_id,
                     'created_at': payverve_transfer.created_at,
                     'updated_at': payverve_transfer.updated_at
@@ -341,16 +357,18 @@ class PayverveTransferResource(Resource):
 
             data = {
                 'id': payverve_transfer.id,
-                'amount_from_sender': Cryptographer.decrypt(payverve_transfer.amount_from_sender),
-                'amount_to_recipient': Cryptographer.decrypt(payverve_transfer.amount_to_recipient),
-                'coversion_rate': payverve_transfer.coversion_rate,
+                'amount': Cryptographer.decrypt(payverve_transfer.amount),
+                'sender_name': payverve_transfer.sender_name,
+                'sender_bank': payverve_transfer.sender_bank,
                 'narration': payverve_transfer.narration,
-                'wallet_identifier': payverve_transfer.wallet_identifier,
+                'recipient_name': payverve_transfer.reference,
+                'recipient_bank': payverve_transfer.recipient_bank,
+                'recipient_account_number': payverve_transfer.recipient_account_number,
                 'reference': payverve_transfer.reference,
                 'transaction_type': payverve_transfer.transaction_type,
                 'transfer_pair': payverve_transfer.transfer_pair,
+                'transaction_status': payverve_transfer.transaction_status,
                 'user_id': payverve_transfer.user_id,
-                'sender': payverve_transfer.users.first_name + ' ' + payverve_transfer.users.last_name,
                 'wallet_id': payverve_transfer.wallet_id,
                 'created_at': payverve_transfer.created_at,
                 'updated_at': payverve_transfer.updated_at
@@ -383,28 +401,46 @@ class PayverveTransferResource(Resource):
                 'message': 'could not fetch table'
             }), 500
 
-    # @TODO: remove the delete method or restrict its access in production
-
     @staticmethod
-    def delete(id=None):
-        """ Retrieve and delete one payverve tranfer by id """
+    def user_ptf_all(id=None):
+        """ Retrieve all payverve transfer """
 
-        payverve_transfer = PayverveTransferModel.query.filter_by(id=id).first()
+        payverve_transfers = PayverveTransferModel.query.filter_by(user_id=id).order_by(PayverveTransferModel.created_at.desc()).all()
 
         try:
-            if not payverve_transfer:
+            if not payverve_transfers:
                 return jsonify({
                     'code': 404,
                     'status_message': 'data not found',
                     'message': 'no payverve transfer was found'
                 }), 404
 
-            payverve_transfer.delete()
+            data = []
+
+            for payverve_transfer in payverve_transfers:
+                data.append({
+                    'id': payverve_transfer.id,
+                    'amount': Cryptographer.decrypt(payverve_transfer.amount),
+                    'sender_name': payverve_transfer.sender_name,
+                    'sender_bank': payverve_transfer.sender_bank,
+                    'narration': payverve_transfer.narration,
+                    'recipient_name': payverve_transfer.reference,
+                    'recipient_bank': payverve_transfer.recipient_bank,
+                    'recipient_account_number': payverve_transfer.recipient_account_number,
+                    'reference': payverve_transfer.reference,
+                    'transaction_type': payverve_transfer.transaction_type,
+                    'transfer_pair': payverve_transfer.transfer_pair,
+                    'transaction_status': payverve_transfer.transaction_status,
+                    'user_id': payverve_transfer.user_id,
+                    'wallet_id': payverve_transfer.wallet_id,
+                    'created_at': payverve_transfer.created_at,
+                    'updated_at': payverve_transfer.updated_at
+                })
 
             return jsonify({
                 'code': 200,
                 'status_message': 'success',
-                'message': 'swap history was deleted successfully'
+                'data': data
             }), 200
 
         except InternalError:
@@ -427,3 +463,5 @@ class PayverveTransferResource(Resource):
                 'status_message': 'database error - programming error',
                 'message': 'could not fetch table'
             }), 500
+
+    # @TODO: remove the delete method or restrict its access in production

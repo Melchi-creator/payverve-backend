@@ -1,8 +1,8 @@
-"""db re-initialisation
+"""init
 
-Revision ID: 6e58472813dc
+Revision ID: 3cd8f0ac710a
 Revises: 
-Create Date: 2025-10-26 12:40:00.657609
+Create Date: 2025-11-13 20:50:56.464830
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '6e58472813dc'
+revision = '3cd8f0ac710a'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -99,6 +99,7 @@ def upgrade():
     sa.Column('user_code', sa.String(), nullable=False),
     sa.Column('password_reset_code', sa.String(), nullable=True),
     sa.Column('jti', sa.Text(), nullable=True),
+    sa.Column('customer_code', sa.String(), nullable=True),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.PrimaryKeyConstraint('id'),
@@ -169,6 +170,23 @@ def upgrade():
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_table('fixed_deposits',
+    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('balance', sa.Text(), nullable=False),
+    sa.Column('target_amount', sa.Integer(), nullable=False),
+    sa.Column('duration', sa.Integer(), nullable=False),
+    sa.Column('title', sa.String(), nullable=False),
+    sa.Column('is_active', sa.Boolean(), nullable=False),
+    sa.Column('end_date', sa.DateTime(), nullable=False),
+    sa.Column('start_date', sa.DateTime(), nullable=False),
+    sa.Column('is_deleted', sa.Boolean(), nullable=False),
+    sa.Column('deleted_at', sa.DateTime(), nullable=True),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=True),
+    sa.Column('user_id', sa.UUID(), nullable=False),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
     op.create_table('kycs',
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('tier', sa.Integer(), nullable=False),
@@ -195,6 +213,26 @@ def upgrade():
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_table('target_saves',
+    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('balance', sa.Text(), nullable=False),
+    sa.Column('target_amount', sa.Integer(), nullable=False),
+    sa.Column('interval', sa.String(), nullable=False),
+    sa.Column('title', sa.String(), nullable=False),
+    sa.Column('is_active', sa.Boolean(), nullable=False),
+    sa.Column('last_successful_saving', sa.DateTime(), nullable=True),
+    sa.Column('last_attempted_saving', sa.DateTime(), nullable=False),
+    sa.Column('next_saving', sa.DateTime(), nullable=False),
+    sa.Column('end_date', sa.DateTime(), nullable=False),
+    sa.Column('start_date', sa.DateTime(), nullable=False),
+    sa.Column('is_deleted', sa.Boolean(), nullable=False),
+    sa.Column('deleted_at', sa.DateTime(), nullable=True),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=True),
+    sa.Column('user_id', sa.UUID(), nullable=False),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
     op.create_table('transactions',
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('tx_ref', sa.String(), nullable=True),
@@ -202,6 +240,7 @@ def upgrade():
     sa.Column('amount', sa.Text(), nullable=False),
     sa.Column('transaction_type', sa.String(), nullable=False),
     sa.Column('note', sa.String(), nullable=True),
+    sa.Column('status', sa.String(), nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.Column('user_id', sa.UUID(), nullable=False),
@@ -219,7 +258,7 @@ def upgrade():
     sa.Column('frequency', sa.String(), nullable=False),
     sa.Column('created_at_by_flw', sa.DateTime(), nullable=False),
     sa.Column('expiry_date', sa.String(), nullable=False),
-    sa.Column('account_number', sa.String(), nullable=False),
+    sa.Column('account_number', sa.BigInteger(), nullable=False),
     sa.Column('bank_name', sa.String(), nullable=False),
     sa.Column('note', sa.Text(), nullable=False),
     sa.Column('amount', sa.Float(), nullable=False),
@@ -237,8 +276,7 @@ def upgrade():
     op.create_table('wallets',
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('fund', sa.Text(), nullable=False),
-    sa.Column('wallet_identifier', sa.BigInteger(), nullable=False),
-    sa.Column('account_number', sa.String(), nullable=False),
+    sa.Column('account_number', sa.BigInteger(), nullable=False),
     sa.Column('bank_name', sa.String(), nullable=False),
     sa.Column('currency_ticker', sa.String(), nullable=False),
     sa.Column('is_active', sa.Boolean(), nullable=False),
@@ -249,8 +287,7 @@ def upgrade():
     sa.ForeignKeyConstraint(['currency_id'], ['currencies.id'], ),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
     sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('account_number'),
-    sa.UniqueConstraint('wallet_identifier')
+    sa.UniqueConstraint('account_number')
     )
     op.create_table('foreign_transfers',
     sa.Column('id', sa.UUID(), nullable=False),
@@ -276,17 +313,17 @@ def upgrade():
     )
     op.create_table('local_transfers',
     sa.Column('id', sa.UUID(), nullable=False),
-    sa.Column('amount_from_sender', sa.Text(), nullable=False),
-    sa.Column('amount_to_recipient', sa.Text(), nullable=False),
+    sa.Column('amount', sa.Text(), nullable=False),
     sa.Column('sender_name', sa.String(), nullable=False),
     sa.Column('sender_bank', sa.String(), nullable=False),
     sa.Column('narration', sa.String(), nullable=True),
-    sa.Column('wallet_identifier', sa.BigInteger(), nullable=False),
     sa.Column('recipient_name', sa.String(), nullable=False),
     sa.Column('recipient_bank', sa.String(), nullable=False),
-    sa.Column('account_number', sa.BigInteger(), nullable=False),
+    sa.Column('recipient_account_number', sa.BigInteger(), nullable=False),
     sa.Column('reference_number', sa.String(), nullable=False),
     sa.Column('transfer_type', sa.String(), nullable=False),
+    sa.Column('transfer_pair', sa.String(), nullable=False),
+    sa.Column('transaction_status', sa.String(), nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.Column('user_id', sa.UUID(), nullable=False),
@@ -297,14 +334,17 @@ def upgrade():
     )
     op.create_table('payverve_transfers',
     sa.Column('id', sa.UUID(), nullable=False),
-    sa.Column('amount_from_sender', sa.Text(), nullable=False),
-    sa.Column('amount_to_recipient', sa.Text(), nullable=False),
-    sa.Column('coversion_rate', sa.String(), nullable=False),
+    sa.Column('amount', sa.Text(), nullable=False),
+    sa.Column('sender_name', sa.String(), nullable=False),
+    sa.Column('sender_bank', sa.String(), nullable=False),
     sa.Column('narration', sa.String(), nullable=True),
-    sa.Column('wallet_identifier', sa.BigInteger(), nullable=False),
+    sa.Column('recipient_name', sa.String(), nullable=False),
+    sa.Column('recipient_bank', sa.String(), nullable=False),
+    sa.Column('recipient_account_number', sa.BigInteger(), nullable=False),
     sa.Column('reference', sa.String(), nullable=False),
     sa.Column('transaction_type', sa.String(), nullable=False),
     sa.Column('transfer_pair', sa.String(), nullable=False),
+    sa.Column('transaction_status', sa.String(), nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.Column('user_id', sa.UUID(), nullable=False),
@@ -320,7 +360,7 @@ def upgrade():
     sa.Column('amount_to_target_currency', sa.Text(), nullable=False),
     sa.Column('coversion_rate', sa.String(), nullable=False),
     sa.Column('narration', sa.String(), nullable=True),
-    sa.Column('wallet_identifier', sa.BigInteger(), nullable=False),
+    sa.Column('account_number', sa.BigInteger(), nullable=False),
     sa.Column('reference', sa.String(), nullable=False),
     sa.Column('transaction_type', sa.String(), nullable=False),
     sa.Column('swap_pairs', sa.String(), nullable=False),
@@ -345,8 +385,10 @@ def downgrade():
     op.drop_table('wallets')
     op.drop_table('virtual_account_numbers')
     op.drop_table('transactions')
+    op.drop_table('target_saves')
     op.drop_table('spend_saves')
     op.drop_table('kycs')
+    op.drop_table('fixed_deposits')
     op.drop_table('beneficiaries')
     op.drop_table('bank_accounts')
     op.drop_table('admins')

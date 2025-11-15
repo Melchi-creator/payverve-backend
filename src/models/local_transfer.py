@@ -16,17 +16,17 @@ class LocalTransferModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     __tablename__ = 'local_transfers'
 
     id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    amount_from_sender = db.Column(db.Text, nullable=False)
-    amount_to_recipient = db.Column(db.Text, nullable=False)
+    amount = db.Column(db.Text, nullable=False)
     sender_name = db.Column(db.String(), nullable=False)
-    sender_bank = db.Column(db.String(), nullable=False)
+    sender_bank = db.Column(db.String(), nullable=False, default="Payverve Bank")
     narration = db.Column(db.String(), nullable=True)
-    wallet_identifier = db.Column(db.BigInteger, nullable=False)
     recipient_name = db.Column(db.String(), nullable=False)
     recipient_bank = db.Column(db.String(), nullable=False)
-    account_number = db.Column(db.BigInteger, nullable=False)
+    recipient_account_number = db.Column(db.BigInteger, nullable=False)
     reference_number = db.Column(db.String(), nullable=False)
-    transfer_type = db.Column(db.String(), nullable=False, default="local_tranfer")
+    transfer_type = db.Column(db.String(), nullable=False, default="payverve-local_banks_transfer")
+    transfer_pair = db.Column(db.String(), nullable=False, default='ngn-ngn')
+    transaction_status = db.Column(db.String(), nullable=False)  # pending, successful, failed
 
     created_at = db.Column(db.DateTime(), default=datetime.now(), nullable=False)
     updated_at = db.Column(db.DateTime(), onupdate=datetime.now(), nullable=True)

@@ -14,13 +14,13 @@ class RandomGenerator:
     """ RandomGenerator class provides static methods for generating random identifiers. """
 
     @staticmethod
-    def wallet_identifier():
+    def sim_account_number():
         """ Wallet Identifier Generator """
 
         try:
             randomiser = secrets.randbelow(10 ** 10)
-            wallet_identifier = str(randomiser).zfill(10)
-            return wallet_identifier
+            sim_account_number = str(randomiser).zfill(10)
+            return sim_account_number
 
         except ArithmeticError:
             return jsonify({
@@ -41,7 +41,7 @@ class RandomGenerator:
         """ Swap Reference Number Generator """
 
         try:
-            reference_number = secrets.token_hex(8)
+            reference_number = secrets.token_hex(12)
             return reference_number
         except ArithmeticError:
             return jsonify({
@@ -61,7 +61,7 @@ class RandomGenerator:
         """ Payverve Transfer Reference Number Generator """
 
         try:
-            reference_number = secrets.token_hex(10)
+            reference_number = secrets.token_hex(12)
             return reference_number
         except ArithmeticError:
             return jsonify({
@@ -94,4 +94,47 @@ class RandomGenerator:
                 'code': 500,
                 'status_message': 'recursion error',
                 'message': 'could not generate reference number'
+            }), 500
+
+    @staticmethod
+    def foreign_transfer_reference_number():
+        """ Foreign Transfer Reference Number Generator """
+
+        try:
+            reference_number = secrets.token_hex(12)
+            return reference_number
+        except ArithmeticError:
+            return jsonify({
+                'code': 500,
+                'status_message': 'arithmetic error',
+                'message': 'could not generate reference number'
+            }), 500
+        except RecursionError:
+            return jsonify({
+                'code': 500,
+                'status_message': 'recursion error',
+                'message': 'could not generate reference number'
+            }), 500
+
+    @staticmethod
+    def swift_code():
+        """  """
+
+        try:
+            num = secrets.randbelow(999999 - 100 + 1) + 100
+
+            return num
+
+        except ArithmeticError:
+            return jsonify({
+                'code': 500,
+                'status_message': 'arithmetic error',
+                'message': 'could not generate wallet identifier'
+            }), 500
+
+        except RecursionError:
+            return jsonify({
+                'code': 500,
+                'status_message': 'recursion error',
+                'message': 'could not generate wallet identifier'
             }), 500

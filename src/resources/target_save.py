@@ -106,7 +106,11 @@ class TargetSaveResource(Resource):
                 user_id=user_id,
                 currency_id=currency_id,
                 note=f"₦{float(target_amount):,} has been saved in your target saving {title.lower()}",
-                status='successful'
+                status='successful',
+                name=f'{ngn_wallet.users.first_name} {ngn_wallet.users.last_name}',
+                transaction_flow='debit',
+                transaction_title='Money Saved',
+                currency_ticker=ngn_wallet.currency_ticker,
             )
 
             new_transaction.save()
@@ -478,7 +482,11 @@ class TargetSaveResource(Resource):
                 user_id=user_id,
                 currency_id=currency_id,
                 note=f"₦{float(target_amount):,} has been withdrawn from your target saving {target_savings.title}",
-                status='successful'
+                status='successful',
+                name=f'{target_savings.users.first_name} {target_savings.users.last_name}',
+                transaction_flow='debit',
+                transaction_title='Money Withdrawn',
+                currency_ticker='ngn',
             )
 
             new_transaction.save()
@@ -516,34 +524,20 @@ class TargetSaveResource(Resource):
 
         try:
 
-            target_savings = TargetSaveModel.query.filter_by(user_id=user_id, id=id, is_active=False).first()
+            target_savings = TargetSaveModel.query.filter_by(user_id=user_id, id=id).first()
 
             if not target_savings:
                 return jsonify({
                     'code': 404,
                     'status_message': 'not found',
-                    'message': 'target savings not found or still active'
+                    'message': 'target savings not found'
                 }), 404
-
-            if target_savings.is_active:
-                return jsonify({
-                    'code': 400,
-                    'status_message': 'bad request',
-                    'message': 'you can only delete an inactive target saving with zero balance'
-                }), 400
 
             if target_savings.is_deleted:
                 return jsonify({
                     'code': 400,
                     'status_message': 'bad request',
                     'message': 'target saving already deleted'
-                }), 400
-
-            if float(Cryptographer.decrypt(target_savings.balance)) > 0:
-                return jsonify({
-                    'code': 400,
-                    'status_message': 'bad request',
-                    'message': 'you can only delete a target saving with zero balance'
                 }), 400
 
             target_savings.is_deleted = True
@@ -553,8 +547,8 @@ class TargetSaveResource(Resource):
             return jsonify({
                 'code': 200,
                 'status_message': 'success',
-                'message': f'{target_savings.title} target savings deleted'
-            })
+                'message': 'target savings has been successfully deleted'
+            }), 200
 
         except InternalError:
             return jsonify({
@@ -576,5 +570,6 @@ class TargetSaveResource(Resource):
                 'status_message': 'database error - programming error',
                 'message': 'could not fetch table'
             }), 500
+
 
     # @ TODO: background worker for automated saving from wallet to spend and save

@@ -22,7 +22,7 @@ class SwapCurrencyModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     amount_to_target_currency = db.Column(db.Text, nullable=False)
     coversion_rate = db.Column(db.String(), nullable=False)
     narration = db.Column(db.String(), nullable=True)
-    wallet_identifier = db.Column(db.BigInteger, nullable=False)  # target wallet
+    account_number = db.Column(db.BigInteger, nullable=False)  # target wallet
     reference = db.Column(db.String(), nullable=False, unique=True)
     transaction_type = db.Column(db.String(), nullable=False, default="currencies_swap")
     swap_pairs = db.Column(db.String(), nullable=False)

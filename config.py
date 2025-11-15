@@ -98,3 +98,7 @@ flutterwave_secret_key = get_config('FLUTTERWAVE_SECRET_KEY')
 flutterwave_encryption_key = get_config('FLUTTERWAVE_ENCRYPTION_KEY')
 flutterwave_base_url = get_config('FLUTTERWAVE_BASE_URL')
 flutterwave_secret_hash = get_config('FLUTTERWAVE_SECRET_HASH')
+
+flutterwave_client_id = get_config('FLUTTERWAVE_CLIENT_ID')
+flutterwave_file_encryption = get_config('FLUTTERWAVE_FILE_ENCRYPTION')
+flutterwave_auth_url = get_config('FLUTTERWAVE_AUTH_URL')

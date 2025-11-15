@@ -22,6 +22,10 @@ class TransactionModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     transaction_type = db.Column(db.String(), nullable=False)
     note = db.Column(db.String(), nullable=True)
     status = db.Column(db.String(), nullable=False)  # successful, failed
+    name = db.Column(db.String(), nullable=True)
+    transaction_flow = db.Column(db.String(), nullable=True)  # credit, debit
+    transaction_title = db.Column(db.String(), nullable=True)
+    currency_ticker = db.Column(db.String(), nullable=True)
 
     created_at = db.Column(db.DateTime(), default=datetime.now(), nullable=False)
     updated_at = db.Column(db.DateTime(), onupdate=datetime.now(), nullable=True)

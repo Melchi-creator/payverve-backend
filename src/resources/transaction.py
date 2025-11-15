@@ -41,8 +41,12 @@ class TransactionResource(Resource):
                     'transaction_type': transaction.transaction_type,
                     'note': transaction.note,
                     'user_id': transaction.user_id,
-                    'user': transaction.users.first_name + ' ' + transaction.users.last_name,
+                    'tx_originator_name': transaction.users.first_name + ' ' + transaction.users.last_name,
                     'currency_id': transaction.currency_id,
+                    'name': transaction.name,
+                    'transaction_flow': transaction.transaction_flow,
+                    'transaction_title': transaction.transaction_title,
+                    'currency_ticker': transaction.currency_ticker,
                     'created_at': transaction.created_at,
                     'updated_at': transaction.updated_at
                 })
@@ -96,8 +100,12 @@ class TransactionResource(Resource):
                 'transaction_type': transaction.transaction_type,
                 'note': transaction.note,
                 'user_id': transaction.user_id,
-                'user': transaction.users.first_name + ' ' + transaction.users.last_name,
+                'tx_originator_name': transaction.users.first_name + ' ' + transaction.users.last_name,
                 'currency_id': transaction.currency_id,
+                'name': transaction.name,
+                'transaction_flow': transaction.transaction_flow,
+                'transaction_title': transaction.transaction_title,
+                'currency_ticker': transaction.currency_ticker,
                 'created_at': transaction.created_at,
                 'updated_at': transaction.updated_at
             }
@@ -154,8 +162,12 @@ class TransactionResource(Resource):
                     'transaction_type': transaction.transaction_type,
                     'note': transaction.note,
                     'user_id': transaction.user_id,
-                    'user': transaction.users.first_name + ' ' + transaction.users.last_name,
+                    'tx_originator_name': transaction.users.first_name + ' ' + transaction.users.last_name,
                     'currency_id': transaction.currency_id,
+                    'name': transaction.name,
+                    'transaction_flow': transaction.transaction_flow,
+                    'transaction_title': transaction.transaction_title,
+                    'currency_ticker': transaction.currency_ticker,
                     'created_at': transaction.created_at,
                     'updated_at': transaction.updated_at
                 })

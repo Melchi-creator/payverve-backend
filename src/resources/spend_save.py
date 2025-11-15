@@ -426,6 +426,10 @@ class SpendSaveResource(Resource):
                 currency_id=currency_id,
                 note=f'{amount} NGN was withdrawn from spend and save to wallet',
                 status='successful',
+                name=f'{user_wallet.users.first_name} {user_wallet.users.last_name}',
+                transaction_flow='debit',
+                transaction_title='Money Withdrawn',
+                currency_ticker='ngn',
             )
             new_transaction.save()
 
@@ -476,75 +480,4 @@ class SpendSaveResource(Resource):
                 'status_message': 'calculation error - arithmetic, value, zerodivision error',
                 'message': 'could run an arithmetic calculation'
             }), 500
-
-    # @TODO: update funds function and route to be deleted
-
-    @staticmethod
-    @parse_params(
-        Argument('balance', type=float, location='json', required=True),
-    )
-    def update_fund(id=None, **fields):
-        """ Update a wallet's fund """
-
-        try:
-
-            spend_save = SpendSaveModel.query.filter_by(user_id=id).first()
-
-            if not spend_save:
-                return jsonify({
-                    'code': 404,
-                    'status_message': 'data not found',
-                    'message': 'user doesn\'t have spend and save setup'
-                }), 404
-
-            if 'balance' in fields and fields['balance'] is not None:
-                decrypt_balance = Cryptographer.decrypt(spend_save.balance)
-                fund_balance = float(fields['balance']) + float(decrypt_balance)
-                encrypt_balance = Cryptographer.encrypt(fund_balance)
-
-                spend_save.balance = encrypt_balance
-
-            spend_save.save()
-
-            return jsonify({
-                'code': 200,
-                'status_message': 'success',
-                'message': 'spend and save percentage was successfully updated'
-            }), 200
-
-        except IntegrityError:
-            return jsonify({
-                'code': 409,
-                'status_message': 'conflict - integrity error',
-                'message': 'a wallet with this currency has already been listed'
-            }), 409
-
-        except DataError:
-            return jsonify({
-                'code': 400,
-                'status_message': 'bad request - data error',
-                'message': 'ensure input data are correct'
-            }), 400
-
-        except InternalError:
-            return jsonify({
-                'code': 500,
-                'status_message': 'internal server - internal server error',
-                'message': 'could not fetch data'
-            }), 500
-
-        except (OperationalError, DisconnectionError, SQLAlchemyError):
-            return jsonify({
-                'code': 500,
-                'status_message': 'database error - operation, sqlalchemy and disconnection error',
-                'message': 'could not fetch data'
-            }), 500
-
-        except ProgrammingError:
-            return jsonify({
-                'code': 500,
-                'status_message': 'database error - programming error',
-                'message': 'could not fetch table'
-            }),
-
 

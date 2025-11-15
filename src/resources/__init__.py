@@ -9,8 +9,10 @@ from .beneficiary import BeneficiaryResource
 from .currency import CurrencyResource
 from .exchange_rate import ExchangeRateResource
 from .fixed_deposit import FixedDepositResource
+from .foreign_transfer import ForeignTransferResource
 from .kyc import KYCResource
 from .local_transfer import LocalTransferResource
+from .misc import MiscellaneousResources
 from .payverve_transfer import PayverveTransferResource
 from .payverve_wallet import PayverveWalletResource
 from .referral import ReferralResource
