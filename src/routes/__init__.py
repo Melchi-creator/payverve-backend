@@ -15,6 +15,7 @@ from .foreign_transfer import ForeignTransferBlueprint
 from .kyc import KYCBlueprint
 from .local_transfer import LocalTransferBlueprint
 from .misc import MiscellaneousBlueprint
+from .notification import NotificationBlueprint
 from .payverve_transfer import PayverveTransferBlueprint
 from .payverve_wallet import PayverveWalletBlueprint
 from .referral import ReferralBlueprint

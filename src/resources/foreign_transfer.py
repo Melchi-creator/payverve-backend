@@ -16,6 +16,7 @@ from sqlalchemy.exc import DataError, \
     SQLAlchemyError
 
 import config
+from . import NotificationResource
 from ..middlewares import FlutterwaveHelper
 from ..models import CurrencyModel, \
     ForeignTransferModel, \
@@ -238,6 +239,12 @@ class ForeignTransferResource(Resource):
 
             new_transaction.save()
 
+            NotificationResource.store_nofication(
+                title="Internation Transfer",
+                body=f"{wallet_check.currency_ticker}{amount: ,} was sent to  {recipient_name}",
+                user_id=user_id,
+            )
+
             # Spend and Save Transactions
             # @TODO: spend and save for foreign transfer should consider currency to ngn before saving
             spend_save = SpendSaveModel.query.filter_by(user_id=user_id).first()
@@ -335,6 +342,12 @@ class ForeignTransferResource(Resource):
                         )
 
                         new_transaction.save()
+
+                        NotificationResource.store_nofication(
+                            title="Spend Save",
+                            body=f"₦{Cryptographer.decrypt(final_balance): ,} was saved under Spend & Save plan",
+                            user_id=user_id,
+                        )
 
             return jsonify({
                 'code': 201,

@@ -12,6 +12,7 @@ from sqlalchemy.exc import (DataError, DisconnectionError, IntegrityError,
                             InternalError, OperationalError, ProgrammingError,
                             SQLAlchemyError)
 
+from . import NotificationResource
 from ..models import CurrencyModel, KYCModel, UserModel, WalletModel
 from ..utilities import Cryptographer, RandomGenerator, parse_params
 from ..value_object import MinimumBalance
@@ -64,6 +65,12 @@ class WalletResource(Resource):
                 is_active=True,
             )
             new_wallet.save()
+
+            NotificationResource.store_nofication(
+                title="Wallet Creation",
+                body=f"Your NGN wallet has been successfully created with account number {account_number}.",
+                user_id=id,
+            )
 
             return jsonify({
                 'code': 201,
@@ -162,6 +169,12 @@ class WalletResource(Resource):
                 currency_ticker=currency_ticker
             )
             new_wallet.save()
+
+            NotificationResource.store_nofication(
+                title="Wallet Creation",
+                body=f"Your {currency_ticker.upper()} wallet has been successfully created with account number {sim_account_number}.",
+                user_id=id,
+            )
 
             return jsonify({
                 'code': 201,

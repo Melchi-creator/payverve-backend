@@ -20,6 +20,7 @@ from sqlalchemy.exc import DBAPIError, DataError, \
     ProgrammingError, SQLAlchemyError
 
 import config
+from . import NotificationResource
 from ..middlewares import FlutterwaveHelper, MailtrapHelper
 from ..models import CurrencyModel, UserModel, WalletModel
 from ..models.token_verification import TokenVerificationModel
@@ -773,6 +774,12 @@ class UserResource(Resource):
             customer.account_active = True
             customer.save()
 
+            NotificationResource.store_nofication(
+                title="Account Verified",
+                body="Your account has been verified successfully",
+                user_id=customer.id,
+            )
+
             return jsonify({
                 'code': 200,
                 'status_message': 'successful',
@@ -955,6 +962,12 @@ class UserResource(Resource):
             user.set_password(password)
             user.save()
 
+            NotificationResource.store_nofication(
+                title="Password Changed",
+                body="Your password was changed successfully",
+                user_id=user.id,
+            )
+
             return jsonify({
                 'code': 200,
                 'status_message': 'success',
@@ -1032,6 +1045,12 @@ class UserResource(Resource):
 
             user.set_auth_pin(auth_pin)
             user.save()
+
+            NotificationResource.store_nofication(
+                title="Authentication Pin Set",
+                body="Your authentication pin was set successfully",
+                user_id=user.id,
+            )
 
             return jsonify({
                 'code': 200,
@@ -1149,6 +1168,12 @@ class UserResource(Resource):
             user.set_auth_pin(auth_pin)
             user.save()
 
+            NotificationResource.store_nofication(
+                title="Authentication Pin Changed",
+                body="Your authentication pin was changed successfully",
+                user_id=user.id,
+            )
+
             return jsonify({
                 'code': 200,
                 'status_message': 'success',
@@ -1224,6 +1249,12 @@ class UserResource(Resource):
 
             user.set_transaction_pin(str(transaction_pin))
             user.save()
+
+            NotificationResource.store_nofication(
+                title="Transaction Pin Set",
+                body="Your transaction pin was set successfully",
+                user_id=user.id,
+            )
 
             return jsonify({
                 'code': 200,
@@ -1338,6 +1369,12 @@ class UserResource(Resource):
 
             user.set_transaction_pin(str(transaction_pin))
             user.save()
+
+            NotificationResource.store_nofication(
+                title="Transaction Pin Changed",
+                body="Your transaction pin was changed successfully",
+                user_id=user.id,
+            )
 
             return jsonify({
                 'code': 200,

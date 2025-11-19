@@ -18,6 +18,7 @@ from .fixed_deposit import FixedDepositModel
 from .foreign_transfer import ForeignTransferModel
 from .kyc import KYCModel
 from .local_transfer import LocalTransferModel
+from .notification import NotificationModel
 from .payverve_transfer import PayverveTransferModel
 from .payverve_wallet import PayverveWalletModel
 from .referral import ReferralModel

@@ -12,6 +12,7 @@ from sqlalchemy.exc import DataError, \
     ProgrammingError, \
     SQLAlchemyError
 
+from . import NotificationResource
 from ..models import KYCModel, UserModel
 from ..utilities import parse_params
 from ..value_object import BVNCheck, NINCheck
@@ -60,6 +61,12 @@ class KYCResource(Resource):
                 user_id=user_id,
             )
             new_kyc.save()
+
+            NotificationResource.store_nofication(
+                title="KYC Level 1 Completed",
+                body="Your account is at level 1",
+                user_id=user_id,
+            )
 
             return jsonify({
                 'code': 201,
@@ -274,6 +281,14 @@ class KYCResource(Resource):
                 kyc.tier = 3
 
             kyc.save()
+
+            get_tier = KYCModel.query.filter_by(user_id=id).first()
+
+            NotificationResource.store_nofication(
+                title="Account Upgrade",
+                body=f"Your account has been upgraded to level {get_tier.tier}",
+                user_id=kyc.id,
+            )
 
             return jsonify({
                 'code': 200,

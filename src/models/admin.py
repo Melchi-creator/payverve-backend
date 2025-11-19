@@ -55,3 +55,7 @@ class AdminModel(db.Model, BaseModel, metaclass=MetaBaseModel):
         """ verify hashed user password """
 
         return check_password_hash(self.password, password)
+
+    # relationships
+
+    notifications = db.relationship('NotificationModel', backref='admins', lazy=True, cascade="all, delete-orphan")
