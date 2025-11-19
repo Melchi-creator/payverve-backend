@@ -16,6 +16,7 @@ from sqlalchemy.exc import DataError, \
     OperationalError, \
     ProgrammingError, SQLAlchemyError
 
+from . import NotificationResource
 from ..models import CurrencyModel, SpendSaveModel, TransactionModel, UserModel, WalletModel
 from ..utilities import Cryptographer, parse_params
 
@@ -61,6 +62,12 @@ class SpendSaveResource(Resource):
             )
 
             new_spend_save.save()
+
+            NotificationResource.store_nofication(
+                title="Spend and Save",
+                body=f"Spend and save has been successfully setup with {percentage_to_save}% to save",
+                user_id=id,
+            )
 
             return jsonify({
                 'code': 201,
@@ -240,6 +247,12 @@ class SpendSaveResource(Resource):
 
             spend_save.save()
 
+            NotificationResource.store_nofication(
+                title="Spend and Save",
+                body=f"Your spend and save percentage has been updated to {fields['percentage_to_save']}%",
+                user_id=id,
+            )
+
             return jsonify({
                 'code': 200,
                 'status_message': 'success',
@@ -318,6 +331,12 @@ class SpendSaveResource(Resource):
                 spend_save.is_active = fields['is_active']
 
             spend_save.save()
+
+            NotificationResource.store_nofication(
+                title="Spend and Save",
+                body=f"Your spend and save has been {'enabled' if compare_digest(str(fields['is_active']).lower(), 'true') else 'disabled'}",
+                user_id=id,
+            )
 
             return jsonify({
                 'code': 200,
@@ -432,6 +451,12 @@ class SpendSaveResource(Resource):
                 currency_ticker='ngn',
             )
             new_transaction.save()
+
+            NotificationResource.store_nofication(
+                title="Spend and Save Withdrawal",
+                body=f"₦{float(decrypt_balance):,} has been withdrawn from your Spend and Save",
+                user_id=id,
+            )
 
             return jsonify({
                 'code': 201,

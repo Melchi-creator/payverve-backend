@@ -13,6 +13,7 @@ from .foreign_transfer import ForeignTransferResource
 from .kyc import KYCResource
 from .local_transfer import LocalTransferResource
 from .misc import MiscellaneousResources
+from .notification import NotificationResource
 from .payverve_transfer import PayverveTransferResource
 from .payverve_wallet import PayverveWalletResource
 from .referral import ReferralResource

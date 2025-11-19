@@ -12,6 +12,7 @@ from sqlalchemy.exc import DBAPIError, DisconnectionError
 
 import config
 from src.models import AdminModel, UserModel
+from src.resources.notification import NotificationResource
 from src.utilities import Cryptographer, decode_token, encode_token, parse_params
 from src.value_object import EmailCheck
 
@@ -81,6 +82,12 @@ class Authentication(Resource):
 
             check_user.jti = Cryptographer.encrypt(jti)
             check_user.save()
+
+            NotificationResource.store_nofication(
+                title="New Login Detected",
+                body=f"Hello {check_user.first_name}, you have logged in successfully.",
+                user_id=check_user.id,
+            )
 
             return jsonify({
                 'code': 200,

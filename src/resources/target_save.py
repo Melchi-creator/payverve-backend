@@ -11,6 +11,7 @@ from flask_restful.reqparse import Argument
 from psycopg2 import DataError, IntegrityError, InternalError, OperationalError, ProgrammingError
 from sqlalchemy.exc import DisconnectionError, SQLAlchemyError
 
+from . import NotificationResource
 from ..models import CurrencyModel, TargetSaveModel, TransactionModel, WalletModel
 from ..utilities import Cryptographer, parse_params
 from ..value_object import MinimumBalance
@@ -43,8 +44,10 @@ class TargetSaveResource(Resource):
                     }), 409
 
             if not compare_digest(str(interval.lower()), "hourly") and not compare_digest(str(interval.lower()),
-                                                                                     "daily") and not compare_digest(str(
-                interval.lower()), "weekly") and not compare_digest(str(interval.lower()), "monthly"):
+                                                                                          "daily") and not compare_digest(
+                str(
+                    interval.lower()),
+                "weekly") and not compare_digest(str(interval.lower()), "monthly"):
                 return jsonify({
                     'code': 400,
                     'status_message': 'bad request',
@@ -115,6 +118,12 @@ class TargetSaveResource(Resource):
 
             new_transaction.save()
 
+            NotificationResource.store_nofication(
+                title="Target Saving Created",
+                body=f"₦{float(target_amount):,} has been saved in your target saving {title.lower()}",
+                user_id=user_id,
+            )
+
             return jsonify({
                 'code': 201,
                 'status_message': 'created',
@@ -164,6 +173,20 @@ class TargetSaveResource(Resource):
             }), 500
 
     @staticmethod
+    def human_duration(start, end):
+        days = (end - start).days
+
+        if days < 7:
+            return f"{days} days"
+
+        weeks = days // 7
+        if weeks < 4:
+            return f"{weeks} weeks"
+
+        months = days // 30  # rough but practical for product usage
+        return f"{months} months"
+
+    @staticmethod
     def read():
         """ """
 
@@ -191,6 +214,7 @@ class TargetSaveResource(Resource):
                     'next_saving': ts.next_saving,
                     'end_date': ts.end_date,
                     'start_date': ts.start_date,
+                    'duration': TargetSaveResource.human_duration(ts.start_date, ts.end_date),
                     'created_at': ts.created_at,
                     'updated_at': ts.updated_at,
                     'user_id': ts.user_id,
@@ -387,6 +411,12 @@ class TargetSaveResource(Resource):
             target_savings.is_active = False
             target_savings.save()
 
+            NotificationResource.store_nofication(
+                title="Target Saving Break",
+                body=f"You have unlocked your target save -> {target_savings.title}",
+                user_id=user_id,
+            )
+
             return jsonify({
                 'code': 200,
                 'status_message': 'success',
@@ -491,6 +521,12 @@ class TargetSaveResource(Resource):
 
             new_transaction.save()
 
+            NotificationResource.store_nofication(
+                title="Target Saving Withdrawal",
+                body=f"₦{float(target_amount):,} has been withdrawn from your target saving {target_savings.title}",
+                user_id=user_id,
+            )
+
             return jsonify({
                 'code': 200,
                 'status_message': 'success',
@@ -570,6 +606,5 @@ class TargetSaveResource(Resource):
                 'status_message': 'database error - programming error',
                 'message': 'could not fetch table'
             }), 500
-
 
     # @ TODO: background worker for automated saving from wallet to spend and save

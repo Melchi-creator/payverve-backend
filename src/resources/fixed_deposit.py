@@ -11,6 +11,7 @@ from flask_restful.reqparse import Argument
 from psycopg2 import DataError, IntegrityError, InternalError, OperationalError, ProgrammingError
 from sqlalchemy.exc import DisconnectionError, SQLAlchemyError
 
+from . import NotificationResource
 from ..models import CurrencyModel, FixedDepositModel, TransactionModel, WalletModel
 from ..utilities import Cryptographer, parse_params
 from ..value_object import MinimumBalance
@@ -107,6 +108,12 @@ class FixedDepositResource(Resource):
             )
 
             new_transaction.save()
+
+            NotificationResource.store_nofication(
+                title="Fixed Deposit Created",
+                body=f"₦{float(target_amount):,} has been saved in your fixed deposit -> {title}",
+                user_id=user_id,
+            )
 
             return jsonify({
                 'code': 201,
@@ -408,6 +415,12 @@ class FixedDepositResource(Resource):
             )
 
             new_transaction.save()
+
+            NotificationResource.store_nofication(
+                title="Fixed Deposit Withdrawal",
+                body=f"₦{float(decrypt_balance):,} has been withdrawn from your fixed deposit -> {fixed_deposits.title}",
+                user_id=user_id,
+            )
 
             return jsonify({
                 'code': 200,

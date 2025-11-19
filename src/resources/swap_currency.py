@@ -18,6 +18,7 @@ from sqlalchemy.exc import DataError, \
     SQLAlchemyError
 
 import config
+from . import NotificationResource
 from ..models import PayverveWalletModel, SwapCurrencyModel, TransactionModel, WalletModel
 from ..utilities import Cryptographer, RandomGenerator, parse_params
 from ..value_object import MinimumBalance
@@ -230,6 +231,12 @@ class SwapCurrencyResource(Resource):
             )
 
             new_transaction.save()
+
+            NotificationResource.store_nofication(
+                title="Swap Currencies",
+                body=f"You have successfully swapped {amount} {base_currency} to {swap_amount} {target_currency}.",
+                user_id=id,
+            )
 
             return jsonify({
                 'code': 201,

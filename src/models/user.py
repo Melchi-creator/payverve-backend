@@ -62,6 +62,7 @@ class UserModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     # kycs = db.relationship('KYCModel', backref='users', lazy=True, cascade="all, delete-orphan")
     kyc = db.relationship('KYCModel', backref='users', uselist=False, lazy=True, cascade="all, delete-orphan")
     local_transfers = db.relationship('LocalTransferModel', backref='users', lazy=True, cascade="all, delete-orphan")
+    notifications = db.relationship('NotificationModel', backref='users', lazy=True, cascade="all, delete-orphan")
     payverve_transfers = db.relationship('PayverveTransferModel',
                                          backref='users',
                                          lazy=True,
