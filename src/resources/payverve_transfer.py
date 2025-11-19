@@ -16,7 +16,7 @@ from sqlalchemy.exc import DataError, \
     OperationalError, \
     ProgrammingError, SQLAlchemyError
 
-from . import NotificationResource
+from .notification import NotificationResource
 from ..models import CurrencyModel, \
     PayverveTransferModel, \
     SpendSaveModel, \
@@ -193,9 +193,11 @@ class PayverveTransferResource(Resource):
 
             new_transaction.save()
 
+            note_amount = Cryptographer.decrypt(amount)
+
             NotificationResource.store_nofication(
-                title="Internation Transfer",
-                body=f"{sender.currency_ticker}{amount: ,} was sent to {recipient.users.first_name} {recipient.users.last_name}",
+                title="Payverve Transfer",
+                body=f"{sender.currency_ticker}{float(note_amount): ,.2f} was sent to {recipient.users.first_name} {recipient.users.last_name}",
                 user_id=user_id,
             )
 
@@ -239,7 +241,7 @@ class PayverveTransferResource(Resource):
 
                         NotificationResource.store_nofication(
                             title="Spend Save",
-                            body=f"₦{Cryptographer.decrypt(final_balance): ,} was saved under Spend & Save plan",
+                            body=f"₦{float(final_balance): ,.2f} was saved under Spend & Save plan",
                             user_id=user_id,
                         )
 

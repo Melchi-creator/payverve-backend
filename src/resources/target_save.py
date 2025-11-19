@@ -11,7 +11,7 @@ from flask_restful.reqparse import Argument
 from psycopg2 import DataError, IntegrityError, InternalError, OperationalError, ProgrammingError
 from sqlalchemy.exc import DisconnectionError, SQLAlchemyError
 
-from . import NotificationResource
+from .notification import NotificationResource
 from ..models import CurrencyModel, TargetSaveModel, TransactionModel, WalletModel
 from ..utilities import Cryptographer, parse_params
 from ..value_object import MinimumBalance
@@ -120,7 +120,7 @@ class TargetSaveResource(Resource):
 
             NotificationResource.store_nofication(
                 title="Target Saving Created",
-                body=f"₦{float(target_amount):,} has been saved in your target saving {title.lower()}",
+                body=f"₦{float(target_amount):,.2f} has been saved in your target saving {title.lower()}",
                 user_id=user_id,
             )
 
@@ -279,6 +279,7 @@ class TargetSaveResource(Resource):
                 'next_saving': target_saving.next_saving,
                 'end_date': target_saving.end_date,
                 'start_date': target_saving.start_date,
+                'duration': TargetSaveResource.human_duration(target_saving.start_date, target_saving.end_date),
                 'created_at': target_saving.created_at,
                 'updated_at': target_saving.updated_at,
                 'user_id': target_saving.user_id,
@@ -342,6 +343,7 @@ class TargetSaveResource(Resource):
                     'next_saving': ts.next_saving,
                     'end_date': ts.end_date,
                     'start_date': ts.start_date,
+                    'duration': TargetSaveResource.human_duration(ts.start_date, ts.end_date),
                     'created_at': ts.created_at,
                     'updated_at': ts.updated_at,
                     'user_id': ts.user_id,
@@ -413,7 +415,7 @@ class TargetSaveResource(Resource):
 
             NotificationResource.store_nofication(
                 title="Target Saving Break",
-                body=f"You have unlocked your target save -> {target_savings.title}",
+                body=f"You have unlocked your target savings -> {target_savings.title}",
                 user_id=user_id,
             )
 
@@ -523,7 +525,7 @@ class TargetSaveResource(Resource):
 
             NotificationResource.store_nofication(
                 title="Target Saving Withdrawal",
-                body=f"₦{float(target_amount):,} has been withdrawn from your target saving {target_savings.title}",
+                body=f"₦{float(target_amount):,.2f} has been withdrawn from your target saving {target_savings.title}",
                 user_id=user_id,
             )
 

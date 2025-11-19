@@ -20,7 +20,7 @@ from sqlalchemy.exc import DBAPIError, DataError, \
     ProgrammingError, SQLAlchemyError
 
 import config
-from . import NotificationResource
+from .notification import NotificationResource
 from ..middlewares import FlutterwaveHelper, MailtrapHelper
 from ..models import CurrencyModel, UserModel, WalletModel
 from ..models.token_verification import TokenVerificationModel

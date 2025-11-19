@@ -12,7 +12,7 @@ from sqlalchemy.exc import DataError, \
     ProgrammingError, \
     SQLAlchemyError
 
-from . import NotificationResource
+from .notification import NotificationResource
 from ..models import KYCModel, UserModel
 from ..utilities import parse_params
 from ..value_object import BVNCheck, NINCheck
@@ -287,7 +287,7 @@ class KYCResource(Resource):
             NotificationResource.store_nofication(
                 title="Account Upgrade",
                 body=f"Your account has been upgraded to level {get_tier.tier}",
-                user_id=kyc.id,
+                user_id=kyc.user_id,
             )
 
             return jsonify({
