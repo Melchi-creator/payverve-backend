@@ -16,7 +16,7 @@ from sqlalchemy.exc import DataError, \
     OperationalError, \
     ProgrammingError, SQLAlchemyError
 
-from . import NotificationResource
+from .notification import NotificationResource
 from ..models import CurrencyModel, SpendSaveModel, TransactionModel, UserModel, WalletModel
 from ..utilities import Cryptographer, parse_params
 
@@ -66,7 +66,7 @@ class SpendSaveResource(Resource):
             NotificationResource.store_nofication(
                 title="Spend and Save",
                 body=f"Spend and save has been successfully setup with {percentage_to_save}% to save",
-                user_id=id,
+                user_id=user_id,
             )
 
             return jsonify({
@@ -250,7 +250,7 @@ class SpendSaveResource(Resource):
             NotificationResource.store_nofication(
                 title="Spend and Save",
                 body=f"Your spend and save percentage has been updated to {fields['percentage_to_save']}%",
-                user_id=id,
+                user_id=spend_save.user_id,
             )
 
             return jsonify({
@@ -335,7 +335,7 @@ class SpendSaveResource(Resource):
             NotificationResource.store_nofication(
                 title="Spend and Save",
                 body=f"Your spend and save has been {'enabled' if compare_digest(str(fields['is_active']).lower(), 'true') else 'disabled'}",
-                user_id=id,
+                user_id=spend_save.user_id,
             )
 
             return jsonify({
@@ -403,7 +403,7 @@ class SpendSaveResource(Resource):
                 return jsonify({
                     'code': 400,
                     'status_message': 'bad request',
-                    'message': f'amount too high, you have {decrypt_balance} as you balance',
+                    'message': f'amount too high, you have ₦{float(decrypt_balance): ,.2f} as your balance',
                 }), 400
 
             final_balance = float(decrypt_balance) - float(amount)
@@ -412,7 +412,7 @@ class SpendSaveResource(Resource):
                 return jsonify({
                     'code': 400,
                     'status_message': 'bad request',
-                    'message': f'amount too low, you {decrypt_balance} as you balance',
+                    'message': f'amount too low, you ₦{float(decrypt_balance): ,.2f} as your balance',
                 }), 400
 
             encrypt_balance = Cryptographer.encrypt(final_balance)
@@ -454,8 +454,8 @@ class SpendSaveResource(Resource):
 
             NotificationResource.store_nofication(
                 title="Spend and Save Withdrawal",
-                body=f"₦{float(decrypt_balance):,} has been withdrawn from your Spend and Save",
-                user_id=id,
+                body=f"₦{float(decrypt_balance):,.2f} has been withdrawn from your Spend and Save",
+                user_id=confirm_user.user_id,
             )
 
             return jsonify({
@@ -505,4 +505,3 @@ class SpendSaveResource(Resource):
                 'status_message': 'calculation error - arithmetic, value, zerodivision error',
                 'message': 'could run an arithmetic calculation'
             }), 500
-
