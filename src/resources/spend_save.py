@@ -225,6 +225,61 @@ class SpendSaveResource(Resource):
             }), 500
 
     @staticmethod
+    def user_read(id=None):
+        """ Retrieve all payverve transfer by id """
+
+        spend_saves = SpendSaveModel.query.filter_by(user_id=id).all()
+
+        try:
+            if not spend_saves:
+                return jsonify({
+                    'code': 404,
+                    'status_message': 'data not found',
+                    'message': 'no spend and save was found'
+                }), 404
+
+            data = [
+                {
+                    'id': spend_save.id,
+                    'balance': Cryptographer.decrypt(spend_save.balance),
+                    'percentage_to_save': spend_save.percentage_to_save,
+                    'is_active': spend_save.is_active,
+                    'user_id': spend_save.user_id,
+                    'user': spend_save.users.first_name + ' ' + spend_save.users.last_name,
+                    'created_at': spend_save.created_at,
+                    'updated_at': spend_save.updated_at
+                }
+                for spend_save in spend_saves
+            ]
+
+            return jsonify({
+                'code': 200,
+                'status_message': 'success',
+                'data': data
+            }), 200
+
+        except InternalError:
+            return jsonify({
+                'code': 500,
+                'status_message': 'internal server - internal server error',
+                'message': 'could not fetch data'
+            }), 500
+
+        except (OperationalError, DisconnectionError):
+            return jsonify({
+                'code': 500,
+                'status_message': 'database error - operation and disconnection error',
+                'message': 'could not fetch data'
+            }), 500
+
+        except ProgrammingError:
+            return jsonify({
+                'code': 500,
+                'status_message': 'database error - programming error',
+                'message': 'could not fetch table'
+            }), 500
+
+    @staticmethod
     @parse_params(
         Argument('percentage_to_save', type=int, location='json', required=True),
     )
