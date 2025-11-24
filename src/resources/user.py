@@ -413,10 +413,12 @@ class UserResource(Resource):
                     'photo': user.photo,
                     'customer_code': user.customer_code,
                     'deleted': user.deleted,
-                    'deleted_date': user.deleted_date,
+                    'deleted_date': user.deleted_date.strftime("%d %b %Y, %I:%M %p") if user.deleted_date else None,
                     'email_verified': user.email_verified,
                     'account_active': user.account_active,
                     'kyc_level': user.kyc.tier,
+                    'created_at': user.created_at.strftime("%d %b %Y, %I:%M %p"),
+                    'updated_at': user.updated_at.strftime("%d %b %Y, %I:%M %p") if user.updated_at else None,
                 })
 
             return jsonify({
@@ -479,10 +481,12 @@ class UserResource(Resource):
                 'photo': user.photo,
                 'customer_code': user.customer_code,
                 'deleted': user.deleted,
-                'deleted_date': user.deleted_date,
+                'deleted_date': user.deleted_date.strftime("%d %b %Y, %I:%M %p") if user.deleted_date else None,
                 'email_verified': user.email_verified,
                 'account_active': user.account_active,
                 'kyc_level': user.kyc.tier,
+                'created_at': user.created_at.strftime("%d %b %Y, %I:%M %p"),
+                'updated_at': user.updated_at.strftime("%d %b %Y, %I:%M %p") if user.updated_at else None,
             }
 
             return jsonify({

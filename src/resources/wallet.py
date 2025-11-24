@@ -247,8 +247,8 @@ class WalletResource(Resource):
                     'account_number': wallet.account_number,
                     'bank_name': wallet.bank_name,
                     'is_active': wallet.is_active,
-                    'created_at': wallet.created_at,
-                    'updated_at': wallet.updated_at
+                    'created_at': wallet.created_at.strftime("%d %b %Y, %I:%M %p"),
+                    'updated_at': wallet.updated_at.strftime("%d %b %Y, %I:%M %p") if wallet.updated_at else None,
                 })
 
             return jsonify({
@@ -305,8 +305,8 @@ class WalletResource(Resource):
                 'account_number': wallet.account_number,
                 'bank_name': wallet.bank_name,
                 'is_active': wallet.is_active,
-                'created_at': wallet.created_at,
-                'updated_at': wallet.updated_at
+                'created_at': wallet.created_at.strftime("%d %b %Y, %I:%M %p"),
+                'updated_at': wallet.updated_at.strftime("%d %b %Y, %I:%M %p") if wallet.updated_at else None,
             }
 
             return jsonify({
@@ -366,8 +366,8 @@ class WalletResource(Resource):
                     'account_number': wallet.account_number,
                     'bank_name': wallet.bank_name,
                     'is_active': wallet.is_active,
-                    'created_at': wallet.created_at,
-                    'updated_at': wallet.updated_at
+                    'created_at': wallet.created_at.strftime("%d %b %Y, %I:%M %p"),
+                    'updated_at': wallet.updated_at.strftime("%d %b %Y, %I:%M %p") if wallet.updated_at else None,
                 })
 
             return jsonify({

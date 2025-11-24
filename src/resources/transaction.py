@@ -47,8 +47,8 @@ class TransactionResource(Resource):
                     'transaction_flow': transaction.transaction_flow,
                     'transaction_title': transaction.transaction_title,
                     'currency_ticker': transaction.currency_ticker,
-                    'created_at': transaction.created_at,
-                    'updated_at': transaction.updated_at
+                    'created_at': transaction.created_at.strftime("%d %b %Y, %I:%M %p"),
+                    'updated_at': transaction.updated_at.strftime("%d %b %Y, %I:%M %p") if transaction.updated_at else None,
                 })
 
             return jsonify({
@@ -106,8 +106,8 @@ class TransactionResource(Resource):
                 'transaction_flow': transaction.transaction_flow,
                 'transaction_title': transaction.transaction_title,
                 'currency_ticker': transaction.currency_ticker,
-                'created_at': transaction.created_at,
-                'updated_at': transaction.updated_at
+                'created_at': transaction.created_at.strftime("%d %b %Y, %I:%M %p"),
+                'updated_at': transaction.updated_at.strftime("%d %b %Y, %I:%M %p") if transaction.updated_at else None,
             }
 
             return jsonify({
@@ -168,8 +168,8 @@ class TransactionResource(Resource):
                     'transaction_flow': transaction.transaction_flow,
                     'transaction_title': transaction.transaction_title,
                     'currency_ticker': transaction.currency_ticker,
-                    'created_at': transaction.created_at,
-                    'updated_at': transaction.updated_at
+                    'created_at': transaction.created_at.strftime("%d %b %Y, %I:%M %p"),
+                    'updated_at': transaction.updated_at.strftime("%d %b %Y, %I:%M %p") if transaction.updated_at else None,
                 })
 
             return jsonify({

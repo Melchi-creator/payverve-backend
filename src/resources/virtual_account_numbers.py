@@ -46,8 +46,8 @@ class VirtualAccountNumberResource(Resource):
                     'is_active': virtual_account_number.is_active,
                     'user_id': virtual_account_number.user_id,
                     'currency_id': virtual_account_number.currency_id,
-                    'created_at': virtual_account_number.created_at,
-                    'updated_at': virtual_account_number.updated_at
+                    'created_at': virtual_account_number.created_at.strftime("%d %b %Y, %I:%M %p"),
+                    'updated_at': virtual_account_number.updated_at.strftime("%d %b %Y, %I:%M %p") if virtual_account_number.updated_at else None,
                 }
                 for virtual_account_number in virtual_account_numbers
             ]
@@ -110,8 +110,8 @@ class VirtualAccountNumberResource(Resource):
                 'is_active': virtual_account_number.is_active,
                 'user_id': virtual_account_number.user_id,
                 'currency_id': virtual_account_number.currency_id,
-                'created_at': virtual_account_number.created_at,
-                'updated_at': virtual_account_number.updated_at
+                'created_at': virtual_account_number.created_at.strftime("%d %b %Y, %I:%M %p"),
+                'updated_at': virtual_account_number.updated_at.strftime("%d %b %Y, %I:%M %p") if virtual_account_number.updated_at else None,
             }
 
             return jsonify({
@@ -173,8 +173,8 @@ class VirtualAccountNumberResource(Resource):
                     'is_active': virtual_account_number.is_active,
                     'user_id': virtual_account_number.user_id,
                     'currency_id': virtual_account_number.currency_id,
-                    'created_at': virtual_account_number.created_at,
-                    'updated_at': virtual_account_number.updated_at
+                    'created_at': virtual_account_number.created_at.strftime("%d %b %Y, %I:%M %p"),
+                    'updated_at': virtual_account_number.updated_at.strftime("%d %b %Y, %I:%M %p") if virtual_account_number.updated_at else None,
                 }
                 for virtual_account_number in virtual_account_numbers
             ]

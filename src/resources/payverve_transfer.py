@@ -331,8 +331,8 @@ class PayverveTransferResource(Resource):
                     'transaction_status': payverve_transfer.transaction_status,
                     'user_id': payverve_transfer.user_id,
                     'wallet_id': payverve_transfer.wallet_id,
-                    'created_at': payverve_transfer.created_at,
-                    'updated_at': payverve_transfer.updated_at
+                    'created_at': payverve_transfer.created_at.strftime("%d %b %Y, %I:%M %p"),
+                    'updated_at': payverve_transfer.updated_at.strftime("%d %b %Y, %I:%M %p") if payverve_transfer.updated_at else None,
                 })
 
             return jsonify({
@@ -391,8 +391,8 @@ class PayverveTransferResource(Resource):
                 'transaction_status': payverve_transfer.transaction_status,
                 'user_id': payverve_transfer.user_id,
                 'wallet_id': payverve_transfer.wallet_id,
-                'created_at': payverve_transfer.created_at,
-                'updated_at': payverve_transfer.updated_at
+                'created_at': payverve_transfer.created_at.strftime("%d %b %Y, %I:%M %p"),
+                'updated_at': payverve_transfer.updated_at.strftime("%d %b %Y, %I:%M %p") if payverve_transfer.updated_at else None,
             }
 
             return jsonify({
@@ -454,8 +454,8 @@ class PayverveTransferResource(Resource):
                     'transaction_status': payverve_transfer.transaction_status,
                     'user_id': payverve_transfer.user_id,
                     'wallet_id': payverve_transfer.wallet_id,
-                    'created_at': payverve_transfer.created_at,
-                    'updated_at': payverve_transfer.updated_at
+                    'created_at': payverve_transfer.created_at.strftime("%d %b %Y, %I:%M %p"),
+                    'updated_at': payverve_transfer.updated_at.strftime("%d %b %Y, %I:%M %p") if payverve_transfer.updated_at else None,
                 })
 
             return jsonify({

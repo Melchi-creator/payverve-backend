@@ -158,8 +158,8 @@ class ExchangeRateResource(Resource):
                     'base_currency': exchange_rate.base_currency,
                     'target_currency': exchange_rate.target_currency,
                     'rate': exchange_rate.rate,
-                    'created_at': exchange_rate.created_at,
-                    'updated_at': exchange_rate.updated_at
+                    'created_at': exchange_rate.created_at.strftime("%d %b %Y, %I:%M %p"),
+                    'updated_at': exchange_rate.updated_at.strftime("%d %b %Y, %I:%M %p") if exchange_rate.updated_at else None
                 })
 
             return jsonify({
@@ -208,8 +208,8 @@ class ExchangeRateResource(Resource):
                 'base_currency': exchange_rate.base_currency,
                 'target_currency': exchange_rate.target_currency,
                 'rate': exchange_rate.rate,
-                'created_at': exchange_rate.created_at,
-                'updated_at': exchange_rate.updated_at
+                'created_at': exchange_rate.created_at.strftime("%d %b %Y, %I:%M %p"),
+                    'updated_at': exchange_rate.updated_at.strftime("%d %b %Y, %I:%M %p") if exchange_rate.updated_at else None
             }
 
             return jsonify({
@@ -374,8 +374,8 @@ class ExchangeRateResource(Resource):
                     'base_currency': exchange_rate.base_currency,
                     'target_currency': exchange_rate.target_currency,
                     'rate': exchange_rate.rate,
-                    'created_at': exchange_rate.created_at,
-                    'updated_at': exchange_rate.updated_at
+                    'created_at': exchange_rate.created_at.strftime("%d %b %Y, %I:%M %p"),
+                    'updated_at': exchange_rate.updated_at.strftime("%d %b %Y, %I:%M %p") if exchange_rate.updated_at else None
                 }
                 for exchange_rate in exchange_rates
             ]

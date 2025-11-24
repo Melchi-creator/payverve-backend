@@ -215,12 +215,12 @@ class TargetSaveResource(Resource):
                     'end_date': ts.end_date,
                     'start_date': ts.start_date,
                     'duration': TargetSaveResource.human_duration(ts.start_date, ts.end_date),
-                    'created_at': ts.created_at,
-                    'updated_at': ts.updated_at,
+                    'created_at': ts.created_at.strftime("%d %b %Y, %I:%M %p"),
+                    'updated_at': ts.updated_at.strftime("%d %b %Y, %I:%M %p") if ts.updated_at else None,
                     'user_id': ts.user_id,
                     'user': ts.users.first_name + ' ' + ts.users.last_name,
                     'is_deleted': ts.is_deleted,
-                    'deleted_at': ts.deleted_at,
+                    'deleted_at': ts.deleted_at.strftime("%d %b %Y, %I:%M %p") if ts.updated_at else None,
                 }
                 for ts in target_savings
             ]
@@ -280,12 +280,12 @@ class TargetSaveResource(Resource):
                 'end_date': target_saving.end_date,
                 'start_date': target_saving.start_date,
                 'duration': TargetSaveResource.human_duration(target_saving.start_date, target_saving.end_date),
-                'created_at': target_saving.created_at,
-                'updated_at': target_saving.updated_at,
+                'created_at': target_saving.created_at.strftime("%d %b %Y, %I:%M %p"),
+                'updated_at': target_saving.updated_at.strftime("%d %b %Y, %I:%M %p") if target_saving.updated_at else None,
                 'user_id': target_saving.user_id,
                 'user': target_saving.users.first_name + ' ' + target_saving.users.last_name,
                 'is_deleted': target_saving.is_deleted,
-                'deleted_at': target_saving.deleted_at,
+                'deleted_at': target_saving.deleted_at.strftime("%d %b %Y, %I:%M %p") if target_saving.updated_at else None,
             }
 
             return jsonify({
@@ -344,12 +344,12 @@ class TargetSaveResource(Resource):
                     'end_date': ts.end_date,
                     'start_date': ts.start_date,
                     'duration': TargetSaveResource.human_duration(ts.start_date, ts.end_date),
-                    'created_at': ts.created_at,
-                    'updated_at': ts.updated_at,
+                    'created_at': ts.created_at.strftime("%d %b %Y, %I:%M %p"),
+                    'updated_at': ts.updated_at.strftime("%d %b %Y, %I:%M %p") if ts.updated_at else None,
                     'user_id': ts.user_id,
                     'user': ts.users.first_name + ' ' + ts.users.last_name,
                     'is_deleted': ts.is_deleted,
-                    'deleted_at': ts.deleted_at,
+                    'deleted_at': ts.deleted_at.strftime("%d %b %Y, %I:%M %p") if ts.updated_at else None
                 }
                 for ts in target_savings
             ]

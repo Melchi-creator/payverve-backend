@@ -112,8 +112,8 @@ class CurrencyResource(Resource):
                     'name': currency.name,
                     'short_code': currency.short_code,
                     'country': currency.country,
-                    'created_at': currency.created_at,
-                    'updated_at': currency.updated_at
+                    'created_at': currency.created_at.strftime("%d %b %Y, %I:%M %p"),
+                    'updated_at': currency.updated_at.strftime("%d %b %Y, %I:%M %p") if currency.updated_at else None
                 })
 
             payverve_wallet = PayverveWalletModel.query.first()
@@ -171,8 +171,8 @@ class CurrencyResource(Resource):
                 'name': currency.name,
                 'short_code': currency.short_code,
                 'country': currency.country,
-                'created_at': currency.created_at,
-                'updated_at': currency.updated_at
+                'created_at': currency.created_at.strftime("%d %b %Y, %I:%M %p"),
+                'updated_at': currency.updated_at.strftime("%d %b %Y, %I:%M %p") if currency.updated_at else None
             }
 
             return jsonify({

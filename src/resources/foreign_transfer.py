@@ -140,7 +140,7 @@ class ForeignTransferResource(Resource):
 
         try:
             # KYC Tier Check
-            KYCTierCheck.kyc_transfer_check(user_id, amount, 'international' )
+            KYCTierCheck.kyc_transfer_check(user_id, amount, 'international')
 
             user_check = UserModel.query.filter_by(id=user_id).first()
 
@@ -310,7 +310,8 @@ class ForeignTransferResource(Resource):
                     swap_amount = ((float(amount)) - (float(amount) * float(payverve_charge))) * float(exchange_rate)
 
                     payverve_balance = PayverveWalletModel.query.first()
-                    payverve_charge_amount = (float(amount) * float(payverve_charge)) + float(Cryptographer.decrypt(payverve_balance.fund))
+                    payverve_charge_amount = (float(amount) * float(payverve_charge)) + float(Cryptographer.decrypt(
+                        payverve_balance.fund))
 
                     payverve_balance.fund = Cryptographer.encrypt(payverve_charge_amount)
                     payverve_balance.save()
@@ -432,8 +433,8 @@ class ForeignTransferResource(Resource):
                     'transaction_status': foreign_transfer.transaction_status,
                     'user_id': foreign_transfer.user_id,
                     'wallet_id': foreign_transfer.wallet_id,
-                    'created_at': foreign_transfer.created_at,
-                    'updated_at': foreign_transfer.updated_at
+                    'created_at': foreign_transfer.created_at.strftime("%d %b %Y, %I:%M %p"),
+                    'updated_at': foreign_transfer.updated_at.strftime("%d %b %Y, %I:%M %p") if foreign_transfer.updated_at else None,
                 })
 
             return jsonify({
@@ -491,8 +492,8 @@ class ForeignTransferResource(Resource):
                 'transaction_status': foreign_transfer.transaction_status,
                 'user_id': foreign_transfer.user_id,
                 'wallet_id': foreign_transfer.wallet_id,
-                'created_at': foreign_transfer.created_at,
-                'updated_at': foreign_transfer.updated_at
+                'created_at': foreign_transfer.created_at.strftime("%d %b %Y, %I:%M %p"),
+                'updated_at': foreign_transfer.updated_at.strftime("%d %b %Y, %I:%M %p") if foreign_transfer.updated_at else None,
             }
 
             return jsonify({
@@ -553,8 +554,8 @@ class ForeignTransferResource(Resource):
                     'transaction_status': foreign_transfer.transaction_status,
                     'user_id': foreign_transfer.user_id,
                     'wallet_id': foreign_transfer.wallet_id,
-                    'created_at': foreign_transfer.created_at,
-                    'updated_at': foreign_transfer.updated_at
+                    'created_at': foreign_transfer.created_at.strftime("%d %b %Y, %I:%M %p"),
+                    'updated_at': foreign_transfer.updated_at.strftime("%d %b %Y, %I:%M %p") if foreign_transfer.updated_at else None,
                 })
 
             return jsonify({

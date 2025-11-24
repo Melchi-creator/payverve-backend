@@ -158,8 +158,8 @@ class KYCResource(Resource):
                     'phone_number_present': kyc.phone_number_present,
                     'address_present': kyc.address_present,
                     'user_id': kyc.user_id,
-                    'created_at': kyc.created_at,
-                    'updated_at': kyc.updated_at
+                    'created_at': kyc.created_at.strftime("%d %b %Y, %I:%M %p"),
+                    'updated_at': kyc.updated_at.strftime("%d %b %Y, %I:%M %p") if kyc.updated_at else None,
                 })
 
             return jsonify({
@@ -216,8 +216,8 @@ class KYCResource(Resource):
                 'phone_number_present': kyc.phone_number_present,
                 'address_present': kyc.address_present,
                 'user_id': kyc.user_id,
-                'created_at': kyc.created_at,
-                'updated_at': kyc.updated_at
+                'created_at': kyc.created_at.strftime("%d %b %Y, %I:%M %p"),
+                'updated_at': kyc.updated_at.strftime("%d %b %Y, %I:%M %p") if kyc.updated_at else None,
             }
 
             return jsonify({
