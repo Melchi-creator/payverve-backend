@@ -57,8 +57,8 @@ class NotificationResource(Resource):
                     "user_id": message.user_id,
                     "topic": message.topic,
                     "is_read": message.is_read,
-                    "created_at": message.created_at,
-                    "updated_at": message.updated_at,
+                    'created_at': message.created_at.strftime("%d %b %Y, %I:%M %p"),
+                    'updated_at': message.updated_at.strftime("%d %b %Y, %I:%M %p") if message.updated_at else None,
                 }
                 for message in messages
             ]

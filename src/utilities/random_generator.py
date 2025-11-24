@@ -43,6 +43,7 @@ class RandomGenerator:
         try:
             reference_number = secrets.token_hex(12)
             return reference_number
+
         except ArithmeticError:
             return jsonify({
                 'code': 500,
@@ -63,6 +64,7 @@ class RandomGenerator:
         try:
             reference_number = secrets.token_hex(12)
             return reference_number
+
         except ArithmeticError:
             return jsonify({
                 'code': 500,
@@ -83,6 +85,7 @@ class RandomGenerator:
         try:
             reference_number = secrets.token_hex(12)
             return reference_number
+
         except ArithmeticError:
             return jsonify({
                 'code': 500,
@@ -103,6 +106,7 @@ class RandomGenerator:
         try:
             reference_number = secrets.token_hex(12)
             return reference_number
+
         except ArithmeticError:
             return jsonify({
                 'code': 500,

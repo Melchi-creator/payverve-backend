@@ -156,8 +156,8 @@ class ReferralResource(Resource):
                     'referral_code': referral.referral_code,
                     'referred_id': referral.referred_id,
                     'referred_code': referral.referred_code,
-                    'created_at': referral.created_at,
-                    'updated_at': referral.updated_at
+                    'created_at': referral.created_at.strftime("%d %b %Y, %I:%M %p"),
+                    'updated_at': referral.updated_at.strftime("%d %b %Y, %I:%M %p") if referral.updated_at else None,
                 })
 
             return jsonify({
@@ -207,8 +207,8 @@ class ReferralResource(Resource):
                 'referral_code': referral.referral_code,
                 'referred_id': referral.referred_id,
                 'referred_code': referral.referred_code,
-                'created_at': referral.created_at,
-                'updated_at': referral.updated_at
+                'created_at': referral.created_at.strftime("%d %b %Y, %I:%M %p"),
+                'updated_at': referral.updated_at.strftime("%d %b %Y, %I:%M %p") if referral.updated_at else None,
             }
 
             return jsonify({

@@ -316,8 +316,8 @@ class SwapCurrencyResource(Resource):
                     'user_id': swapped_currency.user_id,
                     'user': swapped_currency.users.first_name + ' ' + swapped_currency.users.last_name,
                     'wallet_id': swapped_currency.wallet_id,
-                    'created_at': swapped_currency.created_at,
-                    'updated_at': swapped_currency.updated_at
+                    'created_at': swapped_currency.created_at.strftime("%d %b %Y, %I:%M %p"),
+                    'updated_at': swapped_currency.updated_at.strftime("%d %b %Y, %I:%M %p") if swapped_currency.updated_at else None,
                 })
 
             return jsonify({
@@ -374,8 +374,8 @@ class SwapCurrencyResource(Resource):
                 'user_id': swapped_currency.user_id,
                 'user': swapped_currency.users.first_name + ' ' + swapped_currency.users.last_name,
                 'wallet_id': swapped_currency.wallet_id,
-                'created_at': swapped_currency.created_at,
-                'updated_at': swapped_currency.updated_at
+                'created_at': swapped_currency.created_at.strftime("%d %b %Y, %I:%M %p"),
+                'updated_at': swapped_currency.updated_at.strftime("%d %b %Y, %I:%M %p") if swapped_currency.updated_at else None,
             }
 
             return jsonify({
@@ -435,8 +435,8 @@ class SwapCurrencyResource(Resource):
                     'user_id': swapped_currency.user_id,
                     'user': swapped_currency.users.first_name + ' ' + swapped_currency.users.last_name,
                     'wallet_id': swapped_currency.wallet_id,
-                    'created_at': swapped_currency.created_at,
-                    'updated_at': swapped_currency.updated_at
+                    'created_at': swapped_currency.created_at.strftime("%d %b %Y, %I:%M %p"),
+                    'updated_at': swapped_currency.updated_at.strftime("%d %b %Y, %I:%M %p") if swapped_currency.updated_at else None,
                 })
 
             return jsonify({

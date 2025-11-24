@@ -141,8 +141,8 @@ class SpendSaveResource(Resource):
                     'is_active': spend_save.is_active,
                     'user_id': spend_save.user_id,
                     'user': spend_save.users.first_name + ' ' + spend_save.users.last_name,
-                    'created_at': spend_save.created_at,
-                    'updated_at': spend_save.updated_at
+                    'created_at': spend_save.created_at.strftime("%d %b %Y, %I:%M %p"),
+                    'updated_at': spend_save.updated_at.strftime("%d %b %Y, %I:%M %p") if spend_save.updated_at else None,
                 })
 
             return jsonify({
@@ -193,8 +193,8 @@ class SpendSaveResource(Resource):
                 'is_active': spend_save.is_active,
                 'user_id': spend_save.user_id,
                 'user': spend_save.users.first_name + ' ' + spend_save.users.last_name,
-                'created_at': spend_save.created_at,
-                'updated_at': spend_save.updated_at
+                'created_at': spend_save.created_at.strftime("%d %b %Y, %I:%M %p"),
+                'updated_at': spend_save.updated_at.strftime("%d %b %Y, %I:%M %p") if spend_save.updated_at else None,
             }
 
             return jsonify({
@@ -246,8 +246,8 @@ class SpendSaveResource(Resource):
                     'is_active': spend_save.is_active,
                     'user_id': spend_save.user_id,
                     'user': spend_save.users.first_name + ' ' + spend_save.users.last_name,
-                    'created_at': spend_save.created_at,
-                    'updated_at': spend_save.updated_at
+                    'created_at': spend_save.created_at.strftime("%d %b %Y, %I:%M %p"),
+                    'updated_at': spend_save.updated_at.strftime("%d %b %Y, %I:%M %p") if spend_save.updated_at else None,
                 }
                 for spend_save in spend_saves
             ]

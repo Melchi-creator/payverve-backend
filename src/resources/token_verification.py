@@ -47,8 +47,8 @@ class TokenVerification(Resource):
                     'expiration_time': token_verification.expiration_time,
                     'timestamp': token_verification.timestamp,
                     'status': token_verification.status,
-                    'created_at': token_verification.created_at,
-                    'updated_at': token_verification.updated_at
+                    'created_at': token_verification.created_at.strftime("%d %b %Y, %I:%M %p"),
+                    'updated_at': token_verification.updated_at.strftime("%d %b %Y, %I:%M %p") if token_verification.updated_at else None,
                 }
                 for token_verification in token_verifications
             ]

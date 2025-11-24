@@ -17,7 +17,7 @@ from sqlalchemy.exc import DataError, \
 from .notification import NotificationResource
 from ..middlewares import FlutterwaveHelper
 from ..models import CurrencyModel, LocalTransferModel, SpendSaveModel, TransactionModel, UserModel, WalletModel
-from ..utilities import Cryptographer, RandomGenerator, parse_params
+from ..utilities import Cryptographer, KYCTierCheck, RandomGenerator, parse_params
 
 
 class LocalTransferResource(Resource):
@@ -131,6 +131,9 @@ class LocalTransferResource(Resource):
         """ """
 
         try:
+
+            # KYC Tier Check
+            KYCTierCheck.kyc_transfer_check(user_id, amount, 'local')
 
             user_check = UserModel.query.filter_by(id=user_id).first()
 
@@ -348,8 +351,8 @@ class LocalTransferResource(Resource):
                     'transaction_status': local_transfer.transaction_status,
                     'user_id': local_transfer.user_id,
                     'wallet_id': local_transfer.wallet_id,
-                    'created_at': local_transfer.created_at,
-                    'updated_at': local_transfer.updated_at
+                    'created_at': local_transfer.created_at.strftime("%d %b %Y, %I:%M %p"),
+                    'updated_at': local_transfer.updated_at.strftime("%d %b %Y, %I:%M %p") if local_transfer.updated_at else None,
                 })
 
             return jsonify({
@@ -407,8 +410,8 @@ class LocalTransferResource(Resource):
                 'transaction_status': local_transfer.transaction_status,
                 'user_id': local_transfer.user_id,
                 'wallet_id': local_transfer.wallet_id,
-                'created_at': local_transfer.created_at,
-                'updated_at': local_transfer.updated_at
+                'created_at': local_transfer.created_at.strftime("%d %b %Y, %I:%M %p"),
+                'updated_at': local_transfer.updated_at.strftime("%d %b %Y, %I:%M %p") if local_transfer.updated_at else None,
             }
 
             return jsonify({
@@ -469,8 +472,8 @@ class LocalTransferResource(Resource):
                     'transaction_status': local_transfer.transaction_status,
                     'user_id': local_transfer.user_id,
                     'wallet_id': local_transfer.wallet_id,
-                    'created_at': local_transfer.created_at,
-                    'updated_at': local_transfer.updated_at
+                    'created_at': local_transfer.created_at.strftime("%d %b %Y, %I:%M %p"),
+                    'updated_at': local_transfer.updated_at.strftime("%d %b %Y, %I:%M %p") if local_transfer.updated_at else None,
                 })
 
             return jsonify({
