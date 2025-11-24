@@ -25,7 +25,7 @@ from ..models import CurrencyModel, \
     TransactionModel, \
     UserModel, \
     WalletModel
-from ..utilities import Cryptographer, RandomGenerator, parse_params
+from ..utilities import Cryptographer, KYCTierCheck, RandomGenerator, parse_params
 
 
 class ForeignTransferResource(Resource):
@@ -139,6 +139,8 @@ class ForeignTransferResource(Resource):
         """ """
 
         try:
+            # KYC Tier Check
+            KYCTierCheck.kyc_transfer_check(user_id, amount, 'international' )
 
             user_check = UserModel.query.filter_by(id=user_id).first()
 

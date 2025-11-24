@@ -31,6 +31,8 @@ class KYCResource(Resource):
             email_address = request.json.get('email_address')
             created_by_payverve = request.json.get('created_by_payverve')
             new_user = request.json.get('new_user')
+            full_name = request.json.get('full_name')
+            mobile_number = request.json.get('mobile_number')
 
             customer_confirmation = UserModel.query.filter_by(id=user_id, email_address=email_address).first()
 
@@ -56,22 +58,32 @@ class KYCResource(Resource):
                     'message': 'you are not allowed to create a kyc'
                 }), 403
 
+            if full_name is None:
+                return jsonify({
+                    'code': 400,
+                    'status_message': 'bad request',
+                    'message': 'full name is required to create kyc'
+                }), 400
+
+            if mobile_number is None:
+                return jsonify({
+                    'code': 400,
+                    'status_message': 'bad request',
+                    'message': 'mobile number is required to create kyc'
+                }), 400
+
             # noinspection PyArgumentList
             new_kyc = KYCModel(
                 user_id=user_id,
+                full_name_present=True,
+                phone_number_present=True,
             )
             new_kyc.save()
-
-            NotificationResource.store_nofication(
-                title="KYC Level 1 Completed",
-                body="Your account is at level 1",
-                user_id=user_id,
-            )
 
             return jsonify({
                 'code': 201,
                 'status_message': 'created',
-                'message': 'kyc successfully created - tier 1'
+                'message': 'kyc successfully initiated'
             }), 201
 
         except IntegrityError:
@@ -138,8 +150,13 @@ class KYCResource(Resource):
                     'tier': kyc.tier,
                     'bvn': kyc.bvn,
                     'nin': kyc.nin,
+                    'selfie': kyc.selfie,
                     'bvn_present': kyc.bvn_present,
                     'nin_present': kyc.nin_present,
+                    'full_name_present': kyc.full_name_present,
+                    'selfie_present': kyc.selfie_present,
+                    'phone_number_present': kyc.phone_number_present,
+                    'address_present': kyc.address_present,
                     'user_id': kyc.user_id,
                     'created_at': kyc.created_at,
                     'updated_at': kyc.updated_at
@@ -191,8 +208,13 @@ class KYCResource(Resource):
                 'tier': kyc.tier,
                 'bvn': kyc.bvn,
                 'nin': kyc.nin,
+                'selfie': kyc.selfie,
                 'bvn_present': kyc.bvn_present,
                 'nin_present': kyc.nin_present,
+                'full_name_present': kyc.full_name_present,
+                'selfie_present': kyc.selfie_present,
+                'phone_number_present': kyc.phone_number_present,
+                'address_present': kyc.address_present,
                 'user_id': kyc.user_id,
                 'created_at': kyc.created_at,
                 'updated_at': kyc.updated_at
@@ -228,6 +250,7 @@ class KYCResource(Resource):
     @staticmethod
     @parse_params(
         Argument("bvn", location="json"),
+        Argument("selfie", location="json"),
         Argument("nin", location="json"),
     )
     def update(id=None, **fields):
@@ -235,7 +258,7 @@ class KYCResource(Resource):
 
         kyc = KYCModel.query.filter_by(user_id=id).first()
 
-        # @TODO: use dojah for nin and bvn verification
+        # @TODO: use dojah for nin, selfie and bvn verification
 
         try:
             if not kyc:
@@ -253,11 +276,34 @@ class KYCResource(Resource):
                         'message': 'bvn has already been updated if you want to update it, contact support'
                     }), 400
 
+                if not kyc.full_name_present:
+                    return jsonify({
+                        'code': 400,
+                        'status_message': 'bad request',
+                        'message': 'ensure full name is has been added to your profile'
+                    }), 400
+
+                if not kyc.phone_number_present:
+                    return jsonify({
+                        'code': 400,
+                        'status_message': 'bad request',
+                        'message': 'ensure phone number is has been added to your profile and verified'
+                    }), 400
+
+                if 'selfie' not in fields or fields['selfie'] is None:
+                    return jsonify({
+                        'code': 400,
+                        'status_message': 'bad request',
+                        'message': 'selfie is required to update bvn'
+                    }), 400
+
                 BVNCheck(fields['bvn'])
 
                 kyc.bvn = fields['bvn']
+                kyc.selfie = fields['selfie']
                 kyc.bvn_present = True
-                kyc.tier = 2
+                kyc.selfie_present = True
+                kyc.tier = 1
 
             if 'nin' in fields and fields['nin'] is not None:
                 if kyc.nin_present:
@@ -278,7 +324,10 @@ class KYCResource(Resource):
 
                 kyc.nin = fields['nin']
                 kyc.nin_present = True
-                kyc.tier = 3
+                kyc.tier = 2
+
+                if kyc.address_present:
+                    kyc.tier = 3
 
             kyc.save()
 

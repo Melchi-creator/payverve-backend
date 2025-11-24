@@ -17,7 +17,7 @@ from sqlalchemy.exc import DataError, \
 from .notification import NotificationResource
 from ..middlewares import FlutterwaveHelper
 from ..models import CurrencyModel, LocalTransferModel, SpendSaveModel, TransactionModel, UserModel, WalletModel
-from ..utilities import Cryptographer, RandomGenerator, parse_params
+from ..utilities import Cryptographer, KYCTierCheck, RandomGenerator, parse_params
 
 
 class LocalTransferResource(Resource):
@@ -131,6 +131,9 @@ class LocalTransferResource(Resource):
         """ """
 
         try:
+
+            # KYC Tier Check
+            KYCTierCheck.kyc_transfer_check(user_id, amount, 'local')
 
             user_check = UserModel.query.filter_by(id=user_id).first()
 

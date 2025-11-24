@@ -16,11 +16,16 @@ class KYCModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     __tablename__ = 'kycs'
 
     id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    tier = db.Column(db.Integer, nullable=False, default=1)
+    tier = db.Column(db.Integer, nullable=False, default=0)
     bvn = db.Column(db.String(), nullable=True, unique=True)
     nin = db.Column(db.String(), nullable=True, unique=True)
+    selfie = db.Column(db.String(), nullable=True)
     bvn_present = db.Column(db.Boolean(), nullable=False, default=False)
     nin_present = db.Column(db.Boolean(), nullable=False, default=False)
+    full_name_present = db.Column(db.Boolean(), nullable=False, default=False)
+    selfie_present = db.Column(db.Boolean(), nullable=False, default=False)
+    phone_number_present = db.Column(db.Boolean(), nullable=False, default=False)
+    address_present = db.Column(db.Boolean(), nullable=False, default=False)
 
     created_at = db.Column(db.DateTime(), default=datetime.now(), nullable=False)
     updated_at = db.Column(db.DateTime(), onupdate=datetime.now(), nullable=True)

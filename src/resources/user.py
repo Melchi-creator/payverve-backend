@@ -214,6 +214,8 @@ class UserResource(Resource):
                 'created_by_payverve': True,
                 'email_address': new_user.email_address,
                 'new_user': True,
+                'full_name': f"{new_user.first_name} {new_user.last_name}",
+                'mobile_number': new_user.mobile_number,
             }
 
             kyc_response = requests.request("POST", f'{config.app_path}/kycs', json=payload)
@@ -608,6 +610,10 @@ class UserResource(Resource):
                 user.username = fields['username']
 
             user.save()
+
+            if user.house_number is not None and user.street_name is not None and user.city is not None and user.state is not None and user.country is not None:
+                user.kyc.address_present = True
+                user.kyc.save()
 
             return jsonify({
                 'code': 200,

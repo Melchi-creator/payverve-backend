@@ -22,7 +22,7 @@ from ..models import CurrencyModel, \
     SpendSaveModel, \
     TransactionModel, \
     UserModel, WalletModel
-from ..utilities import Cryptographer, RandomGenerator, parse_params
+from ..utilities import Cryptographer, KYCTierCheck, RandomGenerator, parse_params
 from ..value_object import MinimumBalance
 
 
@@ -41,6 +41,9 @@ class PayverveTransferResource(Resource):
         """ """
 
         try:
+
+            # KYC Tier Check
+            KYCTierCheck.kyc_transfer_check(user_id, amount, 'payverve')
 
             user_check = UserModel.query.filter_by(id=user_id).first()
 
@@ -125,6 +128,9 @@ class PayverveTransferResource(Resource):
 
             sender_total_funds = float(decrypted_sender_funds) - float(amount)
             recipient_total_funds = float(decrypted_recipient_funds) + float(transfer_amount)
+
+            # KYC Tier Balance Check
+            KYCTierCheck.kyc_balance_check(recipient.user_id, recipient_total_funds, 'payverve')
 
             sender.fund = Cryptographer.encrypt(sender_total_funds)
             recipient.fund = Cryptographer.encrypt(recipient_total_funds)
