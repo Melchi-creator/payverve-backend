@@ -15,7 +15,7 @@ from sqlalchemy.exc import DataError, \
     SQLAlchemyError
 
 from .notification import NotificationResource
-from ..middlewares import FlutterwaveHelper
+from ..middlewares import BellbankHelper
 from ..models import CurrencyModel, LocalTransferModel, SpendSaveModel, TransactionModel, UserModel, WalletModel
 from ..utilities import Cryptographer, KYCTierCheck, RandomGenerator, parse_params
 
@@ -26,7 +26,7 @@ class LocalTransferResource(Resource):
     @staticmethod
     @parse_params(
         Argument("account", location="json", type=int, required=True),
-        Argument("bank_code", location="json", type=int, required=True),
+        Argument("bank_code", location="json", type=str, required=True),
         Argument("bank_name", location="json", required=True),
     )
     def resolve_account(account, bank_code, bank_name):
@@ -55,8 +55,8 @@ class LocalTransferResource(Resource):
                     'message': 'bank code is required'
                 }), 400
 
-            access_token = FlutterwaveHelper.flutterwave_authentication()
-            response = FlutterwaveHelper.resolve_bank(account, bank_code, access_token)
+            access_token = BellbankHelper.bellbank_authentication('5')
+            response = BellbankHelper.bell_resolve_account_number(account, bank_code, access_token)
 
             if not compare_digest(str(response.status_code), '200'):
                 return jsonify({
@@ -67,12 +67,16 @@ class LocalTransferResource(Resource):
 
             bank_data = response.json().get('data', {})
 
-            bank_data['bank_name'] = bank_name
+            final_data = {
+                'bank_name': bank_name,
+                'account_number': account,
+                'account_name': bank_data.get('accountName'),
+            }
 
             return jsonify({
                 'code': 200,
                 'status_message': 'success',
-                'data': bank_data
+                'data': final_data
             }), 200
 
         except IntegrityError:
@@ -119,6 +123,7 @@ class LocalTransferResource(Resource):
 
     @staticmethod
     @parse_params(
+        Argument("bank_code", location="json", required=True),
         Argument("amount", location="json", required=True),
         Argument("narration", location="json", required=True),
         Argument("account_number", location="json", required=True),
@@ -127,7 +132,7 @@ class LocalTransferResource(Resource):
         Argument("user_id", location="json", required=True),
         Argument("wallet_id", location="json", required=True),
     )
-    def create(amount, narration, account_number, recipient_name, recipient_bank, user_id, wallet_id):
+    def create(bank_code, amount, narration, account_number, recipient_name, recipient_bank, user_id, wallet_id):
         """ """
 
         try:
@@ -178,19 +183,44 @@ class LocalTransferResource(Resource):
 
             # @TODO: integrate with payverve local bank transfer api here
 
-            # whithdraw from sender Virtual Account and credit to receiver bank account
+            # withdraw from sender Virtual Account and credit to receiver bank account
             # verify transaction status
+
+            access_token = BellbankHelper.bellbank_authentication('6')
+            reference_number = RandomGenerator.local_transfer_reference_number()
+
+            transfer_response = BellbankHelper.transfer_outbound(
+                bank_code=bank_code,
+                amount=amount,
+                narration=narration,
+                account_number=account_number,
+                reference=reference_number,
+                sender_name=f"{user_check.first_name} {user_check.last_name}",
+                recipient_name=recipient_name,
+                access_token=access_token
+            )
+
+            if not compare_digest(str(transfer_response.status_code), '200'):
+                return jsonify({
+                    'code': transfer_response.status_code,
+                    'status_message': 'failed to resolve bank account',
+                    'message': transfer_response.json().get('message', 'an error occurred while resolving bank account')
+                }), transfer_response.status_code
+
+            transaction_data = transfer_response.json().get('data', {})
 
             wallet_balance = float(decrypt_fund) - float(amount)
             wallet_check.fund = Cryptographer.encrypt(wallet_balance)
             wallet_check.save()
 
-            reference_number = RandomGenerator.local_transfer_reference_number()
+            final_charge = float(transaction_data.get('charge'))
+
             amount = Cryptographer.encrypt(amount)
 
             # noinspection PyArgumentList
             new_local_transfer = LocalTransferModel(
                 amount=amount,
+                charge_amount=transaction_data.get('charge'),
                 sender_name=f"{user_check.first_name} {user_check.last_name}",
                 narration=narration,
                 recipient_name=recipient_name,
@@ -199,9 +229,12 @@ class LocalTransferResource(Resource):
                 reference_number=reference_number,
                 user_id=user_id,
                 wallet_id=wallet_id,
-                transaction_status='successful'  # @TODO: change according to api response
+                transaction_status=transaction_data.get('status')  # @TODO: change according to api response
             )
             new_local_transfer.save()
+
+            add_charge = float(Cryptographer.decrypt(amount)) + float(final_charge)
+            amount = Cryptographer.encrypt(add_charge)
 
             # noinspection PyArgumentList
             new_transaction = TransactionModel(
@@ -210,7 +243,7 @@ class LocalTransferResource(Resource):
                 user_id=user_id,
                 currency_id=wallet_check.currency_id,
                 note=narration,
-                status='successful',
+                status=transaction_data.get('status'),
                 name=recipient_name,
                 transaction_flow='debit',
                 transaction_title='Money Sent',
@@ -275,7 +308,7 @@ class LocalTransferResource(Resource):
             return jsonify({
                 'code': 201,
                 'status_message': 'created',
-                'message': 'transfer was done successfully',  # @ TODO change according to api response
+                'message': 'transfer was done successfully' if not compare_digest(str(transaction_data.get('status')), 'pending') else 'transfer is still processing',  # @ TODO change according to api response
             }), 201
 
         except IntegrityError:

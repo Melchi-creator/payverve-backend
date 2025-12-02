@@ -290,17 +290,17 @@ class KYCResource(Resource):
                         'message': 'ensure phone number is has been added to your profile and verified'
                     }), 400
 
-                if 'selfie' not in fields or fields['selfie'] is None:
-                    return jsonify({
-                        'code': 400,
-                        'status_message': 'bad request',
-                        'message': 'selfie is required to update bvn'
-                    }), 400
+                # if 'selfie' not in fields or fields['selfie'] is None:
+                #     return jsonify({
+                #         'code': 400,
+                #         'status_message': 'bad request',
+                #         'message': 'selfie is required to update bvn'
+                #     }), 400
 
                 BVNCheck(fields['bvn'])
 
                 kyc.bvn = fields['bvn']
-                kyc.selfie = fields['selfie']
+                # kyc.selfie = fields['selfie']
                 kyc.bvn_present = True
                 kyc.selfie_present = True
                 kyc.tier = 1

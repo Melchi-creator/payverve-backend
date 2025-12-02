@@ -4,6 +4,7 @@ This module defines the WalletResource class, which provides RESTful endpoints f
 It includes methods for creating, reading, updating, and deleting wallets, as well as handling errors
 related to database operations.
 """
+from hmac import compare_digest
 
 from flask import jsonify, request
 from flask_restful import Resource
@@ -13,6 +14,7 @@ from sqlalchemy.exc import (DataError, DisconnectionError, IntegrityError,
                             SQLAlchemyError)
 
 from .notification import NotificationResource
+from ..middlewares import BellbankHelper
 from ..models import CurrencyModel, KYCModel, UserModel, WalletModel
 from ..utilities import Cryptographer, RandomGenerator, parse_params
 from ..value_object import MinimumBalance
@@ -62,7 +64,7 @@ class WalletResource(Resource):
                 user_id=user_id,
                 currency_id=currency_id,
                 account_number=account_number,
-                is_active=True,
+                is_active=False,
             )
             new_wallet.save()
 
@@ -133,7 +135,7 @@ class WalletResource(Resource):
 
         try:
 
-            if own_wallet:
+            if own_wallet and own_wallet.is_active:
                 return jsonify({
                     'code': 409,
                     'status_message': 'conflict',
@@ -142,7 +144,7 @@ class WalletResource(Resource):
 
             kyc_check = KYCModel.query.filter_by(user_id=user_id).first()
 
-            if not kyc_check.bvn_present or not kyc_check.nin_present:
+            if not compare_digest(str(kyc_check.tier), '3'):
                 return jsonify({
                     'code': 409,
                     'status_message': 'unauthorise',
@@ -150,6 +152,7 @@ class WalletResource(Resource):
                 }), 409
 
             sim_account_number = RandomGenerator.sim_account_number()
+            external_reference = RandomGenerator.sim_external_ref()
 
             intial_fund = float(0)
             MinimumBalance(intial_fund)
@@ -159,20 +162,56 @@ class WalletResource(Resource):
 
             # @TODO: integrate foreign virtual account creation (Virtual ccountModel) with third party here and remove simlated account number in wallet
 
-            # noinspection PyArgumentList
-            new_wallet = WalletModel(
-                fund=encrypt_fund,
-                user_id=user_id,
-                currency_id=currency_id,
-                account_number=sim_account_number,
-                is_active=True,
-                currency_ticker=currency_ticker
-            )
-            new_wallet.save()
+            currency_ticker = currency_ticker.lower()
+
+            if compare_digest(currency_ticker, 'ngn'):
+                access_code = BellbankHelper.bellbank_authentication('5')
+
+                response = BellbankHelper.bellbank_virtual_account(
+                    access_token=access_code,
+                    mobile_number=customer_confirmation.mobile_number,
+                    first_name=customer_confirmation.first_name,
+                    last_name=customer_confirmation.last_name,
+                    address=f"{customer_confirmation.house_number} {customer_confirmation.street_name}, {customer_confirmation.city}, {customer_confirmation.state}, {customer_confirmation.country}",
+                    bvn=kyc_check.bvn,
+                    gender=customer_confirmation.gender,
+                    date_of_birth=str(customer_confirmation.date_of_birth),
+                    meta_data={
+                        "email_address": customer_confirmation.email_address
+                    },
+                )
+
+                if not compare_digest(str(response.status_code), '200'):
+                    return jsonify({
+                        'code': response.status_code,
+                        'status_message': 'failed to resolve bank account',
+                        'message': response.json().get('message', 'an error occurred while resolving bank account')
+                    }), response.status_code
+
+                data = response.json().get('data')
+                va_account_number = data.get('accountNumber')
+
+                own_wallet.account_number = va_account_number
+                own_wallet.is_active = True
+                own_wallet.external_reference = data.get('externalReference')
+                own_wallet.save()
+
+            if not compare_digest(currency_ticker, 'ngn'):
+                # noinspection PyArgumentList
+                new_wallet = WalletModel(
+                    fund=encrypt_fund,
+                    user_id=user_id,
+                    currency_id=currency_id,
+                    account_number=sim_account_number,
+                    is_active=True,
+                    external_reference=external_reference,
+                    currency_ticker=currency_ticker
+                )
+                new_wallet.save()
 
             NotificationResource.store_nofication(
                 title="Wallet Creation",
-                body=f"Your {currency_ticker.upper()} wallet has been successfully created with account number {sim_account_number}.",
+                body=f"Your {currency_ticker.upper()} wallet has been successfully created with account number {sim_account_number if not compare_digest(currency_ticker, 'ngn') else own_wallet.account_number}.",
                 user_id=user_id,
             )
 
