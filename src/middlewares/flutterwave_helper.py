@@ -161,12 +161,14 @@ class FlutterwaveHelper:
             }), 500
 
     @staticmethod
-    def flutterwave_list_of_banks(country, access_token):
+    def flutterwave_list_of_banks(country):
         """ """
 
         try:
 
             url = f'{config.flutterwave_base_url}/banks/{country}?include_provider_type=1'
+
+            access_token = FlutterwaveHelper.flutterwave_authentication()
 
             headers = {
                 'content-type': 'application/json',

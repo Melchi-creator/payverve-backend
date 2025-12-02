@@ -9,6 +9,7 @@ from psycopg2 import InternalError, OperationalError, ProgrammingError
 from sqlalchemy import func
 from sqlalchemy.exc import DisconnectionError
 
+from . import Cryptographer
 from ..models import KYCModel, LocalTransferModel, PayverveTransferModel
 
 
@@ -57,31 +58,35 @@ class KYCTierCheck:
                     }), 403
 
                 today = datetime.now().date()
-                sum_transfers = 0
+                sum_all_transfers = 0
 
                 if compare_digest(str(transfer_type), "payverve"):
                     sum_transfers = (
-                            PayverveTransferModel.query
-                            .with_entities(func.sum(PayverveTransferModel.amount))
-                            .filter(
-                                PayverveTransferModel.user_id == user_id,
-                                func.date(PayverveTransferModel.created_at) == today
-                            )
-                            .scalar() or 0
+                        PayverveTransferModel.query.filter(
+                            PayverveTransferModel.user_id == user_id,
+                            func.date(PayverveTransferModel.created_at) == today
+                        )
+                        .all()
                     )
+
+                    for row in sum_transfers:
+                        decrypted_amount = float(Cryptographer.decrypt(row.amount))  # this must return an int/float
+                        sum_all_transfers += decrypted_amount
 
                 if compare_digest(str(transfer_type), "local"):
                     sum_transfers = (
-                            LocalTransferModel.query
-                            .with_entities(func.sum(LocalTransferModel.amount))
-                            .filter(
-                                LocalTransferModel.user_id == user_id,
-                                func.date(LocalTransferModel.created_at) == today
-                            )
-                            .scalar() or 0
+                        LocalTransferModel.query.filter(
+                            LocalTransferModel.user_id == user_id,
+                            func.date(LocalTransferModel.created_at) == today
+                        )
+                        .all()
                     )
 
-                if (float(sum_transfers) + float(amount)) > float(300000):
+                    for row in sum_transfers:
+                        decrypted_amount = float(Cryptographer.decrypt(row.amount))  # this must return an int/float
+                        sum_all_transfers += decrypted_amount
+
+                if (float(sum_all_transfers) + float(amount)) > float(300000):
                     return jsonify({
                         'code': 403,
                         'status_message': 'forbidden - kyc tier is 1',
@@ -97,31 +102,35 @@ class KYCTierCheck:
                     }), 403
 
                 today = datetime.now().date()
-                sum_transfers = 0
+                sum_all_transfers = 0
 
                 if compare_digest(str(transfer_type), "payverve"):
                     sum_transfers = (
-                            PayverveTransferModel.query
-                            .with_entities(func.sum(PayverveTransferModel.amount))
-                            .filter(
-                                PayverveTransferModel.user_id == user_id,
-                                func.date(PayverveTransferModel.created_at) == today
-                            )
-                            .scalar() or 0
+                        PayverveTransferModel.query.filter(
+                            PayverveTransferModel.user_id == user_id,
+                            func.date(PayverveTransferModel.created_at) == today
+                        )
+                        .all()
                     )
+
+                    for row in sum_transfers:
+                        decrypted_amount = float(Cryptographer.decrypt(row.amount))  # this must return an int/float
+                        sum_all_transfers += decrypted_amount
 
                 if compare_digest(str(transfer_type), "local"):
                     sum_transfers = (
-                            LocalTransferModel.query
-                            .with_entities(func.sum(LocalTransferModel.amount))
-                            .filter(
-                                LocalTransferModel.user_id == user_id,
-                                func.date(LocalTransferModel.created_at) == today
-                            )
-                            .scalar() or 0
+                        LocalTransferModel.query.filter(
+                            LocalTransferModel.user_id == user_id,
+                            func.date(LocalTransferModel.created_at) == today
+                        )
+                        .all()
                     )
 
-                if (float(sum_transfers) + float(amount)) > float(500000):
+                    for row in sum_transfers:
+                        decrypted_amount = float(Cryptographer.decrypt(row.amount))  # this must return an int/float
+                        sum_all_transfers += decrypted_amount
+
+                if (float(sum_all_transfers) + float(amount)) > float(500000):
                     return jsonify({
                         'code': 403,
                         'status_message': 'forbidden - kyc tier is 1',
@@ -137,31 +146,35 @@ class KYCTierCheck:
                     }), 403
 
                 today = datetime.now().date()
-                sum_transfers = 0
+                sum_all_transfers = 0
 
                 if compare_digest(str(transfer_type), "payverve"):
                     sum_transfers = (
-                            PayverveTransferModel.query
-                            .with_entities(func.sum(PayverveTransferModel.amount))
-                            .filter(
-                                PayverveTransferModel.user_id == user_id,
-                                func.date(PayverveTransferModel.created_at) == today
-                            )
-                            .scalar() or 0
+                        PayverveTransferModel.query.filter(
+                            PayverveTransferModel.user_id == user_id,
+                            func.date(PayverveTransferModel.created_at) == today
+                        )
+                        .all()
                     )
+
+                    for row in sum_transfers:
+                        decrypted_amount = float(Cryptographer.decrypt(row.amount))  # this must return an int/float
+                        sum_all_transfers += decrypted_amount
 
                 if compare_digest(str(transfer_type), "local"):
                     sum_transfers = (
-                            LocalTransferModel.query
-                            .with_entities(func.sum(LocalTransferModel.amount))
-                            .filter(
-                                LocalTransferModel.user_id == user_id,
-                                func.date(LocalTransferModel.created_at) == today
-                            )
-                            .scalar() or 0
+                        LocalTransferModel.query.filter(
+                            LocalTransferModel.user_id == user_id,
+                            func.date(LocalTransferModel.created_at) == today
+                        )
+                        .all()
                     )
 
-                if (float(sum_transfers) + float(amount)) > float(5000000):
+                    for row in sum_transfers:
+                        decrypted_amount = float(Cryptographer.decrypt(row.amount))  # this must return an int/float
+                        sum_all_transfers += decrypted_amount
+
+                if (float(sum_all_transfers) + float(amount)) > float(5000000):
                     return jsonify({
                         'code': 403,
                         'status_message': 'forbidden - kyc tier is 1',
@@ -229,7 +242,7 @@ class KYCTierCheck:
                 if float(balance) > float(300000):
                     return jsonify({
                         'code': 403,
-                         'status_message': 'forbidden',
+                        'status_message': 'forbidden',
                         'message': 'receipient can not receive this money at the moment.'
                     }), 403
 
@@ -238,7 +251,7 @@ class KYCTierCheck:
                 if float(balance) > float(500000):
                     return jsonify({
                         'code': 403,
-                         'status_message': 'forbidden',
+                        'status_message': 'forbidden',
                         'message': 'receipient can not receive this money at the moment.'
                     }), 403
 
