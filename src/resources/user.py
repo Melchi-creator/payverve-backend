@@ -40,8 +40,11 @@ class UserResource(Resource):
         Argument("mobile_number", location="json", required=True),
         Argument("password", location="json", required=True),
         Argument("referral_code", location="json"),
+        Argument("gender", location="json", required=True),
+        Argument("date_of_birth", location="json", required=True),
     )
-    def create(first_name, last_name, email_address, mobile_number, password, username, referral_code):
+    def create(first_name, last_name, email_address, mobile_number, password, username, referral_code, gender,
+               date_of_birth):
         """ Creates users account """
 
         try:
@@ -120,6 +123,24 @@ class UserResource(Resource):
 
             customer_code = flutter_account_json.get('id')
 
+            gender_check = ["male", "female"]
+
+            if gender.lower() not in gender_check:
+                return jsonify({
+                    'code': 400,
+                    'status_message': 'bad request',
+                    'message': "gender must be either 'male' or 'female'"
+                }), 400
+
+            date_of_birth_parsed = datetime.strptime(date_of_birth, '%Y-%m-%d').year
+
+            if datetime.now().year - int(date_of_birth_parsed) < 18:
+                return jsonify({
+                    'code': 400,
+                    'status_message': 'bad request',
+                    'message': 'you must be 18 years and above'
+                }), 400
+
             # noinspection PyArgumentList
             new_user = UserModel(
                 first_name=first_name,
@@ -128,7 +149,9 @@ class UserResource(Resource):
                 username=username.lower(),
                 mobile_number=mobile_number,
                 user_code=user_code,
-                customer_code=customer_code
+                customer_code=customer_code,
+                gender=gender.lower(),
+                date_of_birth=date_of_birth
             )
             new_user.set_password(password)
             new_user.save()
