@@ -58,6 +58,8 @@ class WalletResource(Resource):
             MinimumBalance(intial_fund)
             encrypt_fund = Cryptographer.encrypt(intial_fund)
 
+            external_reference = RandomGenerator.sim_external_ref()
+
             # noinspection PyArgumentList
             new_wallet = WalletModel(
                 fund=encrypt_fund,
@@ -65,6 +67,7 @@ class WalletResource(Resource):
                 currency_id=currency_id,
                 account_number=account_number,
                 is_active=False,
+                external_reference=external_reference,
             )
             new_wallet.save()
 
