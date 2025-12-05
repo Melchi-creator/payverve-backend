@@ -151,6 +151,7 @@ class KYCResource(Resource):
                     'bvn': kyc.bvn,
                     'nin': kyc.nin,
                     'selfie': kyc.selfie,
+                    'address': kyc.address,
                     'bvn_present': kyc.bvn_present,
                     'nin_present': kyc.nin_present,
                     'full_name_present': kyc.full_name_present,
@@ -209,6 +210,7 @@ class KYCResource(Resource):
                 'bvn': kyc.bvn,
                 'nin': kyc.nin,
                 'selfie': kyc.selfie,
+                'address': kyc.address,
                 'bvn_present': kyc.bvn_present,
                 'nin_present': kyc.nin_present,
                 'full_name_present': kyc.full_name_present,
@@ -252,6 +254,7 @@ class KYCResource(Resource):
         Argument("bvn", location="json"),
         Argument("selfie", location="json"),
         Argument("nin", location="json"),
+        Argument("address", location="json"),
     )
     def update(id=None, **fields):
         """  """
@@ -326,8 +329,34 @@ class KYCResource(Resource):
                 kyc.nin_present = True
                 kyc.tier = 2
 
+                # if kyc.address_present:
+                #     kyc.tier = 3
+
+            if 'address' in fields and fields['address'] is not None:
                 if kyc.address_present:
-                    kyc.tier = 3
+                    return jsonify({
+                        'code': 400,
+                        'status_message': 'bad request',
+                        'message': 'address has already been updated if you want to update it, contact support'
+                    }), 400
+
+                if not kyc.bvn_present and fields['bvn'] is None:
+                    return jsonify({
+                        'code': 400,
+                        'status_message': 'bad request',
+                        'message': 'provide bvn to update address'
+                    }), 400
+
+                if not kyc.nin_present and fields['nin'] is None:
+                    return jsonify({
+                        'code': 400,
+                        'status_message': 'bad request',
+                        'message': 'provide nin to update address'
+                    }), 400
+
+                kyc.address = fields['address']
+                kyc.address_present = True
+                kyc.tier = 3
 
             kyc.save()
 
