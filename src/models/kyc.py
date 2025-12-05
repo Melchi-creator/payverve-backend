@@ -19,6 +19,7 @@ class KYCModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     tier = db.Column(db.Integer, nullable=False, default=0)
     bvn = db.Column(db.String(), nullable=True, unique=True)
     nin = db.Column(db.String(), nullable=True, unique=True)
+    address = db.Column(db.Text, nullable=True)
     selfie = db.Column(db.String(), nullable=True)
     bvn_present = db.Column(db.Boolean(), nullable=False, default=False)
     nin_present = db.Column(db.Boolean(), nullable=False, default=False)

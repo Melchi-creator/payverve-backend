@@ -427,12 +427,12 @@ class UserResource(Resource):
                     'mobile_number': user.mobile_number,
                     'gender': user.gender,
                     'date_of_birth': user.date_of_birth,
-                    'house_number': user.house_number,
-                    'street_name': user.street_name,
-                    'city': user.city,
-                    'state': user.state,
-                    'zipcode': user.zipcode,
-                    'country': user.country,
+                    # 'house_number': user.house_number,
+                    # 'street_name': user.street_name,
+                    # 'city': user.city,
+                    # 'state': user.state,
+                    # 'zipcode': user.zipcode,
+                    # 'country': user.country,
                     'photo': user.photo,
                     'customer_code': user.customer_code,
                     'deleted': user.deleted,
@@ -495,12 +495,12 @@ class UserResource(Resource):
                 'mobile_number': user.mobile_number,
                 'gender': user.gender,
                 'date_of_birth': user.date_of_birth,
-                'house_number': user.house_number,
-                'street_name': user.street_name,
-                'city': user.city,
-                'state': user.state,
-                'zipcode': user.zipcode,
-                'country': user.country,
+                # 'house_number': user.house_number,
+                # 'street_name': user.street_name,
+                # 'city': user.city,
+                # 'state': user.state,
+                # 'zipcode': user.zipcode,
+                # 'country': user.country,
                 'photo': user.photo,
                 'customer_code': user.customer_code,
                 'deleted': user.deleted,
@@ -548,12 +548,12 @@ class UserResource(Resource):
         Argument("mobile_number", location="json"),
         Argument("gender", location="json"),
         Argument("date_of_birth", location="json"),
-        Argument("house_number", location="json"),
-        Argument("street_name", location="json"),
-        Argument("city", location="json"),
-        Argument("state", location="json"),
-        Argument("zipcode", location="json"),
-        Argument("country", location="json"),
+        # Argument("house_number", location="json"),
+        # Argument("street_name", location="json"),
+        # Argument("city", location="json"),
+        # Argument("state", location="json"),
+        # Argument("zipcode", location="json"),
+        # Argument("country", location="json"),
         Argument("photo", location="json"),
         Argument("username", location="json"),
     )
@@ -612,23 +612,23 @@ class UserResource(Resource):
 
                 user.date_of_birth = fields['date_of_birth']
 
-            if 'house_number' in fields and fields['house_number'] is not None:
-                user.house_number = fields['house_number']
-
-            if 'street_name' in fields and fields['street_name'] is not None:
-                user.street_name = fields['street_name']
-
-            if 'city' in fields and fields['city'] is not None:
-                user.city = fields['city']
-
-            if 'state' in fields and fields['state'] is not None:
-                user.state = fields['state']
-
-            if 'zipcode' in fields and fields['zipcode'] is not None:
-                user.zipcode = fields['zipcode']
-
-            if 'country' in fields and fields['country'] is not None:
-                user.country = fields['country']
+            # if 'house_number' in fields and fields['house_number'] is not None:
+            #     user.house_number = fields['house_number']
+            #
+            # if 'street_name' in fields and fields['street_name'] is not None:
+            #     user.street_name = fields['street_name']
+            #
+            # if 'city' in fields and fields['city'] is not None:
+            #     user.city = fields['city']
+            #
+            # if 'state' in fields and fields['state'] is not None:
+            #     user.state = fields['state']
+            #
+            # if 'zipcode' in fields and fields['zipcode'] is not None:
+            #     user.zipcode = fields['zipcode']
+            #
+            # if 'country' in fields and fields['country'] is not None:
+            #     user.country = fields['country']
 
             if 'photo' in fields and fields['photo'] is not None:
                 user.photo = fields['photo']
@@ -637,10 +637,10 @@ class UserResource(Resource):
                 user.username = fields['username']
 
             user.save()
-
-            if user.house_number is not None and user.street_name is not None and user.city is not None and user.state is not None and user.country is not None:
-                user.kyc.address_present = True
-                user.kyc.save()
+            #
+            # if user.house_number is not None and user.street_name is not None and user.city is not None and user.state is not None and user.country is not None:
+            #     user.kyc.address_present = True
+            #     user.kyc.save()
 
             return jsonify({
                 'code': 200,
