@@ -175,7 +175,7 @@ class WalletResource(Resource):
                     mobile_number=customer_confirmation.mobile_number,
                     first_name=customer_confirmation.first_name,
                     last_name=customer_confirmation.last_name,
-                    address=f"{customer_confirmation.house_number} {customer_confirmation.street_name}, {customer_confirmation.city}, {customer_confirmation.state}, {customer_confirmation.country}",
+                    address=f"{kyc_check.address}",
                     bvn=kyc_check.bvn,
                     gender=customer_confirmation.gender,
                     date_of_birth=str(customer_confirmation.date_of_birth),
