@@ -31,8 +31,8 @@ class ForeignTransferModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     transfer_pair = db.Column(db.String(), nullable=False)
     transaction_status = db.Column(db.String(), nullable=False)  # pending, successful, failed
 
-    created_at = db.Column(db.DateTime(), default=datetime.now(), nullable=False)
-    updated_at = db.Column(db.DateTime(), onupdate=datetime.now(), nullable=True)
+    created_at = db.Column(db.DateTime(), default=datetime.now, nullable=False)
+    updated_at = db.Column(db.DateTime(), onupdate=datetime.now, nullable=True)
 
     # foreign keys
 
