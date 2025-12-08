@@ -20,8 +20,8 @@ class AdminRoleModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     role = db.Column(db.String(), nullable=False)
 
-    created_at = db.Column(db.DateTime(), default=datetime.now(), nullable=False)
-    updated_at = db.Column(db.DateTime(), onupdate=datetime.now(), nullable=True)
+    created_at = db.Column(db.DateTime(), default=datetime.now, nullable=False)
+    updated_at = db.Column(db.DateTime(), onupdate=datetime.now, nullable=True)
 
     # relationships
 

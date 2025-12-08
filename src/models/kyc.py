@@ -28,8 +28,8 @@ class KYCModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     phone_number_present = db.Column(db.Boolean(), nullable=False, default=False)
     address_present = db.Column(db.Boolean(), nullable=False, default=False)
 
-    created_at = db.Column(db.DateTime(), default=datetime.now(), nullable=False)
-    updated_at = db.Column(db.DateTime(), onupdate=datetime.now(), nullable=True)
+    created_at = db.Column(db.DateTime(), default=datetime.now, nullable=False)
+    updated_at = db.Column(db.DateTime(), onupdate=datetime.now, nullable=True)
 
     # foreign keys
 

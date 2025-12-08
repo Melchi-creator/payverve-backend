@@ -26,8 +26,8 @@ class FixedDepositModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     is_deleted = db.Column(db.Boolean(), nullable=False, default=False)
     deleted_at = db.Column(db.DateTime(), nullable=True)
 
-    created_at = db.Column(db.DateTime(), default=datetime.now(), nullable=False)
-    updated_at = db.Column(db.DateTime(), onupdate=datetime.now(), nullable=True)
+    created_at = db.Column(db.DateTime(), default=datetime.now, nullable=False)
+    updated_at = db.Column(db.DateTime(), onupdate=datetime.now, nullable=True)
 
     # foreign keys
 

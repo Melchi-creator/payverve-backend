@@ -20,8 +20,8 @@ class SpendSaveModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     percentage_to_save = db.Column(db.Integer, nullable=False)
     is_active = db.Column(db.Boolean(), nullable=False, default=True)
 
-    created_at = db.Column(db.DateTime(), default=datetime.now(), nullable=False)
-    updated_at = db.Column(db.DateTime(), onupdate=datetime.now(), nullable=True)
+    created_at = db.Column(db.DateTime(), default=datetime.now, nullable=False)
+    updated_at = db.Column(db.DateTime(), onupdate=datetime.now, nullable=True)
 
     # foreign keys
 

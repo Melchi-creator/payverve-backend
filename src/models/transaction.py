@@ -27,8 +27,8 @@ class TransactionModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     transaction_title = db.Column(db.String(), nullable=True)
     currency_ticker = db.Column(db.String(), nullable=True)
 
-    created_at = db.Column(db.DateTime(), default=datetime.now(), nullable=False)
-    updated_at = db.Column(db.DateTime(), onupdate=datetime.now(), nullable=True)
+    created_at = db.Column(db.DateTime(), default=datetime.now, nullable=False)
+    updated_at = db.Column(db.DateTime(), onupdate=datetime.now, nullable=True)
 
     # foreign keys
 
