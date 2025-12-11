@@ -23,6 +23,8 @@ class BellbankHelper:
 
         try:
 
+            print('Generating Bellbank access token...')
+
             url = f'{config.bellbank_baseurl}/generate-token'
 
             headers = {
@@ -33,6 +35,7 @@ class BellbankHelper:
             }
 
             response = requests.request('POST', url, headers=headers)
+
             access_token = response.json().get('token')
 
             return access_token
