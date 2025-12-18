@@ -155,11 +155,11 @@ class WalletResource(Resource):
                 }), 409
 
             sim_account_number = RandomGenerator.sim_account_number()
-            external_reference = RandomGenerator.sim_external_ref()
+            # external_reference = RandomGenerator.sim_external_ref()
 
             intial_fund = float(0)
             MinimumBalance(intial_fund)
-            encrypt_fund = Cryptographer.encrypt(intial_fund)
+            # encrypt_fund = Cryptographer.encrypt(intial_fund)
 
             currency_ticker = CurrencyModel.query.filter_by(id=currency_id).first().short_code
 
@@ -197,20 +197,28 @@ class WalletResource(Resource):
                 own_wallet.account_number = va_account_number
                 own_wallet.is_active = True
                 own_wallet.external_reference = data.get('externalReference')
+                own_wallet.bank_name = "bellbank microfinance bank"
                 own_wallet.save()
 
             if not compare_digest(currency_ticker, 'ngn'):
-                # noinspection PyArgumentList
-                new_wallet = WalletModel(
-                    fund=encrypt_fund,
-                    user_id=user_id,
-                    currency_id=currency_id,
-                    account_number=sim_account_number,
-                    is_active=True,
-                    external_reference=external_reference,
-                    currency_ticker=currency_ticker
-                )
-                new_wallet.save()
+                return jsonify({
+                    'code': 403,
+                    'status_message': 'forbidden',
+                    'message': 'only NGN wallet creation is allowed at the moment'
+                }), 403
+
+            # if not compare_digest(currency_ticker, 'ngn'):
+            #     # noinspection PyArgumentList
+            #     new_wallet = WalletModel(
+            #         fund=encrypt_fund,
+            #         user_id=user_id,
+            #         currency_id=currency_id,
+            #         account_number=sim_account_number,
+            #         is_active=True,
+            #         external_reference=external_reference,
+            #         currency_ticker=currency_ticker,
+            #     )
+            #     new_wallet.save()
 
             NotificationResource.store_nofication(
                 title="Wallet Creation",
