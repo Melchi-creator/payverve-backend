@@ -148,11 +148,16 @@ class PayverveTransferResource(Resource):
             # noinspection PyArgumentList
             new_payverve_transfer = PayverveTransferModel(
                 amount=amount,
+                charge_amount=0.0,  # @TODO to be updated when real fx starts
                 sender_name=f'{sender.users.first_name} {sender.users.last_name}',
+                sender_bank='Payverve Bank',
+                sender_account_number=sender.account_number,
                 narration=narration,
                 recipient_name=f'{recipient.users.first_name} {recipient.users.last_name}',
                 recipient_account_number=account_number,
                 reference=reference_number,
+                session_id=reference_number,  # @TODO to be updated when real fx starts
+                stamp_duty=0.0,  # @TODO to be updated when real fx
                 user_id=user_id,
                 wallet_id=wallet_id,
                 transaction_status='successful'  # @TODO to be updated when real fx starts

@@ -222,11 +222,15 @@ class LocalTransferResource(Resource):
                 amount=amount,
                 charge_amount=transaction_data.get('charge'),
                 sender_name=f"{user_check.first_name} {user_check.last_name}",
+                sender_account_number=wallet_check.account_number,
                 narration=narration,
                 recipient_name=recipient_name,
                 recipient_bank=recipient_bank,
                 recipient_account_number=account_number,
                 reference_number=reference_number,
+                session_id=transaction_data.get('sessionId'),
+                stamp_duty=0.0,
+                sender_bank="bellbank microfinance bank",
                 user_id=user_id,
                 wallet_id=wallet_id,
                 transaction_status=transaction_data.get('status')  # @TODO: change according to api response
@@ -305,10 +309,33 @@ class LocalTransferResource(Resource):
                             user_id=user_id,
                         )
 
+            access_token = BellbankHelper.bellbank_authentication('6')
+            requery_respone = BellbankHelper.transfer_requery(reference_number, access_token)
+
+            if not compare_digest(str(requery_respone.status_code), '200'):
+                return jsonify({
+                    'code': requery_respone.status_code,
+                    'status_message': 'failed to fetch transaction status',
+                    'message': requery_respone.json().get('message',
+                                                          'an error occurred while fetching transaction status')
+                }), requery_respone.status_code
+
+            transaction_data = requery_respone.json().get('data', {})
+            status = float(transaction_data.get('charge'))
+
+            if compare_digest(str(status), 'successful'):
+                new_local_transfer.transaction_status = 'successful'
+                new_local_transfer.save()
+
+                new_transaction.status = 'successful'
+                new_transaction.save()
+
             return jsonify({
                 'code': 201,
                 'status_message': 'created',
-                'message': 'transfer was done successfully' if not compare_digest(str(transaction_data.get('status')), 'pending') else 'transfer is still processing',  # @ TODO change according to api response
+                'message': 'transfer was done successfully' if not compare_digest(str(transaction_data.get('status')),
+                                                                                  'pending') else 'transfer is still processing',
+                # @ TODO change according to api response
             }), 201
 
         except IntegrityError:
@@ -373,12 +400,17 @@ class LocalTransferResource(Resource):
                 data.append({
                     'id': local_transfer.id,
                     'amount': Cryptographer.decrypt(local_transfer.amount),
+                    'charge_amount': local_transfer.charge_amount,
                     'sender_name': local_transfer.sender_name,
                     'sender_bank': local_transfer.sender_bank,
+                    'sender_account_number': local_transfer.sender_account_number,
                     'narration': local_transfer.narration,
                     'recipient_name': local_transfer.recipient_name,
                     'recipient_bank': local_transfer.recipient_bank,
                     'recipient_account_number': local_transfer.recipient_account_number,
+                    'reference_number': local_transfer.reference_number,
+                    'session_id': local_transfer.session_id,
+                    'stamp_duty': local_transfer.stamp_duty,
                     'transfer_type': local_transfer.transfer_type,
                     'transfer_pair': local_transfer.transfer_pair,
                     'transaction_status': local_transfer.transaction_status,
@@ -432,12 +464,17 @@ class LocalTransferResource(Resource):
             data = {
                 'id': local_transfer.id,
                 'amount': Cryptographer.decrypt(local_transfer.amount),
+                'charge_amount': local_transfer.charge_amount,
                 'sender_name': local_transfer.sender_name,
                 'sender_bank': local_transfer.sender_bank,
+                'sender_account_number': local_transfer.sender_account_number,
                 'narration': local_transfer.narration,
                 'recipient_name': local_transfer.recipient_name,
                 'recipient_bank': local_transfer.recipient_bank,
                 'recipient_account_number': local_transfer.recipient_account_number,
+                'reference_number': local_transfer.reference_number,
+                'session_id': local_transfer.session_id,
+                'stamp_duty': local_transfer.stamp_duty,
                 'transfer_type': local_transfer.transfer_type,
                 'transfer_pair': local_transfer.transfer_pair,
                 'transaction_status': local_transfer.transaction_status,
@@ -494,12 +531,17 @@ class LocalTransferResource(Resource):
                 data.append({
                     'id': local_transfer.id,
                     'amount': Cryptographer.decrypt(local_transfer.amount),
+                    'charge_amount': local_transfer.charge_amount,
                     'sender_name': local_transfer.sender_name,
                     'sender_bank': local_transfer.sender_bank,
+                    'sender_account_number': local_transfer.sender_account_number,
                     'narration': local_transfer.narration,
                     'recipient_name': local_transfer.recipient_name,
                     'recipient_bank': local_transfer.recipient_bank,
                     'recipient_account_number': local_transfer.recipient_account_number,
+                    'reference_number': local_transfer.reference_number,
+                    'session_id': local_transfer.session_id,
+                    'stamp_duty': local_transfer.stamp_duty,
                     'transfer_type': local_transfer.transfer_type,
                     'transfer_pair': local_transfer.transfer_pair,
                     'transaction_status': local_transfer.transaction_status,
