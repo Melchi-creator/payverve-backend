@@ -43,7 +43,8 @@ class SpendSaveResource(Resource):
                     'message': 'user not found',
                 }), 404
 
-            already_setup = SpendSaveModel.query.filter_by(user_id=user_id).first()
+            already_setup = SpendSaveModel.query.filter_by(
+                user_id=user_id).first()
 
             if already_setup:
                 return jsonify({
@@ -121,7 +122,8 @@ class SpendSaveResource(Resource):
     def read_all():
         """ Retrieve all payverve transfer """
 
-        spend_saves = SpendSaveModel.query.order_by(SpendSaveModel.created_at.desc()).all()
+        spend_saves = SpendSaveModel.query.order_by(
+            SpendSaveModel.created_at.desc()).all()
 
         try:
             if not spend_saves:
@@ -281,7 +283,8 @@ class SpendSaveResource(Resource):
 
     @staticmethod
     @parse_params(
-        Argument('percentage_to_save', type=int, location='json', required=True),
+        Argument('percentage_to_save', type=int,
+                 location='json', required=True),
     )
     def update_percentage(id=None, **fields):
         """ Update a wallet's fund """
@@ -298,7 +301,8 @@ class SpendSaveResource(Resource):
                 }), 404
 
             if 'percentage_to_save' in fields and fields['percentage_to_save'] is not None:
-                spend_save.percentage_to_save = int(fields['percentage_to_save'])
+                spend_save.percentage_to_save = int(
+                    fields['percentage_to_save'])
 
             spend_save.save()
 
@@ -396,7 +400,7 @@ class SpendSaveResource(Resource):
             return jsonify({
                 'code': 200,
                 'status_message': 'success',
-                'message': f'spend and save has be {'enabled' if compare_digest(str(fields['is_active']).lower(), 'true') else 'disabled'} successfully'
+                'message': f"spend and save has been {'enabled' if compare_digest(str(fields['is_active']).lower(), 'true') else 'disabled'} successfully"
             }), 200
 
         except IntegrityError:
@@ -458,7 +462,7 @@ class SpendSaveResource(Resource):
                 return jsonify({
                     'code': 400,
                     'status_message': 'bad request',
-                    'message': f'amount too high, you have ₦{float(decrypt_balance): ,.2f} as your balance',
+                    'message': f"amount too high, you have ₦{float(decrypt_balance): ,.2f} as your balance",
                 }), 400
 
             final_balance = float(decrypt_balance) - float(amount)
@@ -467,30 +471,34 @@ class SpendSaveResource(Resource):
                 return jsonify({
                     'code': 400,
                     'status_message': 'bad request',
-                    'message': f'amount too low, you ₦{float(decrypt_balance): ,.2f} as your balance',
+                    'message': f"amount too low, you ₦{float(decrypt_balance): ,.2f} as your balance",
                 }), 400
 
             encrypt_balance = Cryptographer.encrypt(final_balance)
             confirm_user.balance = encrypt_balance
             confirm_user.save()
 
-            user_wallet = WalletModel.query.filter_by(user_id=id, currency_ticker='ngn').first()
+            user_wallet = WalletModel.query.filter_by(
+                user_id=id, currency_ticker='ngn').first()
 
             if not user_wallet:
                 return jsonify({
                     'code': 404,
                     'status_message': 'not found',
-                    'message': f'wallet to fund not found',
+                    'message': f"wallet to fund not found",
                 }), 404
 
             decrypt_wallet_balance = Cryptographer.decrypt(user_wallet.fund)
-            final_wallet_balance = float(decrypt_wallet_balance) + float(amount)
-            encrypt_wallet_balance = Cryptographer.encrypt(final_wallet_balance)
+            final_wallet_balance = float(
+                decrypt_wallet_balance) + float(amount)
+            encrypt_wallet_balance = Cryptographer.encrypt(
+                final_wallet_balance)
 
             user_wallet.fund = encrypt_wallet_balance
             user_wallet.save()
 
-            currency_id = CurrencyModel.query.filter_by(short_code='ngn').first().id
+            currency_id = CurrencyModel.query.filter_by(
+                short_code='ngn').first().id
 
             # noinspection PyArgumentList
             new_transaction = TransactionModel(

@@ -17,7 +17,7 @@ from src.models import CurrencyModel, db
 
 server = Flask(__name__)
 server.secret_key = config.secret_key
-Talisman(server)
+Talisman(server, force_https=False)
 
 server.config["SQLALCHEMY_DATABASE_URI"] = config.database_uri
 server.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = config.database_tracker

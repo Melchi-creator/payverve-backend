@@ -5,43 +5,60 @@ Holds all variables configuration required for the app to successfully run
 Fetch all variables from .env
 """
 
-import json
-import os
+# import json
+# import os
 
-import boto3
-from botocore.exceptions import ClientError
+# import boto3
+# from botocore.exceptions import ClientError
+# from dotenv import load_dotenv
+
+# load_dotenv()
+
+
+# # --- AWS Secrets Manager integration ---
+# def get_secret(secret_name="prod-payverve", region_name="af-south-1"):
+#     """Fetch a secret from AWS Secrets Manager and return as dict."""
+#     session = boto3.session.Session()
+#     client = session.client(
+#         service_name="secretsmanager",
+#         region_name=region_name,
+#     )
+#     try:
+#         get_secret_value_response = client.get_secret_value(
+#             SecretId=secret_name
+#         )
+#     except ClientError as e:
+#         raise e
+
+#     return json.loads(get_secret_value_response["SecretString"])
+
+
+# # Flag to determine whether to use AWS secrets
+# USE_AWS_SECRETS = True if os.getenv('ENV') is None else False
+# secrets = get_secret() if USE_AWS_SECRETS else {}
+
+
+# def get_config(key: str, default=None):
+#     """Helper to fetch config from AWS secrets first, then .env."""
+#     if USE_AWS_SECRETS and key in secrets:
+#         return secrets[key]
+#     return os.getenv(key, default)
+"""
+config.py
+
+Holds all variables configuration required for the app to successfully run
+Fetch all variables from .env
+"""
+
+
+import os
 from dotenv import load_dotenv
 
 load_dotenv()
 
 
-# --- AWS Secrets Manager integration ---
-def get_secret(secret_name="prod-payverve", region_name="af-south-1"):
-    """Fetch a secret from AWS Secrets Manager and return as dict."""
-    session = boto3.session.Session()
-    client = session.client(
-        service_name="secretsmanager",
-        region_name=region_name,
-    )
-    try:
-        get_secret_value_response = client.get_secret_value(
-            SecretId=secret_name
-        )
-    except ClientError as e:
-        raise e
-
-    return json.loads(get_secret_value_response["SecretString"])
-
-
-# Flag to determine whether to use AWS secrets
-USE_AWS_SECRETS = True if os.getenv('ENV') is None else False
-secrets = get_secret() if USE_AWS_SECRETS else {}
-
-
 def get_config(key: str, default=None):
-    """Helper to fetch config from AWS secrets first, then .env."""
-    if USE_AWS_SECRETS and key in secrets:
-        return secrets[key]
+    """Fetch config from environment variables."""
     return os.getenv(key, default)
 
 
@@ -71,11 +88,13 @@ exchange_rate_api_key = get_config('EXCHANGERATE_API_KEY')
 mailtrap_base_url = get_config('MAILTRAP_BASE_URL')
 mailtrap_api_key = get_config('MAILTRAP_API_KEY')
 mailtrap_payverve_helpdesk_name = get_config('MAILTRAP_PAYVERVE_HELPDESK_NAME')
-mailtrap_payverve_helpdesk_email = get_config('MAILTRAP_PAYVERVE_HELPDESK_EMAIL')
+mailtrap_payverve_helpdesk_email = get_config(
+    'MAILTRAP_PAYVERVE_HELPDESK_EMAIL')
 mailtrap_payverve_eva_name = get_config('MAILTRAP_PAYVERVE_EVA_NAME')
 mailtrap_payverve_eva_email = get_config('MAILTRAP_PAYVERVE_EVA_EMAIL')
 mailtrap_payverve_security_name = get_config('MAILTRAP_PAYVERVE_SECURITY_NAME')
-mailtrap_payverve_security_email = get_config('MAILTRAP_PAYVERVE_SECURITY_EMAIL')
+mailtrap_payverve_security_email = get_config(
+    'MAILTRAP_PAYVERVE_SECURITY_EMAIL')
 
 fernet_key_one = get_config('FERNET_KEY_ONE')
 fernet_key_two = get_config('FERNET_KEY_TWO')
