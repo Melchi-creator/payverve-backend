@@ -34,7 +34,7 @@ packaging==25.0
 psycopg2-binary==2.9.10
 pycparser==2.23
 pydantic==2.13.4
-pydantic_core==2.37.2
+pydantic_core==2.46.4
 PyJWT==2.10.1
 python-dateutil==2.9.0.post0
 python-dotenv==1.1.1
