@@ -77,7 +77,8 @@ database_host = get_config('DB_HOST')
 database_port = get_config('DB_PORT')
 database_name = get_config('DB_NAME')
 
-database_uri = f"postgresql://{database_username}:{database_paswword}@{database_host}:{database_port}/{database_name}"
+# database_uri = f"postgresql://{database_username}:{database_paswword}@{database_host}:{database_port}/{database_name}"
+database_uri = get_config('DATABASE_URL')
 database_tracker = False
 
 mobile_app_path = get_config('MOBILE_APP_PATH')
