@@ -79,6 +79,11 @@ database_name = get_config('DB_NAME')
 
 # database_uri = f"postgresql://{database_username}:{database_paswword}@{database_host}:{database_port}/{database_name}"
 database_uri = get_config('DATABASE_URL')
+
+# Render provides 'postgres://' but SQLAlchemy requires 'postgresql://'
+if database_uri and database_uri.startswith('postgres://'):
+    database_uri = database_uri.replace('postgres://', 'postgresql://', 1)
+
 database_tracker = False
 
 mobile_app_path = get_config('MOBILE_APP_PATH')
@@ -101,17 +106,19 @@ fernet_key_one = get_config('FERNET_KEY_ONE')
 fernet_key_two = get_config('FERNET_KEY_TWO')
 
 algorithm = get_config('ALGORITHM', 'HS256')
-access_token_time = int(get_config('ACCESS_TOKEN_TIME'))
+access_token_time = int(get_config('ACCESS_TOKEN_TIME', 15))
 access_secret_key = get_config('ACCESS_SECRET_KEY')
-refresh_token_time = int(get_config('REFRESH_TOKEN_TIME'))
+refresh_token_time = int(get_config('REFRESH_TOKEN_TIME', 7))
 refresh_secret_key = get_config('REFRESH_SECRET_KEY')
 
 paystack_secret_key = get_config('PAYSTACK_SECRET_KEY')
 paystack_public_key = get_config('PAYSTACK_PUBLIC_KEY')
 paystack_base_url = get_config('PAYSTACK_BASE_URL')
 
-low_fx_payvevrve_charge: float = float(get_config('LOW_FX_PAYVERVE_CHARGE'))
-high_fx_payverve_charge: float = float(get_config('HIGH_FX_PAYVERVE_CHARGE'))
+low_fx_payvevrve_charge: float = float(
+    get_config('LOW_FX_PAYVERVE_CHARGE', 0.5))
+high_fx_payverve_charge: float = float(
+    get_config('HIGH_FX_PAYVERVE_CHARGE', 1.5))
 
 flutterwave_public_key = get_config('FLUTTERWAVE_PUBLIC_KEY')
 flutterwave_secret_key = get_config('FLUTTERWAVE_SECRET_KEY')
