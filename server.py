@@ -15,6 +15,12 @@ import config
 from src import routes
 from src.models import CurrencyModel, db
 
+import os
+print("=== ENV VARS DEBUG ===")
+print("DATABASE_URL:", os.getenv("DATABASE_URL"))
+print("DATABASE_URI:", os.getenv("DATABASE_URI"))
+print("=== END DEBUG ===")
+
 server = Flask(__name__)
 server.secret_key = config.secret_key
 Talisman(server, force_https=False)
