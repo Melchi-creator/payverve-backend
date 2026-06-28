@@ -10,6 +10,7 @@ from flask.blueprints import Blueprint
 from flask_cors import CORS
 from flask_migrate import Migrate
 from flask_talisman import Talisman
+from sqlalchemy.pool import NullPool
 
 import config
 from src import routes
@@ -25,16 +26,10 @@ Talisman(server, force_https=False)
 server.config["SQLALCHEMY_DATABASE_URI"] = config.database_uri
 server.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = config.database_tracker
 server.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-    "pool_pre_ping": True,
-    "pool_recycle": 300,
-    "pool_size": 5,
-    "max_overflow": 2,
+    "poolclass": NullPool,
     "connect_args": {
         "sslmode": "require",
         "connect_timeout": 10,
-    },
-    "execution_options": {
-        "prepared_statement_cache_size": 0
     }
 }
 
