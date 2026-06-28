@@ -32,6 +32,9 @@ server.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     "connect_args": {
         "sslmode": "require",
         "connect_timeout": 10,
+    },
+    "execution_options": {
+        "prepared_statement_cache_size": 0
     }
 }
 

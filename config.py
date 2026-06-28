@@ -83,15 +83,6 @@ database_uri = get_config('DATABASE_URL')
 if database_uri and database_uri.startswith('postgres://'):
     database_uri = database_uri.replace('postgres://', 'postgresql://', 1)
 
-if database_uri and database_uri.startswith('postgresql://'):
-    database_uri = database_uri.replace(
-        'postgresql://', 'postgresql+psycopg2://', 1)
-
-if database_uri and '?' not in database_uri:
-    database_uri += '?prepared_statement_cache_size=0'
-elif database_uri:
-    database_uri += '&prepared_statement_cache_size=0'
-
 database_tracker = False
 
 mobile_app_path = get_config('MOBILE_APP_PATH')
