@@ -55,7 +55,8 @@ class UserResource(Resource):
             UsernameCheck(username)
 
             user_model = UserModel.query
-            user_email = user_model.filter_by(email_address=email_address).first()
+            user_email = user_model.filter_by(
+                email_address=email_address).first()
 
             if user_email:
                 return jsonify({
@@ -64,7 +65,8 @@ class UserResource(Resource):
                     'message': 'email address already has an account'
                 }), 409
 
-            user_mobile_number = user_model.filter_by(mobile_number=mobile_number).first()
+            user_mobile_number = user_model.filter_by(
+                mobile_number=mobile_number).first()
 
             if user_mobile_number:
                 return jsonify({
@@ -73,7 +75,8 @@ class UserResource(Resource):
                     'message': 'mobile number already has an account'
                 }), 409
 
-            username_check = user_model.filter_by(username=username.lower()).first()
+            username_check = user_model.filter_by(
+                username=username.lower()).first()
 
             if username_check:
                 return jsonify({
@@ -90,12 +93,14 @@ class UserResource(Resource):
 
             if len(mobile_number) > 10:
                 mobile_number = mobile_number[-10:]
-
+            print("Starting Flutterwave auth...")
             auth = FlutterwaveHelper.flutterwave_authentication()
+            print(f"Flutterwave auth result: {auth}")
             flutter_account = FlutterwaveHelper.create_flutterwave_account(auth,
                                                                            email_address,
                                                                            mobile_number,
                                                                            first_name, last_name)
+            print(f"Flutter account status: {flutter_account.status_code}")
 
             flutter_account_json = flutter_account.json().get('data')
 
@@ -108,7 +113,8 @@ class UserResource(Resource):
                 }), flutter_account.status_code
 
             if compare_digest(str(flutter_account.status_code), '409'):
-                search_account = FlutterwaveHelper.search_for_customer(auth, email_address)
+                search_account = FlutterwaveHelper.search_for_customer(
+                    auth, email_address)
 
                 search_account_json = search_account.json()
 
@@ -132,7 +138,8 @@ class UserResource(Resource):
                     'message': "gender must be either 'male' or 'female'"
                 }), 400
 
-            date_of_birth_parsed = datetime.strptime(date_of_birth, '%Y-%m-%d').year
+            date_of_birth_parsed = datetime.strptime(
+                date_of_birth, '%Y-%m-%d').year
 
             if datetime.now().year - int(date_of_birth_parsed) < 18:
                 return jsonify({
@@ -164,10 +171,12 @@ class UserResource(Resource):
                 'auth': auth
             }
 
-            response = requests.request("POST", f'{config.app_path}/ngn-wallets', json=payload)
+            response = requests.request(
+                "POST", f'{config.app_path}/ngn-wallets', json=payload)
 
             if response.status_code != 201:
-                user_to_delete = UserModel.query.filter_by(id=new_user.id).first()
+                user_to_delete = UserModel.query.filter_by(
+                    id=new_user.id).first()
                 user_to_delete.delete()
 
                 return jsonify({
@@ -179,7 +188,8 @@ class UserResource(Resource):
             referral_confirmation_id = None
 
             if referral_code:
-                referral_confirmation = UserModel.query.filter_by(user_code=referral_code).first()
+                referral_confirmation = UserModel.query.filter_by(
+                    user_code=referral_code).first()
                 referral_confirmation_id = referral_confirmation.id
 
                 if not referral_confirmation:
@@ -198,15 +208,19 @@ class UserResource(Resource):
                     'email_address': new_user.email_address,
                 }
 
-                referral_response = requests.request("POST", f'{config.app_path}/referrals', json=payload)
+                referral_response = requests.request(
+                    "POST", f'{config.app_path}/referrals', json=payload)
 
                 if referral_response.status_code != 201:
-                    ngn_wallet = CurrencyModel.query.filter_by(short_code='ngn').first().id
+                    ngn_wallet = CurrencyModel.query.filter_by(
+                        short_code='ngn').first().id
                     referral_wallet = WalletModel.query.filter_by(user_id=referral_confirmation.id,
                                                                   currency_id=ngn_wallet).first()
 
-                    decrypted_referral_fund = Cryptographer.decrypt(referral_wallet.fund)
-                    current_decrypted_referral_fund = float(decrypted_referral_fund)
+                    decrypted_referral_fund = Cryptographer.decrypt(
+                        referral_wallet.fund)
+                    current_decrypted_referral_fund = float(
+                        decrypted_referral_fund)
 
                     MinimumBalance(current_decrypted_referral_fund)
 
@@ -214,14 +228,17 @@ class UserResource(Resource):
                     referral_bonus = current_decrypted_referral_fund - bonus_fund
                     MinimumBalance(referral_bonus)
 
-                    encrypt_referral_fund = Cryptographer.encrypt(referral_bonus)
+                    encrypt_referral_fund = Cryptographer.encrypt(
+                        referral_bonus)
                     referral_wallet.fund = encrypt_referral_fund
                     referral_wallet.save()
 
-                    user_wallet_to_delete = WalletModel.query.filter_by(user_id=new_user.id).first()
+                    user_wallet_to_delete = WalletModel.query.filter_by(
+                        user_id=new_user.id).first()
                     user_wallet_to_delete.delete()
 
-                    user_to_delete = UserModel.query.filter_by(id=new_user.id).first()
+                    user_to_delete = UserModel.query.filter_by(
+                        id=new_user.id).first()
                     user_to_delete.delete()
 
                     return jsonify({
@@ -241,17 +258,21 @@ class UserResource(Resource):
                 'mobile_number': new_user.mobile_number,
             }
 
-            kyc_response = requests.request("POST", f'{config.app_path}/kycs', json=payload)
+            kyc_response = requests.request(
+                "POST", f'{config.app_path}/kycs', json=payload)
 
             if kyc_response.status_code != 201:
 
                 if referral_code:
-                    ngn_wallet = CurrencyModel.query.filter_by(short_code='ngn').first().id
+                    ngn_wallet = CurrencyModel.query.filter_by(
+                        short_code='ngn').first().id
                     referral_wallet = WalletModel.query.filter_by(user_id=referral_confirmation_id,
                                                                   currency_id=ngn_wallet).first()
 
-                    decrypted_referral_fund = Cryptographer.decrypt(referral_wallet.fund)
-                    current_decrypted_referral_fund = float(decrypted_referral_fund)
+                    decrypted_referral_fund = Cryptographer.decrypt(
+                        referral_wallet.fund)
+                    current_decrypted_referral_fund = float(
+                        decrypted_referral_fund)
 
                     MinimumBalance(current_decrypted_referral_fund)
 
@@ -259,14 +280,17 @@ class UserResource(Resource):
                     referral_bonus = current_decrypted_referral_fund - bonus_fund
                     MinimumBalance(referral_bonus)
 
-                    encrypt_referral_fund = Cryptographer.encrypt(referral_bonus)
+                    encrypt_referral_fund = Cryptographer.encrypt(
+                        referral_bonus)
                     referral_wallet.fund = encrypt_referral_fund
                     referral_wallet.save()
 
-                user_wallet_to_delete = WalletModel.query.filter_by(user_id=new_user.id).first()
+                user_wallet_to_delete = WalletModel.query.filter_by(
+                    user_id=new_user.id).first()
                 user_wallet_to_delete.delete()
 
-                user_to_delete = UserModel.query.filter_by(id=new_user.id).first()
+                user_to_delete = UserModel.query.filter_by(
+                    id=new_user.id).first()
                 user_to_delete.delete()
 
                 return jsonify({
@@ -293,7 +317,8 @@ class UserResource(Resource):
 
             new_verification_code.save()
 
-            expiry_time = new_verification_code.timestamp + timedelta(seconds=new_verification_code.expiration_time)
+            expiry_time = new_verification_code.timestamp + \
+                timedelta(seconds=new_verification_code.expiration_time)
 
             current_year = datetime.now().year
 
@@ -600,7 +625,8 @@ class UserResource(Resource):
 
             if 'date_of_birth' in fields and fields['date_of_birth'] is not None:
 
-                parsed_date_of_birth = datetime.strptime(fields['date_of_birth'], '%Y-%m-%d').year
+                parsed_date_of_birth = datetime.strptime(
+                    fields['date_of_birth'], '%Y-%m-%d').year
                 age = int(datetime.now().year) - int(parsed_date_of_birth)
 
                 if age < 17:
@@ -743,7 +769,8 @@ class UserResource(Resource):
                     'message': 'verification code must be 6 digits'
                 }), 400
 
-            customer = UserModel.query.filter_by(email_address=email_address).first()
+            customer = UserModel.query.filter_by(
+                email_address=email_address).first()
 
             if not customer:
                 return jsonify({
@@ -772,7 +799,8 @@ class UserResource(Resource):
                 }), 400
 
             confirmation_code = confirmation.code_sent
-            decrypt_confirmation_code = Cryptographer.decrypt(confirmation_code)
+            decrypt_confirmation_code = Cryptographer.decrypt(
+                confirmation_code)
 
             if not compare_digest(decrypt_confirmation_code, verification_code):
                 return jsonify({
@@ -781,7 +809,8 @@ class UserResource(Resource):
                     'message': 'verification code does not match, try again'
                 }), 400
 
-            expected_expiry = confirmation.timestamp + timedelta(seconds=confirmation.expiration_time)
+            expected_expiry = confirmation.timestamp + \
+                timedelta(seconds=confirmation.expiration_time)
 
             if expected_expiry < datetime.now():
                 confirmation.status = 'expired'
@@ -851,7 +880,8 @@ class UserResource(Resource):
 
             EmailCheck(email_address)
 
-            customer = UserModel.query.filter_by(email_address=email_address).first()
+            customer = UserModel.query.filter_by(
+                email_address=email_address).first()
 
             if not customer:
                 return jsonify({
@@ -874,7 +904,8 @@ class UserResource(Resource):
             ).order_by(TokenVerificationModel.created_at.desc()).first()
 
             if confirmation:
-                expected_expiry = confirmation.timestamp + timedelta(seconds=confirmation.expiration_time)
+                expected_expiry = confirmation.timestamp + \
+                    timedelta(seconds=confirmation.expiration_time)
 
                 if expected_expiry > datetime.now():
                     return jsonify({
@@ -902,13 +933,15 @@ class UserResource(Resource):
 
             new_verification_code.save()
 
-            expiry_time = new_verification_code.timestamp + timedelta(seconds=new_verification_code.expiration_time)
+            expiry_time = new_verification_code.timestamp + \
+                timedelta(seconds=new_verification_code.expiration_time)
 
             current_year = datetime.now().year
 
             endpoint = '/send'
             receipient = [
-                {"email": email_address, "name": f"{customer.first_name} {customer.last_name}"},
+                {"email": email_address,
+                    "name": f"{customer.first_name} {customer.last_name}"},
             ]
             subject = f"{customer.first_name} Verify your Account"
             mail_status_message = render_template(
@@ -1332,7 +1365,8 @@ class UserResource(Resource):
 
     @staticmethod
     @parse_params(
-        Argument("old_transaction_pin", location="json", required=True, type=int),
+        Argument("old_transaction_pin", location="json",
+                 required=True, type=int),
         Argument("transaction_pin", location="json", required=True, type=int),
     )
     def user_change_transaction_pin(old_transaction_pin, transaction_pin, id=None):
@@ -1384,7 +1418,8 @@ class UserResource(Resource):
                     'message': 'you do not have a transaction pin, create one'
                 }), 400
 
-            old_transaction_pin_check = user.check_transaction_pin(str(old_transaction_pin))
+            old_transaction_pin_check = user.check_transaction_pin(
+                str(old_transaction_pin))
 
             if not old_transaction_pin_check:
                 return jsonify({
@@ -1489,7 +1524,8 @@ class UserResource(Resource):
                     'message': 'you do not have a transaction pin, create one'
                 }), 400
 
-            transaction_pin_check = user.check_transaction_pin(str(transaction_pin))
+            transaction_pin_check = user.check_transaction_pin(
+                str(transaction_pin))
 
             if not transaction_pin_check:
                 return jsonify({
