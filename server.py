@@ -16,10 +16,7 @@ from src import routes
 from src.models import CurrencyModel, db
 
 import os
-print("=== ENV VARS DEBUG ===")
-print("DATABASE_URL:", os.getenv("DATABASE_URL"))
-print("DATABASE_URI:", os.getenv("DATABASE_URI"))
-print("=== END DEBUG ===")
+
 
 server = Flask(__name__)
 server.secret_key = config.secret_key
@@ -27,6 +24,16 @@ Talisman(server, force_https=False)
 
 server.config["SQLALCHEMY_DATABASE_URI"] = config.database_uri
 server.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = config.database_tracker
+server.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+    "pool_pre_ping": True,
+    "pool_recycle": 300,
+    "pool_size": 5,
+    "max_overflow": 2,
+    "connect_args": {
+        "sslmode": "require",
+        "connect_timeout": 10,
+    }
+}
 
 db.init_app(server)
 db.app = server
