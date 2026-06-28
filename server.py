@@ -7,16 +7,16 @@ It serves as the entry point for the application, allowing it to run in developm
 
 from flask import Flask
 from flask.blueprints import Blueprint
-from flask_cors import CORS
-from flask_migrate import Migrate
-from flask_talisman import Talisman
-from sqlalchemy.pool import NullPool
-
-import config
-from src import routes
-from src.models import CurrencyModel, db
-
 import os
+from src.models import CurrencyModel, db
+from src import routes
+import config
+from sqlalchemy.pool import NullPool
+from flask_talisman import Talisman
+from flask_migrate import Migrate
+from flask_cors import CORS
+import logging
+logging.basicConfig(level=logging.DEBUG)
 
 
 server = Flask(__name__)
@@ -84,6 +84,7 @@ with server.app_context():
             country="United Kingdom",
         )
         gbp_currency.save()
+
 
 if __name__ == "__main__":
     server.debug = config.debug if config.env == "dev" else False
