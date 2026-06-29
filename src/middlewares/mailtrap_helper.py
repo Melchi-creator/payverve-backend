@@ -13,12 +13,14 @@ class MailtrapHelper:
     """ A helper class for sending emails using Mailtrap """
 
     @staticmethod
-    def mailtrap_email_sender(sender_name:str, sender_email:str, endpoint: str, receipient: list, subject: str, mail_status_message, attachments: list = None):
+    def mailtrap_email_sender(sender_name: str, sender_email: str, endpoint: str, receipient: list, subject: str, mail_status_message, attachments: list = None):
         """ This method sends an email using Mailtrap API."""
 
         try:
 
             url = f"{config.mailtrap_base_url}{endpoint}"
+            print("MAILTRAP URL:", url)
+            print("MAILTRAP RESPONSE:", response.status_code, response.text)
 
             payload = {
                 "from": {
@@ -40,7 +42,8 @@ class MailtrapHelper:
                 'Api-Token': config.mailtrap_api_key
             }
 
-            response = requests.request("POST", url, headers=headers, json=payload)
+            response = requests.request(
+                "POST", url, headers=headers, json=payload)
 
             return response
 

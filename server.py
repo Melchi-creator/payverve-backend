@@ -15,8 +15,6 @@ from sqlalchemy.pool import NullPool
 from flask_talisman import Talisman
 from flask_migrate import Migrate
 from flask_cors import CORS
-import logging
-logging.basicConfig(level=logging.DEBUG)
 
 
 server = Flask(__name__)

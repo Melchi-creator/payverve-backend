@@ -21,9 +21,6 @@ def parse_params(*arguments):
                 parser.add_argument(argument)
             parsed = parser.parse_args()
 
-            print("PARSED =", parsed)
-            print("PARSED TYPE =", type(parsed))
-
             kwargs.update(parsed)
 
             return func(*args, **kwargs)  # ← this line was commented out
