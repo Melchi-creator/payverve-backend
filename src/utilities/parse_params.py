@@ -14,18 +14,19 @@ def parse_params(*arguments):
     """
 
     def parse(func):
-        """ Wrapper """
-
         @wraps(func)
         def resource_verb(*args, **kwargs):
-            """ Decorated function """
-
             parser = reqparse.RequestParser()
             for argument in arguments:
                 parser.add_argument(argument)
-            kwargs.update(parser.parse_args())
-            return func(*args, **kwargs)
+            parsed = parser.parse_args()
+
+            print("PARSED =", parsed)
+            print("PARSED TYPE =", type(parsed))
+
+            kwargs.update(parsed)
+
+            return func(*args, **kwargs)  # ← this line was commented out
 
         return resource_verb
-
     return parse

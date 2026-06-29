@@ -43,11 +43,57 @@ class UserResource(Resource):
         Argument("gender", location="json", required=True),
         Argument("date_of_birth", location="json", required=True),
     )
-    def create(first_name, last_name, email_address, mobile_number, password, username, referral_code, gender,
-               date_of_birth):
+    def create(
+        first_name,
+        last_name,
+        username,
+        email_address,
+        mobile_number,
+        password,
+        referral_code,
+        gender,
+        date_of_birth
+    ):
         """ Creates users account """
 
         try:
+            print("first_name:", first_name, type(first_name))
+            print("last_name:", last_name, type(last_name))
+            print("username:", username, type(username))
+            print("email_address:", email_address, type(email_address))
+            print("mobile_number:", mobile_number, type(mobile_number))
+            print("password:", password, type(password))
+            print("gender:", gender, type(gender))
+            print("date_of_birth:", date_of_birth, type(date_of_birth))
+
+            print("1")
+            EmailCheck(email_address)
+
+            print("2")
+            PasswordValidation(password)
+
+            print("3")
+            MobileNumberCheck(mobile_number)
+
+            print("4")
+            UsernameCheck(username)
+
+            print("5")
+            user_model = UserModel.query
+
+            print("6")
+            alphabet = string.ascii_letters + string.digits
+            user_code = ''.join(secrets.choice(alphabet) for _ in range(11))
+
+            print("7")
+            customer_code = f"BELLBANK-PENDING-{user_code}"
+
+            print("8")
+            date_of_birth_parsed = datetime.strptime(
+                date_of_birth, '%Y-%m-%d').year
+
+            print("9 BEFORE MODEL")
+
             EmailCheck(email_address)
             PasswordValidation(password)
             MobileNumberCheck(mobile_number)
@@ -97,8 +143,15 @@ class UserResource(Resource):
                     'message': "gender must be either 'male' or 'female'"
                 }), 400
 
+            # date_of_birth_parsed = datetime.strptime(
+            #     date_of_birth, '%Y-%m-%d').year
+            print("DOB VALUE:", repr(date_of_birth))
+            print("DOB TYPE:", type(date_of_birth))
+
             date_of_birth_parsed = datetime.strptime(
-                date_of_birth, '%Y-%m-%d').year
+                date_of_birth,
+                "%Y-%m-%d"
+            ).year
             if datetime.now().year - int(date_of_birth_parsed) < 18:
                 return jsonify({
                     'code': 400,
@@ -107,6 +160,7 @@ class UserResource(Resource):
                 }), 400
 
             # noinspection PyArgumentList
+            print("10 CREATING MODEL")
             new_user = UserModel(
                 first_name=first_name,
                 last_name=last_name,
@@ -118,8 +172,13 @@ class UserResource(Resource):
                 gender=gender.lower(),
                 date_of_birth=date_of_birth
             )
+            print("11 MODEL CREATED")
             new_user.set_password(password)
+            print("12 PASSWORD SET")
             new_user.save()
+            print("13 USER SAVED")
+
+            print("14 BEFORE WALLET")
 
             # Create NGN wallet
             payload = {
