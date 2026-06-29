@@ -21,7 +21,7 @@ from sqlalchemy.exc import DBAPIError, DataError, \
 
 import config
 from .notification import NotificationResource
-from ..middlewares import FlutterwaveHelper, MailtrapHelper
+from ..middlewares import MailtrapHelper
 from ..models import CurrencyModel, UserModel, WalletModel
 from ..models.token_verification import TokenVerificationModel
 from ..utilities import Cryptographer, parse_params
@@ -48,89 +48,48 @@ class UserResource(Resource):
         """ Creates users account """
 
         try:
-
             EmailCheck(email_address)
             PasswordValidation(password)
             MobileNumberCheck(mobile_number)
             UsernameCheck(username)
 
             user_model = UserModel.query
-            user_email = user_model.filter_by(
-                email_address=email_address).first()
 
-            if user_email:
+            if user_model.filter_by(email_address=email_address).first():
                 return jsonify({
                     'code': 409,
                     'status_message': 'conflict',
                     'message': 'email address already has an account'
                 }), 409
 
-            user_mobile_number = user_model.filter_by(
-                mobile_number=mobile_number).first()
-
-            if user_mobile_number:
+            if user_model.filter_by(mobile_number=mobile_number).first():
                 return jsonify({
                     'code': 409,
                     'status_message': 'conflict',
                     'message': 'mobile number already has an account'
                 }), 409
 
-            username_check = user_model.filter_by(
-                username=username.lower()).first()
-
-            if username_check:
+            if user_model.filter_by(username=username.lower()).first():
                 return jsonify({
                     'code': 409,
                     'status_message': 'conflict',
-                    'message': 'username already exist'
+                    'message': 'username already exists'
                 }), 409
 
+            # Generate user_code (referral/identity code)
             alphabet = string.ascii_letters + string.digits
             user_code = ''.join(secrets.choice(alphabet) for _ in range(11))
+
+            # customer_code will be patched in later via Bellbank webhook
+            customer_code = f"BELLBANK-PENDING-{user_code}"
 
             first_name = first_name.strip().title()
             last_name = last_name.strip().title()
 
             if len(mobile_number) > 10:
                 mobile_number = mobile_number[-10:]
-            print("Starting Flutterwave auth...")
-            auth = FlutterwaveHelper.flutterwave_authentication()
-            print(f"Flutterwave auth result: {auth}")
-            flutter_account = FlutterwaveHelper.create_flutterwave_account(auth,
-                                                                           email_address,
-                                                                           mobile_number,
-                                                                           first_name, last_name)
-            print(f"Flutter account status: {flutter_account.status_code}")
-
-            flutter_account_json = flutter_account.json().get('data')
-
-            if not compare_digest(str(flutter_account.status_code),
-                                  '201') and not compare_digest(str(flutter_account.status_code), '409'):
-                return jsonify({
-                    'code': flutter_account.status_code,
-                    'status_message': flutter_account_json.get('status'),
-                    'message': flutter_account_json.get('error').get('message')
-                }), flutter_account.status_code
-
-            if compare_digest(str(flutter_account.status_code), '409'):
-                search_account = FlutterwaveHelper.search_for_customer(
-                    auth, email_address)
-
-                search_account_json = search_account.json()
-
-                if not compare_digest(str(search_account.status_code), '200'):
-                    return jsonify({
-                        'code': search_account.status_code,
-                        'status_message': search_account_json.get('status'),
-                        'message': search_account_json.get('error').get('message')
-                    }), flutter_account.status_code
-
-                flutter_account_json = search_account_json.get('data')[0]
-
-            customer_code = flutter_account_json.get('id')
 
             gender_check = ["male", "female"]
-
             if gender.lower() not in gender_check:
                 return jsonify({
                     'code': 400,
@@ -140,7 +99,6 @@ class UserResource(Resource):
 
             date_of_birth_parsed = datetime.strptime(
                 date_of_birth, '%Y-%m-%d').year
-
             if datetime.now().year - int(date_of_birth_parsed) < 18:
                 return jsonify({
                     'code': 400,
@@ -163,43 +121,45 @@ class UserResource(Resource):
             new_user.set_password(password)
             new_user.save()
 
+            # Create NGN wallet
             payload = {
                 'user_id': str(new_user.id),
                 'currency_id': str(CurrencyModel.query.filter_by(short_code='ngn').first().id),
                 'created_by_payverve': True,
                 'email_address': new_user.email_address,
-                'auth': auth
             }
 
             response = requests.request(
                 "POST", f'{config.app_path}/ngn-wallets', json=payload)
 
             if response.status_code != 201:
-                user_to_delete = UserModel.query.filter_by(
-                    id=new_user.id).first()
-                user_to_delete.delete()
-
+                UserModel.query.filter_by(id=new_user.id).first().delete()
                 return jsonify({
                     'code': response.status_code,
                     'status_message': response.json().get('code_status', 'error'),
                     'message': response.json().get('data', 'an error occurred while creating wallet')
                 }), response.status_code
 
+            # Handle referral
             referral_confirmation_id = None
-
             if referral_code:
                 referral_confirmation = UserModel.query.filter_by(
                     user_code=referral_code).first()
-                referral_confirmation_id = referral_confirmation.id
 
                 if not referral_confirmation:
+                    # Rollback wallet + user
+                    WalletModel.query.filter_by(
+                        user_id=new_user.id).first().delete()
+                    UserModel.query.filter_by(id=new_user.id).first().delete()
                     return jsonify({
                         'code': 404,
                         'status_message': 'not found',
                         'message': 'there is no user with that referral code'
                     }), 404
 
-                payload = {
+                referral_confirmation_id = referral_confirmation.id
+
+                referral_payload = {
                     'referral_id': str(referral_confirmation.id),
                     'referral_code': referral_confirmation.user_code,
                     'referred_id': str(new_user.id),
@@ -209,37 +169,29 @@ class UserResource(Resource):
                 }
 
                 referral_response = requests.request(
-                    "POST", f'{config.app_path}/referrals', json=payload)
+                    "POST", f'{config.app_path}/referrals', json=referral_payload)
 
                 if referral_response.status_code != 201:
-                    ngn_wallet = CurrencyModel.query.filter_by(
+                    # Deduct referral bonus and rollback
+                    ngn_wallet_id = CurrencyModel.query.filter_by(
                         short_code='ngn').first().id
-                    referral_wallet = WalletModel.query.filter_by(user_id=referral_confirmation.id,
-                                                                  currency_id=ngn_wallet).first()
+                    referral_wallet = WalletModel.query.filter_by(
+                        user_id=referral_confirmation.id,
+                        currency_id=ngn_wallet_id
+                    ).first()
 
-                    decrypted_referral_fund = Cryptographer.decrypt(
-                        referral_wallet.fund)
-                    current_decrypted_referral_fund = float(
-                        decrypted_referral_fund)
-
-                    MinimumBalance(current_decrypted_referral_fund)
-
-                    bonus_fund = float(500.00)
-                    referral_bonus = current_decrypted_referral_fund - bonus_fund
+                    decrypted = float(
+                        Cryptographer.decrypt(referral_wallet.fund))
+                    MinimumBalance(decrypted)
+                    referral_bonus = decrypted - float(500.00)
                     MinimumBalance(referral_bonus)
-
-                    encrypt_referral_fund = Cryptographer.encrypt(
+                    referral_wallet.fund = Cryptographer.encrypt(
                         referral_bonus)
-                    referral_wallet.fund = encrypt_referral_fund
                     referral_wallet.save()
 
-                    user_wallet_to_delete = WalletModel.query.filter_by(
-                        user_id=new_user.id).first()
-                    user_wallet_to_delete.delete()
-
-                    user_to_delete = UserModel.query.filter_by(
-                        id=new_user.id).first()
-                    user_to_delete.delete()
+                    WalletModel.query.filter_by(
+                        user_id=new_user.id).first().delete()
+                    UserModel.query.filter_by(id=new_user.id).first().delete()
 
                     return jsonify({
                         'code': referral_response.status_code,
@@ -247,9 +199,8 @@ class UserResource(Resource):
                         'message': referral_response.json().get('data', 'an error occurred registering referrals')
                     }), referral_response.status_code
 
-            # KYC
-
-            payload = {
+            # Create KYC
+            kyc_payload = {
                 'user_id': str(new_user.id),
                 'created_by_payverve': True,
                 'email_address': new_user.email_address,
@@ -259,50 +210,37 @@ class UserResource(Resource):
             }
 
             kyc_response = requests.request(
-                "POST", f'{config.app_path}/kycs', json=payload)
+                "POST", f'{config.app_path}/kycs', json=kyc_payload)
 
             if kyc_response.status_code != 201:
-
-                if referral_code:
-                    ngn_wallet = CurrencyModel.query.filter_by(
+                if referral_code and referral_confirmation_id:
+                    ngn_wallet_id = CurrencyModel.query.filter_by(
                         short_code='ngn').first().id
-                    referral_wallet = WalletModel.query.filter_by(user_id=referral_confirmation_id,
-                                                                  currency_id=ngn_wallet).first()
+                    referral_wallet = WalletModel.query.filter_by(
+                        user_id=referral_confirmation_id,
+                        currency_id=ngn_wallet_id
+                    ).first()
 
-                    decrypted_referral_fund = Cryptographer.decrypt(
-                        referral_wallet.fund)
-                    current_decrypted_referral_fund = float(
-                        decrypted_referral_fund)
-
-                    MinimumBalance(current_decrypted_referral_fund)
-
-                    bonus_fund = float(500.00)
-                    referral_bonus = current_decrypted_referral_fund - bonus_fund
+                    decrypted = float(
+                        Cryptographer.decrypt(referral_wallet.fund))
+                    MinimumBalance(decrypted)
+                    referral_bonus = decrypted - float(500.00)
                     MinimumBalance(referral_bonus)
-
-                    encrypt_referral_fund = Cryptographer.encrypt(
+                    referral_wallet.fund = Cryptographer.encrypt(
                         referral_bonus)
-                    referral_wallet.fund = encrypt_referral_fund
                     referral_wallet.save()
 
-                user_wallet_to_delete = WalletModel.query.filter_by(
-                    user_id=new_user.id).first()
-                user_wallet_to_delete.delete()
-
-                user_to_delete = UserModel.query.filter_by(
-                    id=new_user.id).first()
-                user_to_delete.delete()
+                WalletModel.query.filter_by(
+                    user_id=new_user.id).first().delete()
+                UserModel.query.filter_by(id=new_user.id).first().delete()
 
                 return jsonify({
                     'code': kyc_response.status_code,
                     'status_message': kyc_response.json().get('code_status', 'error'),
-                    'message': kyc_response.json().get('data', 'an error occurred while creating wallet')
+                    'message': kyc_response.json().get('data', 'an error occurred while creating KYC')
                 }), kyc_response.status_code
 
-            # send verification and welcome email
-
-            # verification email
-
+            # Send verification email
             verification_code = str(secrets.randbelow(1000000)).zfill(6)
 
             # noinspection PyArgumentList
@@ -314,61 +252,46 @@ class UserResource(Resource):
                 timestamp=datetime.now(),
                 status='pending'
             )
-
             new_verification_code.save()
 
             expiry_time = new_verification_code.timestamp + \
                 timedelta(seconds=new_verification_code.expiration_time)
-
             current_year = datetime.now().year
 
-            endpoint = '/send'
-            receipient = [
-                {"email": new_user.email_address,
-                 "name": f"{new_user.first_name} {new_user.last_name}"},
-            ]
-            subject = f"{new_user.first_name} Confirm your Account"
-            mail_message = render_template(
-                'customer/email_verification.html',
-                first_name=new_user.first_name,
-                last_name=new_user.last_name,
-                verification_code=verification_code,
-                user_email_address=new_user.email_address,
-                current_year=current_year,
-                expiry_time=expiry_time.strftime("%I:%M %p"),
+            MailtrapHelper.mailtrap_email_sender(
+                config.mailtrap_payverve_security_name,
+                config.mailtrap_payverve_security_email,
+                '/send',
+                [{"email": new_user.email_address,
+                    "name": f"{new_user.first_name} {new_user.last_name}"}],
+                f"{new_user.first_name} Confirm your Account",
+                render_template(
+                    'customer/email_verification.html',
+                    first_name=new_user.first_name,
+                    last_name=new_user.last_name,
+                    verification_code=verification_code,
+                    user_email_address=new_user.email_address,
+                    current_year=current_year,
+                    expiry_time=expiry_time.strftime("%I:%M %p"),
+                )
             )
 
-            MailtrapHelper.mailtrap_email_sender(config.mailtrap_payverve_security_name,
-                                                 config.mailtrap_payverve_security_email,
-                                                 endpoint,
-                                                 receipient,
-                                                 subject,
-                                                 mail_message)
-
-            # welcome email
-
-            current_year = datetime.now().year
-
-            endpoint = '/send'
-            receipient = [
-                {"email": new_user.email_address,
-                 "name": f"{new_user.first_name} {new_user.last_name}"},
-            ]
-            subject = f"Welcome to Payverve, {new_user.first_name} – Your Boardless Journey Starts Here 🌱"
-            mail_message = render_template(
-                'customer/email_welcome.html',
-                first_name=new_user.first_name,
-                last_name=new_user.last_name,
-                user_email_address=new_user.email_address,
-                current_year=current_year,
+            # Send welcome email
+            MailtrapHelper.mailtrap_email_sender(
+                config.mailtrap_payverve_eva_name,
+                config.mailtrap_payverve_eva_email,
+                '/send',
+                [{"email": new_user.email_address,
+                    "name": f"{new_user.first_name} {new_user.last_name}"}],
+                f"Welcome to Payverve, {new_user.first_name} – Your Boardless Journey Starts Here 🌱",
+                render_template(
+                    'customer/email_welcome.html',
+                    first_name=new_user.first_name,
+                    last_name=new_user.last_name,
+                    user_email_address=new_user.email_address,
+                    current_year=current_year,
+                )
             )
-
-            MailtrapHelper.mailtrap_email_sender(config.mailtrap_payverve_eva_name,
-                                                 config.mailtrap_payverve_eva_email,
-                                                 endpoint,
-                                                 receipient,
-                                                 subject,
-                                                 mail_message)
 
             return jsonify({
                 'code': 201,
@@ -377,53 +300,29 @@ class UserResource(Resource):
             }), 201
 
         except ValueError as e:
-            return jsonify({
-                'code': 400,
-                'status_message': 'bad request - value error',
-                'message': str(e)
-            }), 400
+            return jsonify({'code': 400, 'status_message': 'bad request - value error', 'message': str(e)}), 400
 
         except TypeError as e:
-            return jsonify({
-                'code': 400,
-                'status_message': 'bad request - type error',
-                'message': str(e)
-            }), 400
+            return jsonify({'code': 400, 'status_message': 'bad request - type error', 'message': str(e)}), 400
 
         except IntegrityError:
             return jsonify({
                 'code': 409,
                 'status_message': 'conflict - integrity error',
-                'message': 'account already has an account, phone number or email has been used'
+                'message': 'account already exists, phone number or email has been used'
             }), 409
 
         except DataError:
-            return jsonify({
-                'code': 400,
-                'status_message': 'bad request - data error',
-                'message': 'ensure input data are correct'
-            }), 400
+            return jsonify({'code': 400, 'status_message': 'bad request - data error', 'message': 'ensure input data are correct'}), 400
 
         except InternalError:
-            return jsonify({
-                'code': 500,
-                'status_message': 'internal server - internal server error',
-                'message': 'could not fetch data'
-            }), 500
+            return jsonify({'code': 500, 'status_message': 'internal server error', 'message': 'could not fetch data'}), 500
 
         except (OperationalError, DisconnectionError, SQLAlchemyError):
-            return jsonify({
-                'code': 500,
-                'status_message': 'database error - operation, sqlalchemy and disconnection error',
-                'message': 'could not fetch data'
-            }), 500
+            return jsonify({'code': 500, 'status_message': 'database error', 'message': 'could not fetch data'}), 500
 
         except ProgrammingError:
-            return jsonify({
-                'code': 500,
-                'status_message': 'database error - programming error',
-                'message': 'could not fetch table'
-            }),
+            return jsonify({'code': 500, 'status_message': 'database error - programming error', 'message': 'could not fetch table'}), 500
 
     @staticmethod
     def read_all():
@@ -913,9 +812,9 @@ class UserResource(Resource):
                         'status_message': 'bad request',
                         'message': 'the previous code has not expire yet'
                     }), 400
-
-            confirmation.status = 'expired'
-            confirmation.save()
+            if confirmation:
+                confirmation.status = 'expired'
+                confirmation.save()
 
             # resend verification email
 
