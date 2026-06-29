@@ -14,13 +14,9 @@ class MailtrapHelper:
 
     @staticmethod
     def mailtrap_email_sender(sender_name: str, sender_email: str, endpoint: str, receipient: list, subject: str, mail_status_message, attachments: list = None):
-        """ This method sends an email using Mailtrap API."""
-
         try:
-
             url = f"{config.mailtrap_base_url}{endpoint}"
-            print("MAILTRAP URL:", url)
-            print("MAILTRAP RESPONSE:", response.status_code, response.text)
+            print("MAILTRAP URL:", url)  # ✅ url is defined, fine here
 
             payload = {
                 "from": {
@@ -41,13 +37,15 @@ class MailtrapHelper:
                 'Accept': 'application/json',
                 'Api-Token': config.mailtrap_api_key
             }
-
             response = requests.request(
                 "POST", url, headers=headers, json=payload)
-
+            print("MAILTRAP RESPONSE:", response.status_code,
+                  response.text)  # ✅ now defined
             return response
 
         except Exception as e:
+            # ✅ add this so errors are visible
+            print("MAILTRAP ERROR:", str(e))
             return {
                 'code': 500,
                 'status_message': 'server error',
