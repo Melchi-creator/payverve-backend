@@ -105,9 +105,9 @@ fernet_key_one = get_config('FERNET_KEY_ONE')
 fernet_key_two = get_config('FERNET_KEY_TWO')
 
 algorithm = get_config('ALGORITHM', 'HS256')
-access_token_time = int(get_config('ACCESS_TOKEN_TIME', 15))
+access_token_time = int(get_config('ACCESS_TOKEN_TIME', 3600))
 access_secret_key = get_config('ACCESS_SECRET_KEY')
-refresh_token_time = int(get_config('REFRESH_TOKEN_TIME', 7))
+refresh_token_time = int(get_config('REFRESH_TOKEN_TIME', 86400))
 refresh_secret_key = get_config('REFRESH_SECRET_KEY')
 
 paystack_secret_key = get_config('PAYSTACK_SECRET_KEY')
