@@ -4,6 +4,8 @@ This module defines the WalletResource class, which provides RESTful endpoints f
 It includes methods for creating, reading, updating, and deleting wallets, as well as handling errors
 related to database operations.
 """
+import secrets
+from datetime import datetime
 from hmac import compare_digest
 
 from flask import jsonify, request
@@ -13,10 +15,11 @@ from sqlalchemy.exc import (DataError, DisconnectionError, IntegrityError,
                             InternalError, OperationalError, ProgrammingError,
                             SQLAlchemyError)
 
+import config
 from .notification import NotificationResource
-from ..middlewares import BellbankHelper
-from ..models import CurrencyModel, KYCModel, UserModel, WalletModel
-from ..utilities import Cryptographer, RandomGenerator, parse_params
+from ..middlewares import BellbankHelper, FlutterwaveHelper
+from ..models import CurrencyModel, KYCModel, UserModel, VirtualAccountNumberModel, WalletModel
+from ..utilities import Cryptographer, RandomGenerator, decode_token, parse_params
 from ..value_object import MinimumBalance
 
 
@@ -27,12 +30,16 @@ class WalletResource(Resource):
     def ngn_create():
         """ Create a new wallet for a user with a specific currency """
 
-        user_id = request.json.get('user_id')
-        currency_id = request.json.get('currency_id')
-        email_address = request.json.get('email_address')
-        created_by_payverve = request.json.get('created_by_payverve')
+        data = request.get_json()
+
+        user_id = data.get('user_id')
+        currency_id = data.get('currency_id')
+        email_address = data.get('email_address')
+        created_by_payverve = data.get('created_by_payverve')
 
         customer_confirmation = UserModel.query.filter_by(id=user_id, email_address=email_address).first()
+
+        print('customer_confirmation: ', customer_confirmation)
 
         if not customer_confirmation:
             return jsonify({
@@ -50,30 +57,21 @@ class WalletResource(Resource):
 
         try:
 
-            # TODO: integrate real NGN account creation with third party here and remove simulated account number in wallet
-
-            account_number = RandomGenerator.sim_account_number()
-
             intial_fund = float(0)
             MinimumBalance(intial_fund)
             encrypt_fund = Cryptographer.encrypt(intial_fund)
-
-            external_reference = RandomGenerator.sim_external_ref()
 
             # noinspection PyArgumentList
             new_wallet = WalletModel(
                 fund=encrypt_fund,
                 user_id=user_id,
                 currency_id=currency_id,
-                account_number=account_number,
-                is_active=False,
-                external_reference=external_reference,
             )
             new_wallet.save()
 
             NotificationResource.store_nofication(
                 title="Wallet Creation",
-                body=f"Your NGN wallet has been successfully created with account number {account_number}.",
+                body=f"Your NGN wallet has been successfully created with account number {create_virtual_account_json.get('account_number')}.",
                 user_id=user_id,
             )
 
@@ -122,8 +120,9 @@ class WalletResource(Resource):
     def other_wallet():
         """ Create a new wallet for a user with a specific currency """
 
-        user_id = request.json.get('user_id')
-        currency_id = request.json.get('currency_id')
+        data = request.get_json()
+        user_id = data.get('user_id')
+        currency_id = data.get('currency_id')
 
         customer_confirmation = UserModel.query.filter_by(id=user_id).first()
 

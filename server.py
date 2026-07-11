@@ -8,6 +8,8 @@ It serves as the entry point for the application, allowing it to run in developm
 from flask import Flask
 from flask.blueprints import Blueprint
 import os
+
+from src.db_defaults import DBDefaults
 from src.models import CurrencyModel, db
 from src import routes
 import config
@@ -19,7 +21,7 @@ from flask_cors import CORS
 
 server = Flask(__name__)
 server.secret_key = config.secret_key
-Talisman(server, force_https=False)
+Talisman(server, force_https=config.debug if config.env == "prod" else False)
 
 server.config["SQLALCHEMY_DATABASE_URI"] = config.database_uri
 server.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = config.database_tracker
@@ -56,32 +58,8 @@ for blueprint in vars(routes).values():
             blueprint, url_prefix=config.app_root)
 
 with server.app_context():
-    check_currenies = CurrencyModel.query.all()
+    DBDefaults.currency_defaults()
 
-    if not check_currenies:
-        # noinspection  PyArgumentList
-        ngn_currency = CurrencyModel(
-            name="Nigerian Naira",
-            short_code="ngn",
-            country="Nigeria",
-        )
-        ngn_currency.save()
-
-        # noinspection  PyArgumentList
-        usd_currency = CurrencyModel(
-            name="United States Dollar",
-            short_code="usd",
-            country="United States",
-        )
-        usd_currency.save()
-
-        # noinspection  PyArgumentList
-        gbp_currency = CurrencyModel(
-            name="Great Britain Pound",
-            short_code="gbp",
-            country="United Kingdom",
-        )
-        gbp_currency.save()
 
 
 if __name__ == "__main__":
