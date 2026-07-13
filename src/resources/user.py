@@ -24,7 +24,7 @@ import config
 from .notification import NotificationResource
 from ..dto import UserDTOCreate
 from ..middlewares import FlutterwaveHelper, MailtrapHelper
-from ..models import BankAccountModel, CurrencyModel, UserModel, WalletModel
+from ..models import CurrencyModel, UserModel, WalletModel
 from ..models.token_verification import TokenVerificationModel
 from ..utilities import Cryptographer, parse_params
 from ..value_object import EmailCheck, MinimumBalance, MobileNumberCheck, PasswordValidation, UsernameCheck
@@ -181,7 +181,6 @@ class UserResource(Resource):
 
             if response.status_code != 201:
                 new_user_account = UserModel.query.filter_by(id=str(new_user.id)).first()
-                print('new_user_account: ', new_user_account)
                 new_user_account.delete()
                 return jsonify({
                     'code': response.status_code,

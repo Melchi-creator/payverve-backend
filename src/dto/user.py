@@ -4,7 +4,7 @@
 import re
 from typing import Annotated
 
-from pydantic import AfterValidator, EmailStr, PastDate, StringConstraints
+from pydantic import AfterValidator, EmailStr, StringConstraints
 
 from .dto_config import StrictBaseModel
 

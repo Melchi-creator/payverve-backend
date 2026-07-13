@@ -39,8 +39,6 @@ class WalletResource(Resource):
 
         customer_confirmation = UserModel.query.filter_by(id=user_id, email_address=email_address).first()
 
-        print('customer_confirmation: ', customer_confirmation)
-
         if not customer_confirmation:
             return jsonify({
                 'code': 404,
@@ -71,7 +69,7 @@ class WalletResource(Resource):
 
             NotificationResource.store_nofication(
                 title="Wallet Creation",
-                body=f"Your NGN wallet has been successfully created with account number {create_virtual_account_json.get('account_number')}.",
+                body=f"Your NGN wallet has been successfully created.",
                 user_id=user_id,
             )
 

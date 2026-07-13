@@ -78,8 +78,6 @@ class FlutterwaveHelper:
 
             response = requests.request('POST', url, headers=headers, json=payload)
 
-            print('create customer', response)
-
             return response
 
         except Exception as e:
@@ -114,8 +112,6 @@ class FlutterwaveHelper:
 
             response = requests.request('POST', url, headers=headers, json=payload)
 
-            print('search customer', response)
-
             return response
 
         except Exception as e:
@@ -126,14 +122,14 @@ class FlutterwaveHelper:
             }), 500
 
     @staticmethod
-    def virtual_account(access_token, reference_number, customer_id, email_address):
+    def virtual_account(access_token, reference_number, customer_id, email_address, short_code, user_datails, kyc_check):
         """ """
 
         try:
 
             url = f'{config.flutterwave_base_url}/virtual-accounts'
 
-            message = f'{email_address}{0}NGN'
+            message = f'{email_address}{0}{short_code.upper()}'
             idempotency_key = hmac.new(config.secret_key.encode(), message.encode(), hashlib.sha256).hexdigest()
 
             headers = {
@@ -144,22 +140,32 @@ class FlutterwaveHelper:
                 'X-Idempotency-Key': idempotency_key
             }
 
+            full_name = f"{user_datails.first_name} {user_datails.last_name}"
+
             payload = {
                 "reference": reference_number,
                 "customer_id": customer_id,
                 "amount": 0,
-                "currency": "NGN",
-                "account_type": "static"
+                "currency": short_code.upper(),
+                "account_type": "static",
+                "narration": f"Payverve/{full_name}",
             }
 
-            print('payload', payload)
+            if short_code.lower() == 'ngn':
+                payload['bank_code'] = '090772'
+                payload['bvn'] = kyc_check.bvn
 
-            response = requests.request('POST', url, headers=headers, json=payload)
 
-            print('create virtual account: ', response)
-            print('create virtual account text: ', response.text)
+            if short_code.lower() == 'ghs':
+                payload['bank_code'] = 'GH200100'
 
-            return response
+            print(payload)
+
+            response_va = requests.request('POST', url, headers=headers, json=payload)
+
+            print(response_va.text)
+
+            return response_va
 
         except Exception as e:
             return jsonify({
@@ -184,8 +190,6 @@ class FlutterwaveHelper:
             }
 
             response = requests.request('GET', url, headers=headers)
-
-            print('search virtual account', response)
 
             return response
 
@@ -245,8 +249,6 @@ class FlutterwaveHelper:
             }
 
             response = requests.request('POST', url, headers=headers, json=payload)
-
-            print(response.json())
 
             return response
 
