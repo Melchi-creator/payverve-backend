@@ -122,14 +122,14 @@ class FlutterwaveHelper:
             }), 500
 
     @staticmethod
-    def virtual_account(access_token, reference_number, customer_id, email_address):
+    def virtual_account(access_token, reference_number, customer_id, email_address, short_code, user_datails, kyc_check):
         """ """
 
         try:
 
             url = f'{config.flutterwave_base_url}/virtual-accounts'
 
-            message = f'{email_address}{0}NGN'
+            message = f'{email_address}{0}{short_code.upper()}'
             idempotency_key = hmac.new(config.secret_key.encode(), message.encode(), hashlib.sha256).hexdigest()
 
             headers = {
@@ -140,16 +140,56 @@ class FlutterwaveHelper:
                 'X-Idempotency-Key': idempotency_key
             }
 
+            full_name = f"{user_datails.first_name} {user_datails.last_name}"
+
             payload = {
-                "email": email_address,
                 "reference": reference_number,
                 "customer_id": customer_id,
                 "amount": 0,
-                "currency": "NGN",
-                "account_type": "static"
+                "currency": short_code.upper(),
+                "account_type": "static",
+                "narration": f"Payverve/{full_name}",
             }
 
-            response = requests.request('POST', url, headers=headers, json=payload)
+            if short_code.lower() == 'ngn':
+                payload['bank_code'] = '090772'
+                payload['bvn'] = kyc_check.bvn
+
+
+            if short_code.lower() == 'ghs':
+                payload['bank_code'] = 'GH200100'
+
+            print(payload)
+
+            response_va = requests.request('POST', url, headers=headers, json=payload)
+
+            print(response_va.text)
+
+            return response_va
+
+        except Exception as e:
+            return jsonify({
+                'code': 500,
+                'status_message': 'server error',
+                'message': f'an error occurred: {str(e)}'
+            }), 500
+
+    @staticmethod
+    def retreive_virtual_account(access_token, virtual_account_id):
+        """ """
+
+        try:
+
+            url = f'{config.flutterwave_base_url}/virtual-accounts/{virtual_account_id}'
+
+            headers = {
+                'content-type': 'application/json',
+                'accept': 'application/json',
+                'Authorization': f'Bearer {access_token}',
+                'X-Trace-Id': secrets.token_urlsafe(12),
+            }
+
+            response = requests.request('GET', url, headers=headers)
 
             return response
 
@@ -209,8 +249,6 @@ class FlutterwaveHelper:
             }
 
             response = requests.request('POST', url, headers=headers, json=payload)
-
-            print(response.json())
 
             return response
 

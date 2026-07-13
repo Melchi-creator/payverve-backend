@@ -16,11 +16,12 @@ class VirtualAccountNumberModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     __tablename__ = 'virtual_account_numbers'
 
     id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    virtual_account_id = db.Column(db.String(), nullable=False, unique=True)
     account_number = db.Column(db.BigInteger(), nullable=False, unique=True)
     reference = db.Column(db.String(), nullable=False, unique=True)
     account_bank_name = db.Column(db.String(), nullable=False)
     account_type = db.Column(db.String(), nullable=False, default='static')
-    status = db.Column(db.String(), nullable=False, default='active')
+    status = db.Column(db.String(), nullable=False, default='limited')
     account_expiration_datetime = db.Column(db.DateTime(), nullable=False)
     customer_code = db.Column(db.String(), nullable=False)
     currency_ticker = db.Column(db.String(), nullable=False, default='NGN')

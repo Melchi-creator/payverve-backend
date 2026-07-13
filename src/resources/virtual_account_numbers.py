@@ -1,14 +1,19 @@
 """
 
 """
-from flask import jsonify
+import secrets
+from datetime import datetime
+from hmac import compare_digest
+
+from flask import jsonify, request
 from flask_restful import Resource
 from sqlalchemy.exc import DisconnectionError, \
     InternalError, \
     OperationalError, \
     ProgrammingError
 
-from ..models import VirtualAccountNumberModel
+from ..middlewares import FlutterwaveHelper
+from ..models import CurrencyModel, KYCModel, UserModel, VirtualAccountNumberModel
 
 
 class VirtualAccountNumberResource(Resource):
@@ -178,6 +183,172 @@ class VirtualAccountNumberResource(Resource):
                 }
                 for virtual_account_number in virtual_account_numbers
             ]
+
+            return jsonify({
+                'code': 200,
+                'status_message': 'success',
+                'data': data
+            }), 200
+
+        except InternalError:
+            return jsonify({
+                'code': 500,
+                'status_message': 'internal server - internal server error',
+                'message': 'could not fetch data'
+            }), 500
+
+        except (OperationalError, DisconnectionError):
+            return jsonify({
+                'code': 500,
+                'status_message': 'database error - operation and disconnection error',
+                'message': 'could not fetch data'
+            }), 500
+
+        except ProgrammingError:
+            return jsonify({
+                'code': 500,
+                'status_message': 'database error - programming error',
+                'message': 'could not fetch table'
+            }), 500
+
+        except ValueError as ve:
+            return jsonify({
+                'code': 400,
+                'status_message': 'bad request - value error',
+                'message': str(ve)
+            }), 400
+
+    @staticmethod
+    def user_one_virtual_account(id=None):
+        """  """
+
+        tickers = CurrencyModel.query.all()
+        ticker = [t.short_code for t in tickers]
+        currency_ticker = request.args.get('short-code')
+
+        if not currency_ticker:
+            return jsonify({
+                'code': 400,
+                'status_message': 'bad request',
+                'message': 'currency ticker is required'
+            }), 400
+
+        if currency_ticker not in ticker:
+            return jsonify({
+                'code': 400,
+                'status_message': 'bad request',
+                'message': 'ticker not available'
+            }), 400
+
+        virtual_account_number = VirtualAccountNumberModel.query.filter_by(user_id=id, currency_ticker=currency_ticker).first()
+
+        try:
+            if not virtual_account_number:
+
+                user_datails = UserModel.query.filter_by(id=id).first()
+
+                if not user_datails:
+                    return jsonify({
+                        'code': 404,
+                        'status_message': 'not found',
+                        'message': 'user not found'
+                    }), 404
+
+
+                kyc_check = KYCModel.query.filter_by(user_id=id).first()
+
+                if not compare_digest(str(kyc_check.tier), '3'):
+                    return jsonify({
+                        'code': 409,
+                        'status_message': 'unauthorise',
+                        'message': 'complete your kyc before proceeding'
+                    }), 409
+
+                reference_number = secrets.token_urlsafe(16)
+                auth = FlutterwaveHelper.flutterwave_authentication()
+
+                ## Flutterwave Virtual Account
+
+                create_virtual_account = FlutterwaveHelper.virtual_account(auth,
+                                                                           reference_number,
+                                                                           user_datails.customer_code,
+                                                                           user_datails.email_address,
+                                                                           currency_ticker,
+                                                                           user_datails,
+                                                                           kyc_check)
+
+                create_virtual_account_json = create_virtual_account.json()
+
+                if compare_digest(str(create_virtual_account.status_code), '201'):
+                    # expiry = create_virtual_account_json["data"]["account_expiration_datetime"]
+                    expiry = create_virtual_account_json.get('data').get('account_expiration_datetime')
+
+                    # noinspection PyArgumentList
+                    create_bank_account = VirtualAccountNumberModel(
+                        virtual_account_id=create_virtual_account_json.get('data').get('id'),
+                        account_number=create_virtual_account_json.get('data').get('account_number'),
+                        reference=reference_number,
+                        account_bank_name=create_virtual_account_json.get('data').get('account_bank_name'),
+                        account_type=create_virtual_account_json.get('data').get('account_type'),
+                        account_expiration_datetime=datetime.fromisoformat(
+                            expiry.replace("Z", "+00:00")
+                        ),
+                        customer_code=user_datails.customer_code,
+                    )
+                    create_bank_account.save()
+
+                if not compare_digest(str(create_virtual_account.status_code),
+                                      '201') and not compare_digest(str(create_virtual_account.status_code), '409'):
+
+                    if compare_digest(str(create_virtual_account.status_code), '400') and 'CurrencyEnum' in create_virtual_account_json.get('error').get('message'):
+                        return jsonify({
+                            'code': create_virtual_account.status_code,
+                            'status_message': "bad request",
+                            'message': "currency not available"
+                        }), create_virtual_account.status_code
+
+                    return jsonify({
+                        'code': create_virtual_account.status_code,
+                        'status_message': create_virtual_account_json.get('status'),
+                        'message': create_virtual_account_json.get('error').get('message') if 'Failed to create virtual account' not in create_virtual_account_json.get('error').get('message') else 'Failed to retreive account, please try again'
+                    }), create_virtual_account.status_code
+
+                if compare_digest(str(create_virtual_account.status_code), '409'):
+                    search_virtual_account = FlutterwaveHelper.retreive_virtual_account(auth,
+                                                                                        create_virtual_account_json.get(
+                                                                                            'id'))
+
+                    search_virtual_account_json = search_virtual_account.json()
+
+                    if not compare_digest(str(search_virtual_account.status_code), '200'):
+                        return jsonify({
+                            'code': search_virtual_account.status_code,
+                            'status_message': search_virtual_account_json.get('status'),
+                            'message': search_virtual_account_json.get('error').get('message') if 'Failed to create virtual account' not in search_virtual_account_json.get('error').get('message') else 'Failed to retreive account, please try again'
+                        }), create_virtual_account.status_code
+
+                virtual_account_number = VirtualAccountNumberModel.query.filter_by(user_id=id, currency_ticker=currency_ticker).first()
+
+            data = {
+                    'id': virtual_account_number.id,
+                    'response_code': virtual_account_number.response_code,
+                    'response_message': virtual_account_number.response_message,
+                    'flw_ref': virtual_account_number.flw_ref,
+                    'order_ref': virtual_account_number.order_ref,
+                    'frequency': virtual_account_number.frequency,
+                    'created_at_by_flw': virtual_account_number.created_at_by_flw,
+                    'expiry_date': virtual_account_number.expiry_date.strftime("%d %b %Y, %I:%M %p"),
+                    'account_number': virtual_account_number.account_number,
+                    'bank_name': virtual_account_number.bank_name,
+                    'note': virtual_account_number.note,
+                    'amount': virtual_account_number.amount,
+                    'currency_ticker': virtual_account_number.currency_ticker,
+                    'is_active': virtual_account_number.is_active,
+                    'user_id': virtual_account_number.user_id,
+                    'currency_id': virtual_account_number.currency_id,
+                    'created_at': virtual_account_number.created_at.strftime("%d %b %Y, %I:%M %p"),
+                    'updated_at': virtual_account_number.updated_at.strftime("%d %b %Y, %I:%M %p") if virtual_account_number.updated_at else None,
+                }
 
             return jsonify({
                 'code': 200,

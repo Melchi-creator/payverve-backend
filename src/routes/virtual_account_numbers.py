@@ -15,3 +15,5 @@ VirtualAccountNumberBlueprint.route("/virtual-account-numbers/<uuid:id>",
                                     methods=['GET'])(jwt_required(VirtualAccountNumberResource.read_one))
 VirtualAccountNumberBlueprint.route("/virtual-account-numbers/user/<uuid:id>",
                                     methods=['GET'])(jwt_required(VirtualAccountNumberResource.user_virtual_account))
+VirtualAccountNumberBlueprint.route("/virtual-account-numbers/user-one/<uuid:id>",
+                                    methods=['GET'])(jwt_required(VirtualAccountNumberResource.user_one_virtual_account))

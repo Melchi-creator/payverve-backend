@@ -8,9 +8,10 @@ import secrets
 import string
 from datetime import datetime, timedelta
 from secrets import compare_digest
+from typing import Dict
 
 import requests
-from flask import jsonify, render_template
+from flask import jsonify, render_template, request
 from flask_restful import Resource
 from flask_restful.reqparse import Argument
 from sqlalchemy.exc import DBAPIError, DataError, \
@@ -21,7 +22,8 @@ from sqlalchemy.exc import DBAPIError, DataError, \
 
 import config
 from .notification import NotificationResource
-from ..middlewares import MailtrapHelper
+from ..dto import UserDTOCreate
+from ..middlewares import FlutterwaveHelper, MailtrapHelper
 from ..models import CurrencyModel, UserModel, WalletModel
 from ..models.token_verification import TokenVerificationModel
 from ..utilities import Cryptographer, parse_params
@@ -32,65 +34,51 @@ class UserResource(Resource):
     """ This class is concerned with User Resources """
 
     @staticmethod
-    @parse_params(
-        Argument("first_name", location="json", required=True),
-        Argument("last_name", location="json", required=True),
-        Argument("username", location="json", required=True),
-        Argument("email_address", location="json", required=True),
-        Argument("mobile_number", location="json", required=True),
-        Argument("password", location="json", required=True),
-        Argument("referral_code", location="json"),
-        Argument("gender", location="json", required=True),
-        Argument("date_of_birth", location="json", required=True),
-    )
-    def create(
-        first_name,
-        last_name,
-        username,
-        email_address,
-        mobile_number,
-        password,
-        referral_code,
-        gender,
-        date_of_birth
-    ):
+    def create():
         """ Creates users account """
 
         try:
-           
-            EmailCheck(email_address)
-            PasswordValidation(password)
-            MobileNumberCheck(mobile_number)
-            UsernameCheck(username)
+
+            if not request.is_json:
+                return jsonify({
+                    'code': 400,
+                    'status_message': 'bad request',
+                    'message': 'request must be in json format'
+                }), 400
+
+            user_payload: Dict = request.get_json()
+
+            if not user_payload:
+                return jsonify({
+                    'code': 400,
+                    'status_message': 'bad request',
+                    'message': 'no data provided in the request body'
+                }), 400
+
+            user_data: UserDTOCreate = UserDTOCreate(**user_payload)
+
+            EmailCheck(user_data.email_address)
+            PasswordValidation(user_data.password)
+            MobileNumberCheck(user_data.mobile_number)
+            UsernameCheck(user_data.username)
+
             user_model = UserModel.query
-            alphabet = string.ascii_letters + string.digits
-            user_code = ''.join(secrets.choice(alphabet) for _ in range(11))
-            customer_code = f"BELLBANK-PENDING-{user_code}"
-            date_of_birth_parsed = datetime.strptime(
-                date_of_birth, '%Y-%m-%d').year
 
-            EmailCheck(email_address)
-            PasswordValidation(password)
-            MobileNumberCheck(mobile_number)
-            UsernameCheck(username)
-
-            user_model = UserModel.query
-
-            if user_model.filter_by(email_address=email_address).first():
+            if user_model.filter_by(email_address=user_data.email_address).first():
                 return jsonify({
                     'code': 409,
                     'status_message': 'conflict',
                     'message': 'email address already has an account'
                 }), 409
 
-            if user_model.filter_by(mobile_number=mobile_number).first():
+            if user_model.filter_by(mobile_number=user_data.mobile_number).first():
                 return jsonify({
                     'code': 409,
                     'status_message': 'conflict',
                     'message': 'mobile number already has an account'
                 }), 409
 
-            if user_model.filter_by(username=username.lower()).first():
+            if user_model.filter_by(username=user_data.username.lower()).first():
                 return jsonify({
                     'code': 409,
                     'status_message': 'conflict',
@@ -101,28 +89,59 @@ class UserResource(Resource):
             alphabet = string.ascii_letters + string.digits
             user_code = ''.join(secrets.choice(alphabet) for _ in range(11))
 
-            # customer_code will be patched in later via Bellbank webhook
-            customer_code = f"BELLBANK-PENDING-{user_code}"
+            first_name = user_data.first_name.strip().title()
+            last_name = user_data.last_name.strip().title()
 
-            first_name = first_name.strip().title()
-            last_name = last_name.strip().title()
+            if len(user_data.mobile_number) > 10:
+                user_data.mobile_number = user_data.mobile_number[-10:]
 
-            if len(mobile_number) > 10:
-                mobile_number = mobile_number[-10:]
+
+            ## START START START Flutterwave (Authentication, Customer Account Creation, Search for Existing, Create Virtual Account)
+
+            auth = FlutterwaveHelper.flutterwave_authentication()
+            flutter_account = FlutterwaveHelper.create_flutterwave_account(auth,
+                                                                           user_data.email_address,
+                                                                           user_data.mobile_number,
+                                                                           first_name, last_name)
+
+            flutter_account_json = flutter_account.json().get('data')
+
+            if not compare_digest(str(flutter_account.status_code),
+                                  '201') and not compare_digest(str(flutter_account.status_code), '409'):
+                return jsonify({
+                    'code': flutter_account.status_code,
+                    'status_message': flutter_account_json.get('status'),
+                    'message': flutter_account_json.get('error').get('message')
+                }), flutter_account.status_code
+
+            if compare_digest(str(flutter_account.status_code), '409'):
+                search_account = FlutterwaveHelper.search_for_customer(auth, user_data.email_address)
+
+                search_account_json = search_account.json()
+
+                if not compare_digest(str(search_account.status_code), '200'):
+                    return jsonify({
+                        'code': search_account.status_code,
+                        'status_message': search_account_json.get('status'),
+                        'message': search_account_json.get('error').get('message')
+                    }), flutter_account.status_code
+
+                flutter_account_json = search_account_json.get('data')[0]
+
+            customer_code = flutter_account_json.get('id')
+
+            ## END END END Flutterwave (Authentication, Customer Account Creation, Search for Existing, Create Virtual Account)
 
             gender_check = ["male", "female"]
-            if gender.lower() not in gender_check:
+            if user_data.gender.lower() not in gender_check:
                 return jsonify({
                     'code': 400,
                     'status_message': 'bad request',
                     'message': "gender must be either 'male' or 'female'"
                 }), 400
 
-            # date_of_birth_parsed = datetime.strptime(
-            #     date_of_birth, '%Y-%m-%d').year
-
             date_of_birth_parsed = datetime.strptime(
-                date_of_birth,
+                user_data.date_of_birth,
                 "%Y-%m-%d"
             ).year
             if datetime.now().year - int(date_of_birth_parsed) < 18:
@@ -136,17 +155,16 @@ class UserResource(Resource):
             new_user = UserModel(
                 first_name=first_name,
                 last_name=last_name,
-                email_address=email_address,
-                username=username.lower(),
-                mobile_number=mobile_number,
+                email_address=user_data.email_address,
+                username=user_data.username.lower(),
+                mobile_number=user_data.mobile_number,
                 user_code=user_code,
                 customer_code=customer_code,
-                gender=gender.lower(),
-                date_of_birth=date_of_birth
+                gender=user_data.gender.lower(),
+                date_of_birth=user_data.date_of_birth
             )
 
-            new_user.set_password(password)
-
+            new_user.set_password(user_data.password)
             new_user.save()
 
             # Create NGN wallet
@@ -155,13 +173,15 @@ class UserResource(Resource):
                 'currency_id': str(CurrencyModel.query.filter_by(short_code='ngn').first().id),
                 'created_by_payverve': True,
                 'email_address': new_user.email_address,
+                'bvn': '12345678901',
             }
 
             response = requests.request(
                 "POST", f'{config.app_path}/ngn-wallets', json=payload)
 
             if response.status_code != 201:
-                UserModel.query.filter_by(id=new_user.id).first().delete()
+                new_user_account = UserModel.query.filter_by(id=str(new_user.id)).first()
+                new_user_account.delete()
                 return jsonify({
                     'code': response.status_code,
                     'status_message': response.json().get('code_status', 'error'),
@@ -170,9 +190,9 @@ class UserResource(Resource):
 
             # Handle referral
             referral_confirmation_id = None
-            if referral_code:
+            if user_data.referral_code:
                 referral_confirmation = UserModel.query.filter_by(
-                    user_code=referral_code).first()
+                    user_code=user_data.referral_code).first()
 
                 if not referral_confirmation:
                     # Rollback wallet + user
@@ -241,7 +261,7 @@ class UserResource(Resource):
                 "POST", f'{config.app_path}/kycs', json=kyc_payload)
 
             if kyc_response.status_code != 201:
-                if referral_code and referral_confirmation_id:
+                if user_data.referral_code and referral_confirmation_id:
                     ngn_wallet_id = CurrencyModel.query.filter_by(
                         short_code='ngn').first().id
                     referral_wallet = WalletModel.query.filter_by(

@@ -3,6 +3,7 @@ src/utilities/mailtrap_helper.py
 This module contains a helper class for sending emails using Mailtrap.
 It provides a method to send emails with specified recipients, subject, status_message, and optional attachments.
 """
+from typing import Optional
 
 import requests
 
@@ -13,10 +14,9 @@ class MailtrapHelper:
     """ A helper class for sending emails using Mailtrap """
 
     @staticmethod
-    def mailtrap_email_sender(sender_name: str, sender_email: str, endpoint: str, receipient: list, subject: str, mail_status_message, attachments: list = None):
+    def mailtrap_email_sender(sender_name: str, sender_email: str, endpoint: str, receipient: list, subject: str, mail_status_message, attachments: Optional[list] = None):
         try:
             url = f"{config.mailtrap_base_url}{endpoint}"
-            print("MAILTRAP URL:", url)  # ✅ url is defined, fine here
 
             payload = {
                 "from": {
@@ -39,13 +39,9 @@ class MailtrapHelper:
             }
             response = requests.request(
                 "POST", url, headers=headers, json=payload)
-            print("MAILTRAP RESPONSE:", response.status_code,
-                  response.text)  # ✅ now defined
             return response
 
         except Exception as e:
-            # ✅ add this so errors are visible
-            print("MAILTRAP ERROR:", str(e))
             return {
                 'code': 500,
                 'status_message': 'server error',
