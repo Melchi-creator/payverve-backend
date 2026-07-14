@@ -37,7 +37,8 @@ class WalletResource(Resource):
         email_address = data.get('email_address')
         created_by_payverve = data.get('created_by_payverve')
 
-        customer_confirmation = UserModel.query.filter_by(id=user_id, email_address=email_address).first()
+        customer_confirmation = UserModel.query.filter_by(
+            id=user_id, email_address=email_address).first()
 
         if not customer_confirmation:
             return jsonify({
@@ -131,11 +132,19 @@ class WalletResource(Resource):
                 'message': 'user not found'
             }), 404
 
-        own_wallet = WalletModel.query.filter_by(user_id=user_id, currency_id=currency_id).first()
+        own_wallet = WalletModel.query.filter_by(
+            user_id=user_id, currency_id=currency_id).first()
+
+        if not own_wallet:
+            return jsonify({
+                'code': 404,
+                'status_message': 'not found',
+                'message': 'wallet record not found - ensure ngn_create ran at signup'
+            }), 404
 
         try:
 
-            if own_wallet and own_wallet.is_active:
+            if own_wallet.is_active:
                 return jsonify({
                     'code': 409,
                     'status_message': 'conflict',
@@ -151,51 +160,9 @@ class WalletResource(Resource):
                     'message': 'complete your kyc before proceeding'
                 }), 409
 
-            sim_account_number = RandomGenerator.sim_account_number()
-            # external_reference = RandomGenerator.sim_external_ref()
-
-            intial_fund = float(0)
-            MinimumBalance(intial_fund)
-            # encrypt_fund = Cryptographer.encrypt(intial_fund)
-
-            currency_ticker = CurrencyModel.query.filter_by(id=currency_id).first().short_code
-
-            # @TODO: integrate foreign virtual account creation (Virtual ccountModel) with third party here and remove simlated account number in wallet
-
+            currency_ticker = CurrencyModel.query.filter_by(
+                id=currency_id).first().short_code
             currency_ticker = currency_ticker.lower()
-
-            if compare_digest(currency_ticker, 'ngn'):
-                access_code = BellbankHelper.bellbank_authentication('5')
-
-                response = BellbankHelper.bellbank_virtual_account(
-                    access_token=access_code,
-                    mobile_number=customer_confirmation.mobile_number,
-                    first_name=customer_confirmation.first_name,
-                    last_name=customer_confirmation.last_name,
-                    address=f"{kyc_check.address}",
-                    bvn=kyc_check.bvn,
-                    gender=customer_confirmation.gender,
-                    date_of_birth=str(customer_confirmation.date_of_birth),
-                    meta_data={
-                        "email_address": customer_confirmation.email_address
-                    },
-                )
-
-                if not compare_digest(str(response.status_code), '200'):
-                    return jsonify({
-                        'code': response.status_code,
-                        'status_message': 'failed to resolve bank account',
-                        'message': response.json().get('message', 'an error occurred while resolving bank account')
-                    }), response.status_code
-
-                data = response.json().get('data')
-                va_account_number = data.get('accountNumber')
-
-                own_wallet.account_number = va_account_number
-                own_wallet.is_active = True
-                own_wallet.external_reference = data.get('externalReference')
-                own_wallet.bank_name = "bellbank microfinance bank"
-                own_wallet.save()
 
             if not compare_digest(currency_ticker, 'ngn'):
                 return jsonify({
@@ -204,22 +171,72 @@ class WalletResource(Resource):
                     'message': 'only NGN wallet creation is allowed at the moment'
                 }), 403
 
-            # if not compare_digest(currency_ticker, 'ngn'):
-            #     # noinspection PyArgumentList
-            #     new_wallet = WalletModel(
-            #         fund=encrypt_fund,
-            #         user_id=user_id,
-            #         currency_id=currency_id,
-            #         account_number=sim_account_number,
-            #         is_active=True,
-            #         external_reference=external_reference,
-            #         currency_ticker=currency_ticker,
-            #     )
-            #     new_wallet.save()
+            access_token = FlutterwaveHelper.flutterwave_authentication()
+
+            # find or create the Flutterwave customer
+            search_response = FlutterwaveHelper.search_for_customer(
+                access_token, customer_confirmation.email_address
+            )
+            search_data = search_response.json()
+
+            customer_id = None
+            results = search_data.get('data') or []
+            if results:
+                customer_id = results[0].get('id')
+
+            if not customer_id:
+                create_response = FlutterwaveHelper.create_flutterwave_account(
+                    access_token=access_token,
+                    email_address=customer_confirmation.email_address,
+                    mobile_number=customer_confirmation.mobile_number,
+                    first_name=customer_confirmation.first_name,
+                    last_name=customer_confirmation.last_name,
+                )
+
+                if not compare_digest(str(create_response.status_code), '200') and \
+                        not compare_digest(str(create_response.status_code), '201'):
+                    return jsonify({
+                        'code': create_response.status_code,
+                        'status_message': 'failed to create customer',
+                        'message': create_response.json().get('message', 'an error occurred while creating customer')
+                    }), create_response.status_code
+
+                customer_id = create_response.json().get('data', {}).get('id')
+
+            reference_number = secrets.token_urlsafe(16)
+
+            va_response = FlutterwaveHelper.virtual_account(
+                access_token=access_token,
+                reference_number=reference_number,
+                customer_id=customer_id,
+                email_address=customer_confirmation.email_address,
+                short_code=currency_ticker,
+                user_datails=customer_confirmation,
+                kyc_check=kyc_check,
+            )
+
+            if not compare_digest(str(va_response.status_code), '200') and \
+                    not compare_digest(str(va_response.status_code), '201'):
+                return jsonify({
+                    'code': va_response.status_code,
+                    'status_message': 'failed to resolve bank account',
+                    'message': va_response.json().get('message', 'an error occurred while resolving bank account')
+                }), va_response.status_code
+
+            va_data = va_response.json().get('data')
+
+            own_wallet.account_number = va_data.get('account_number')
+            own_wallet.bank_name = va_data.get(
+                'account_bank_name')   # was: va_data.get('bank_name')
+            own_wallet.external_reference = va_data.get(
+                'reference') or reference_number
+            own_wallet.flutterwave_account_id = va_data.get('id')
+            own_wallet.is_active = True
+            own_wallet.save()
 
             NotificationResource.store_nofication(
                 title="Wallet Creation",
-                body=f"Your {currency_ticker.upper()} wallet has been successfully created with account number {sim_account_number if not compare_digest(currency_ticker, 'ngn') else own_wallet.account_number}.",
+                body=f"Your {currency_ticker.upper()} wallet has been successfully created with account number {own_wallet.account_number}.",
                 user_id=user_id,
             )
 
@@ -293,6 +310,7 @@ class WalletResource(Resource):
                     },
                     'account_number': wallet.account_number,
                     'bank_name': wallet.bank_name,
+                    'flutterwave_account_id': wallet.flutterwave_account_id,
                     'is_active': wallet.is_active,
                     'created_at': wallet.created_at.strftime("%d %b %Y, %I:%M %p"),
                     'updated_at': wallet.updated_at.strftime("%d %b %Y, %I:%M %p") if wallet.updated_at else None,
