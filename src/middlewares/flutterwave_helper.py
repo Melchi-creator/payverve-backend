@@ -32,7 +32,8 @@ class FlutterwaveHelper:
                 "Content-Type": "application/x-www-form-urlencoded"
             }
 
-            response = requests.request('POST', url, headers=headers, data=data)
+            response = requests.request(
+                'POST', url, headers=headers, data=data)
             access_token = response.json().get('access_token')
 
             return access_token
@@ -48,44 +49,77 @@ class FlutterwaveHelper:
     def create_flutterwave_account(access_token, email_address, mobile_number, first_name, last_name, middle_name=None):
         """ """
 
-        try:
+        url = f'{config.flutterwave_base_url}/customers'
 
-            url = f'{config.flutterwave_base_url}/customers'
+        message = f'{email_address}{mobile_number}{first_name}{last_name}{middle_name}'
+        idempotency_key = hmac.new(config.secret_key.encode(
+        ), message.encode(), hashlib.sha256).hexdigest()
 
-            message = f'{email_address}{mobile_number}{first_name}{last_name}{middle_name}'
-            idempotency_key = hmac.new(config.secret_key.encode(), message.encode(), hashlib.sha256).hexdigest()
+        headers = {
+            'content-type': 'application/json',
+            'accept': 'application/json',
+            'Authorization': f'Bearer {access_token}',
+            'X-Trace-Id': secrets.token_urlsafe(12),
+            'X-Idempotency-Key': idempotency_key
+        }
 
-            headers = {
-                'content-type': 'application/json',
-                'accept': 'application/json',
-                'Authorization': f'Bearer {access_token}',
-                'X-Trace-Id': secrets.token_urlsafe(12),
-                'X-Idempotency-Key': idempotency_key
+        payload = {
+            "email": email_address,
+            "phone": {
+                "country_code": "234",
+                "number": mobile_number
+            },
+            "name": {
+                "first": first_name,
+                "middle": middle_name,
+                "last": last_name
             }
+        }
 
-            payload = {
-                "email": email_address,
-                "phone": {
-                    "country_code": "234",
-                    "number": mobile_number
-                },
-                "name": {
-                    "first": first_name,
-                    "middle": middle_name,
-                    "last": last_name
-                }
-            }
+        response = requests.request('POST', url, headers=headers, json=payload)
 
-            response = requests.request('POST', url, headers=headers, json=payload)
+        return response
+    # def create_flutterwave_account(access_token, email_address, mobile_number, first_name, last_name, middle_name=None):
+    #     """ """
 
-            return response
+    #     try:
 
-        except Exception as e:
-            return jsonify({
-                'code': 500,
-                'status_message': 'server error',
-                'message': f'an error occurred: {str(e)}'
-            }), 500
+    #         url = f'{config.flutterwave_base_url}/customers'
+
+    #         message = f'{email_address}{mobile_number}{first_name}{last_name}{middle_name}'
+    #         idempotency_key = hmac.new(config.secret_key.encode(), message.encode(), hashlib.sha256).hexdigest()
+
+    #         headers = {
+    #             'content-type': 'application/json',
+    #             'accept': 'application/json',
+    #             'Authorization': f'Bearer {access_token}',
+    #             'X-Trace-Id': secrets.token_urlsafe(12),
+    #             'X-Idempotency-Key': idempotency_key
+    #         }
+
+    #         payload = {
+    #             "email": email_address,
+    #             "phone": {
+    #                 "country_code": "234",
+    #                 "number": mobile_number
+    #             },
+    #             "name": {
+    #                 "first": first_name,
+    #                 "middle": middle_name,
+    #                 "last": last_name
+    #             }
+    #         }
+
+    #         response = requests.request('POST', url, headers=headers, json=payload)
+
+    #         return response
+
+    #     except Exception as e:
+    #         return jsonify({
+    #             'code': 500,
+    #             'status_message': 'server error',
+    #             'message': f'an error occurred: {str(e)}'
+    #         }), 500
 
     @staticmethod
     def search_for_customer(access_token, email_address):
@@ -96,7 +130,8 @@ class FlutterwaveHelper:
             url = f'{config.flutterwave_base_url}/customers/search'
 
             message = f'{email_address}'
-            idempotency_key = hmac.new(config.secret_key.encode(), message.encode(), hashlib.sha256).hexdigest()
+            idempotency_key = hmac.new(config.secret_key.encode(
+            ), message.encode(), hashlib.sha256).hexdigest()
 
             headers = {
                 'content-type': 'application/json',
@@ -110,7 +145,8 @@ class FlutterwaveHelper:
                 "email": email_address,
             }
 
-            response = requests.request('POST', url, headers=headers, json=payload)
+            response = requests.request(
+                'POST', url, headers=headers, json=payload)
 
             return response
 
@@ -130,7 +166,8 @@ class FlutterwaveHelper:
             url = f'{config.flutterwave_base_url}/virtual-accounts'
 
             message = f'{email_address}{0}{short_code.upper()}'
-            idempotency_key = hmac.new(config.secret_key.encode(), message.encode(), hashlib.sha256).hexdigest()
+            idempotency_key = hmac.new(config.secret_key.encode(
+            ), message.encode(), hashlib.sha256).hexdigest()
 
             headers = {
                 'content-type': 'application/json',
@@ -155,13 +192,13 @@ class FlutterwaveHelper:
                 payload['bank_code'] = '090772'
                 payload['bvn'] = kyc_check.bvn
 
-
             if short_code.lower() == 'ghs':
                 payload['bank_code'] = 'GH200100'
 
             print(payload)
 
-            response_va = requests.request('POST', url, headers=headers, json=payload)
+            response_va = requests.request(
+                'POST', url, headers=headers, json=payload)
 
             print(response_va.text)
 
@@ -248,7 +285,8 @@ class FlutterwaveHelper:
                 "account_bank": int(bank_code)
             }
 
-            response = requests.request('POST', url, headers=headers, json=payload)
+            response = requests.request(
+                'POST', url, headers=headers, json=payload)
 
             return response
 
