@@ -5,6 +5,7 @@ import hashlib
 import hmac
 import secrets
 
+from botocore import response
 import requests
 from flask import jsonify
 
@@ -51,6 +52,9 @@ class FlutterwaveHelper:
 
         url = f'{config.flutterwave_base_url}/customers'
 
+        normalized_number = mobile_number.lstrip(
+            '0') if mobile_number else mobile_number
+
         message = f'{email_address}{mobile_number}{first_name}{last_name}{middle_name}'
         idempotency_key = hmac.new(config.secret_key.encode(
         ), message.encode(), hashlib.sha256).hexdigest()
@@ -67,7 +71,7 @@ class FlutterwaveHelper:
             "email": email_address,
             "phone": {
                 "country_code": "234",
-                "number": mobile_number
+                "number": normalized_number
             },
             "name": {
                 "first": first_name,
@@ -77,6 +81,8 @@ class FlutterwaveHelper:
         }
 
         response = requests.request('POST', url, headers=headers, json=payload)
+        print("CREATE CUSTOMER STATUS:", response.status_code)
+        print("CREATE CUSTOMER BODY:", response.text)
 
         return response
     # def create_flutterwave_account(access_token, email_address, mobile_number, first_name, last_name, middle_name=None):

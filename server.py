@@ -28,7 +28,7 @@ server.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = config.database_tracker
 server.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     "poolclass": NullPool,
     "connect_args": {
-        "sslmode": "require",
+        "sslmode": "require" if config.env == "prod" else "prefer",
         "connect_timeout": 10,
     }
 }
@@ -59,7 +59,6 @@ for blueprint in vars(routes).values():
 
 with server.app_context():
     DBDefaults.currency_defaults()
-
 
 
 if __name__ == "__main__":
