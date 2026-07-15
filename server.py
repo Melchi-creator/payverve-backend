@@ -51,9 +51,6 @@ migrate = Migrate(server, db)
 #     auth.init_app(app=server, db=db)
 #     from . import error_handlers
 
-print("=" * 60)
-print("DATABASE_URL:", os.getenv("DATABASE_URL"))
-print("=" * 60)
 
 allowed_origins = [
     config.mobile_app_path

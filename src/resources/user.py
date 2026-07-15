@@ -855,12 +855,13 @@ class UserResource(Resource):
                 channel_contact=email_address,
                 status='pending',
             ).order_by(TokenVerificationModel.created_at.desc()).first()
-
+            print("3. confirmation =", confirmation)
             if confirmation:
                 expected_expiry = confirmation.timestamp + \
                     timedelta(seconds=confirmation.expiration_time)
 
                 if expected_expiry > datetime.now():
+                    print("6. Generating OTP")
                     return jsonify({
                         'code': 400,
                         'status_message': 'bad request',

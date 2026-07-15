@@ -17,7 +17,7 @@ class VirtualAccountNumberModel(db.Model, BaseModel, metaclass=MetaBaseModel):
 
     id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     virtual_account_id = db.Column(db.String(), nullable=False, unique=True)
-    account_number = db.Column(db.BigInteger(), nullable=False, unique=True)
+    account_number = db.Column(db.String(), nullable=False, unique=True)
     reference = db.Column(db.String(), nullable=False, unique=True)
     account_bank_name = db.Column(db.String(), nullable=False)
     account_type = db.Column(db.String(), nullable=False, default='static')
@@ -32,5 +32,7 @@ class VirtualAccountNumberModel(db.Model, BaseModel, metaclass=MetaBaseModel):
 
     # foreign keys
 
-    user_id = db.Column(UUID(as_uuid=True), db.ForeignKey('users.id'), nullable=False)
-    currency_id = db.Column(UUID(as_uuid=True), db.ForeignKey('currencies.id'), nullable=False)
+    user_id = db.Column(UUID(as_uuid=True), db.ForeignKey(
+        'users.id'), nullable=False)
+    currency_id = db.Column(UUID(as_uuid=True), db.ForeignKey(
+        'currencies.id'), nullable=False)
