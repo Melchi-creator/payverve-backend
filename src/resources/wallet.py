@@ -37,7 +37,8 @@ class WalletResource(Resource):
         email_address = data.get('email_address')
         created_by_payverve = data.get('created_by_payverve')
 
-        customer_confirmation = UserModel.query.filter_by(id=user_id, email_address=email_address).first()
+        customer_confirmation = UserModel.query.filter_by(
+            id=user_id, email_address=email_address).first()
 
         if not customer_confirmation:
             return jsonify({
@@ -131,7 +132,8 @@ class WalletResource(Resource):
                 'message': 'user not found'
             }), 404
 
-        own_wallet = WalletModel.query.filter_by(user_id=user_id, currency_id=currency_id).first()
+        own_wallet = WalletModel.query.filter_by(
+            user_id=user_id, currency_id=currency_id).first()
 
         try:
 
@@ -158,7 +160,8 @@ class WalletResource(Resource):
             MinimumBalance(intial_fund)
             # encrypt_fund = Cryptographer.encrypt(intial_fund)
 
-            currency_ticker = CurrencyModel.query.filter_by(id=currency_id).first().short_code
+            currency_ticker = CurrencyModel.query.filter_by(
+                id=currency_id).first().short_code
 
             # @TODO: integrate foreign virtual account creation (Virtual ccountModel) with third party here and remove simlated account number in wallet
 
@@ -291,8 +294,6 @@ class WalletResource(Resource):
                         'currency_shortcode': wallet.currencies.short_code,
                         'currency_full_name': wallet.currencies.name,
                     },
-                    'account_number': wallet.account_number,
-                    'bank_name': wallet.bank_name,
                     'is_active': wallet.is_active,
                     'created_at': wallet.created_at.strftime("%d %b %Y, %I:%M %p"),
                     'updated_at': wallet.updated_at.strftime("%d %b %Y, %I:%M %p") if wallet.updated_at else None,
@@ -349,8 +350,6 @@ class WalletResource(Resource):
                     'currency_shortcode': wallet.currencies.short_code,
                     'currency_full_name': wallet.currencies.name,
                 },
-                'account_number': wallet.account_number,
-                'bank_name': wallet.bank_name,
                 'is_active': wallet.is_active,
                 'created_at': wallet.created_at.strftime("%d %b %Y, %I:%M %p"),
                 'updated_at': wallet.updated_at.strftime("%d %b %Y, %I:%M %p") if wallet.updated_at else None,
@@ -410,8 +409,6 @@ class WalletResource(Resource):
                         'currency_shortcode': wallet.currencies.short_code,
                         'currency_full_name': wallet.currencies.name,
                     },
-                    'account_number': wallet.account_number,
-                    'bank_name': wallet.bank_name,
                     'is_active': wallet.is_active,
                     'created_at': wallet.created_at.strftime("%d %b %Y, %I:%M %p"),
                     'updated_at': wallet.updated_at.strftime("%d %b %Y, %I:%M %p") if wallet.updated_at else None,
