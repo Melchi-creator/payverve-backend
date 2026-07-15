@@ -95,8 +95,7 @@ class UserResource(Resource):
             if len(user_data.mobile_number) > 10:
                 user_data.mobile_number = user_data.mobile_number[-10:]
 
-
-            ## START START START Flutterwave (Authentication, Customer Account Creation, Search for Existing, Create Virtual Account)
+            # START START START Flutterwave (Authentication, Customer Account Creation, Search for Existing, Create Virtual Account)
 
             auth = FlutterwaveHelper.flutterwave_authentication()
             flutter_account = FlutterwaveHelper.create_flutterwave_account(auth,
@@ -115,7 +114,8 @@ class UserResource(Resource):
                 }), flutter_account.status_code
 
             if compare_digest(str(flutter_account.status_code), '409'):
-                search_account = FlutterwaveHelper.search_for_customer(auth, user_data.email_address)
+                search_account = FlutterwaveHelper.search_for_customer(
+                    auth, user_data.email_address)
 
                 search_account_json = search_account.json()
 
@@ -130,7 +130,7 @@ class UserResource(Resource):
 
             customer_code = flutter_account_json.get('id')
 
-            ## END END END Flutterwave (Authentication, Customer Account Creation, Search for Existing, Create Virtual Account)
+            # END END END Flutterwave (Authentication, Customer Account Creation, Search for Existing, Create Virtual Account)
 
             gender_check = ["male", "female"]
             if user_data.gender.lower() not in gender_check:
@@ -180,7 +180,8 @@ class UserResource(Resource):
                 "POST", f'{config.app_path}/ngn-wallets', json=payload)
 
             if response.status_code != 201:
-                new_user_account = UserModel.query.filter_by(id=str(new_user.id)).first()
+                new_user_account = UserModel.query.filter_by(
+                    id=str(new_user.id)).first()
                 new_user_account.delete()
                 return jsonify({
                     'code': response.status_code,
@@ -290,6 +291,9 @@ class UserResource(Resource):
 
             # Send verification email
             verification_code = str(secrets.randbelow(1000000)).zfill(6)
+            print("=" * 60)
+            print(f"EMAIL VERIFICATION CODE: {verification_code}")
+            print("=" * 60)
 
             # noinspection PyArgumentList
             new_verification_code = TokenVerificationModel(
@@ -300,6 +304,7 @@ class UserResource(Resource):
                 timestamp=datetime.now(),
                 status='pending'
             )
+
             new_verification_code.save()
 
             expiry_time = new_verification_code.timestamp + \
@@ -822,6 +827,7 @@ class UserResource(Resource):
     )
     def resend_email_otp_base_verification(email_address: str):
         """ this method is used to resend the email verification token """
+        print(">>>>>>>> ENTERED resend_email_otp_base_verification <<<<<<<<")
 
         try:
 
@@ -867,6 +873,9 @@ class UserResource(Resource):
             # resend verification email
 
             verification_code = str(secrets.randbelow(1000000)).zfill(6)
+            print("=" * 60)
+            print(f"RESEND EMAIL VERIFICATION CODE: {verification_code}")
+            print("=" * 60)
 
             # noinspection PyArgumentList
             new_verification_code = TokenVerificationModel(

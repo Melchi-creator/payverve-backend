@@ -25,13 +25,23 @@ Talisman(server, force_https=config.debug if config.env == "prod" else False)
 
 server.config["SQLALCHEMY_DATABASE_URI"] = config.database_uri
 server.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = config.database_tracker
-server.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+
+engine_options = {
     "poolclass": NullPool,
     "connect_args": {
-        "sslmode": "require",
         "connect_timeout": 10,
     }
 }
+
+# Only require SSL for remote (production) databases
+if (
+    config.database_uri
+    and "localhost" not in config.database_uri
+    and "127.0.0.1" not in config.database_uri
+):
+    engine_options["connect_args"]["sslmode"] = "require"
+
+server.config["SQLALCHEMY_ENGINE_OPTIONS"] = engine_options
 
 db.init_app(server)
 db.app = server
@@ -40,6 +50,10 @@ migrate = Migrate(server, db)
 # with server.app_context():
 #     auth.init_app(app=server, db=db)
 #     from . import error_handlers
+
+print("=" * 60)
+print("DATABASE_URL:", os.getenv("DATABASE_URL"))
+print("=" * 60)
 
 allowed_origins = [
     config.mobile_app_path
@@ -59,7 +73,6 @@ for blueprint in vars(routes).values():
 
 with server.app_context():
     DBDefaults.currency_defaults()
-
 
 
 if __name__ == "__main__":

@@ -29,7 +29,8 @@ class TokenVerification(Resource):
 
         try:
 
-            token_verifications = TokenVerificationModel.query.order_by(TokenVerificationModel.created_at.desc()).all()
+            token_verifications = TokenVerificationModel.query.order_by(
+                TokenVerificationModel.created_at.desc()).all()
 
             if not token_verifications:
                 return jsonify({
@@ -79,12 +80,14 @@ class TokenVerification(Resource):
 
             checked_user = None
 
-            checked_customer = UserModel.query.filter_by(email_address=email_address).first()
+            checked_customer = UserModel.query.filter_by(
+                email_address=email_address).first()
 
             if checked_customer:
                 checked_user = checked_customer
 
-            checked_admin = AdminModel.query.filter_by(email_address=email_address).first()
+            checked_admin = AdminModel.query.filter_by(
+                email_address=email_address).first()
 
             if checked_admin:
                 checked_user = checked_admin
@@ -119,6 +122,10 @@ class TokenVerification(Resource):
 
             verification_code = str(secrets.randbelow(1000000)).zfill(6)
 
+            print("=" * 60)
+            print(f"EMAIL VERIFICATION CODE: {verification_code}")
+            print("=" * 60)
+
             # noinspection PyArgumentList
             new_verification_code = TokenVerificationModel(
                 channel='email',
@@ -129,12 +136,17 @@ class TokenVerification(Resource):
                 status='pending'
             )
 
+            print("=" * 60)
+            print(f"EMAIL VERIFICATION CODE: {new_verification_code}")
+            print("=" * 60)
+
             new_verification_code.save()
 
             checked_user.password_reset_code = verification_code
             checked_user.save()
 
-            expiry_time = new_verification_code.timestamp + timedelta(seconds=new_verification_code.expiration_time)
+            expiry_time = new_verification_code.timestamp + \
+                timedelta(seconds=new_verification_code.expiration_time)
             current_year = datetime.now().year
 
             endpoint = '/send'
@@ -235,12 +247,14 @@ class TokenVerification(Resource):
             PasswordValidation(password)
 
             checked_user = None
-            checked_customer = UserModel.query.filter_by(password_reset_code=verification_code).first()
+            checked_customer = UserModel.query.filter_by(
+                password_reset_code=verification_code).first()
 
             if checked_customer:
                 checked_user = checked_customer
 
-            checked_admin = AdminModel.query.filter_by(password_reset_code=verification_code).first()
+            checked_admin = AdminModel.query.filter_by(
+                password_reset_code=verification_code).first()
 
             if checked_admin:
                 checked_user = checked_admin
@@ -286,7 +300,8 @@ class TokenVerification(Resource):
                 }), 400
 
             confirmation_code = confirmation.code_sent
-            decrypt_confirmation_code = Cryptographer.decrypt(confirmation_code)
+            decrypt_confirmation_code = Cryptographer.decrypt(
+                confirmation_code)
 
             if not compare_digest(decrypt_confirmation_code, verification_code):
                 return jsonify({
@@ -295,7 +310,8 @@ class TokenVerification(Resource):
                     'message': 'verification code does not match, try again'
                 }), 400
 
-            expected_expiry = confirmation.timestamp + timedelta(seconds=confirmation.expiration_time)
+            expected_expiry = confirmation.timestamp + \
+                timedelta(seconds=confirmation.expiration_time)
 
             if expected_expiry < datetime.now():
                 confirmation.status = 'expired'
