@@ -128,6 +128,9 @@ flutterwave_secret_hash = get_config('FLUTTERWAVE_SECRET_HASH')
 flutterwave_client_id = get_config('FLUTTERWAVE_CLIENT_ID')
 flutterwave_file_encryption = get_config('FLUTTERWAVE_FILE_ENCRYPTION')
 flutterwave_auth_url = get_config('FLUTTERWAVE_AUTH_URL')
+skip_flw_verification_for_testing = get_config('SKIP_FLW_VERIFICATION_FOR_TESTING', 'false').lower() == 'true'
+
+firebase_service_account_path = "firebase-service-account.json"
 
 bellbank_baseurl = get_config('BELLBANK_BASEURL')
 bellbank_consumer_key = get_config('BELLBANK_CONSUMER_KEY')
