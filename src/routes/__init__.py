@@ -29,3 +29,4 @@ from .transation import TransactionBlueprint
 from .user import UserBlueprint
 from .virtual_account_numbers import VirtualAccountNumberBlueprint
 from .wallet import WalletBlueprint
+from .bank import BankBlueprint

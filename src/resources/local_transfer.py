@@ -56,7 +56,8 @@ class LocalTransferResource(Resource):
                 }), 400
 
             access_token = BellbankHelper.bellbank_authentication('5')
-            response = BellbankHelper.bell_resolve_account_number(account, bank_code, access_token)
+            response = BellbankHelper.bell_resolve_account_number(
+                account, bank_code, access_token)
 
             if not compare_digest(str(response.status_code), '200'):
                 return jsonify({
@@ -138,7 +139,10 @@ class LocalTransferResource(Resource):
         try:
 
             # KYC Tier Check
-            KYCTierCheck.kyc_transfer_check(user_id, amount, 'local')
+            kyc_check = KYCTierCheck.kyc_transfer_check(
+                user_id, amount, 'local')
+            if kyc_check is not None:
+                return kyc_check
 
             user_check = UserModel.query.filter_by(id=user_id).first()
 
@@ -233,11 +237,13 @@ class LocalTransferResource(Resource):
                 sender_bank="bellbank microfinance bank",
                 user_id=user_id,
                 wallet_id=wallet_id,
-                transaction_status=transaction_data.get('status')  # @TODO: change according to api response
+                # @TODO: change according to api response
+                transaction_status=transaction_data.get('status')
             )
             new_local_transfer.save()
 
-            add_charge = float(Cryptographer.decrypt(amount)) + float(final_charge)
+            add_charge = float(Cryptographer.decrypt(amount)
+                               ) + float(final_charge)
             amount = Cryptographer.encrypt(add_charge)
 
             # noinspection PyArgumentList
@@ -266,7 +272,8 @@ class LocalTransferResource(Resource):
 
             # Spend and Save Transactions
 
-            spend_save = SpendSaveModel.query.filter_by(user_id=user_id).first()
+            spend_save = SpendSaveModel.query.filter_by(
+                user_id=user_id).first()
 
             if spend_save:
                 if spend_save.is_active:
@@ -275,17 +282,22 @@ class LocalTransferResource(Resource):
 
                     amount = Cryptographer.decrypt(amount)
 
-                    percentage_cal = (float(spend_save.percentage_to_save) / float(100))
+                    percentage_cal = (
+                        float(spend_save.percentage_to_save) / float(100))
                     amount_to_save = float(amount) * float(percentage_cal)
 
                     if float(Cryptographer.decrypt(sender.fund)) > float(amount_to_save):
-                        init_balance = Cryptographer.decrypt(spend_save.balance)
-                        final_balance = float(init_balance) + float(amount_to_save)
+                        init_balance = Cryptographer.decrypt(
+                            spend_save.balance)
+                        final_balance = float(
+                            init_balance) + float(amount_to_save)
 
-                        spend_save.balance = Cryptographer.encrypt(final_balance)
+                        spend_save.balance = Cryptographer.encrypt(
+                            final_balance)
                         spend_save.save()
 
-                        currency_id = CurrencyModel.query.filter_by(short_code=currency_ticker).first().id
+                        currency_id = CurrencyModel.query.filter_by(
+                            short_code=currency_ticker).first().id
 
                         # noinspection PyArgumentList
                         new_transaction = TransactionModel(
@@ -310,7 +322,8 @@ class LocalTransferResource(Resource):
                         )
 
             access_token = BellbankHelper.bellbank_authentication('6')
-            requery_respone = BellbankHelper.transfer_requery(reference_number, access_token)
+            requery_respone = BellbankHelper.transfer_requery(
+                reference_number, access_token)
 
             if not compare_digest(str(requery_respone.status_code), '200'):
                 return jsonify({
@@ -384,7 +397,8 @@ class LocalTransferResource(Resource):
     def read_all():
         """ Retrieve all local transfers """
 
-        local_transfers = LocalTransferModel.query.order_by(LocalTransferModel.created_at.desc()).all()
+        local_transfers = LocalTransferModel.query.order_by(
+            LocalTransferModel.created_at.desc()).all()
 
         try:
             if not local_transfers:
@@ -515,7 +529,8 @@ class LocalTransferResource(Resource):
     def user_ltf_all(id):
         """ Retrieve all local transfers """
 
-        local_transfers = LocalTransferModel.query.filter_by(user_id=id).order_by(LocalTransferModel.created_at.desc()).all()
+        local_transfers = LocalTransferModel.query.filter_by(
+            user_id=id).order_by(LocalTransferModel.created_at.desc()).all()
 
         try:
             if not local_transfers:
