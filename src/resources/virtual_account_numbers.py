@@ -1,9 +1,13 @@
 """
 
 """
+import hashlib
+import hmac
 import secrets
 from datetime import datetime
 from hmac import compare_digest
+
+import config
 
 from flask import jsonify, request
 from flask_restful import Resource
@@ -97,22 +101,22 @@ class VirtualAccountNumberResource(Resource):
                 }), 404
 
             data = {
-                    'id': virtual_account_number.id,
-                    'virtual_account_id': virtual_account_number.virtual_account_id,
-                    'account_number': virtual_account_number.account_number,
-                    'reference': virtual_account_number.reference,
-                    'bank_name': virtual_account_number.account_bank_name,
-                    'account_type': virtual_account_number.account_type,
-                    'status': virtual_account_number.status,
-                    'expiry_date': virtual_account_number.account_expiration_datetime.strftime("%d %b %Y, %I:%M %p"),
-                    'customer_code': virtual_account_number.customer_code,
-                    'currency_ticker': virtual_account_number.currency_ticker,
-                    'is_active': virtual_account_number.is_active,
-                    'user_id': virtual_account_number.user_id,
-                    'currency_id': virtual_account_number.currency_id,
-                    'created_at': virtual_account_number.created_at.strftime("%d %b %Y, %I:%M %p"),
-                    'updated_at': virtual_account_number.updated_at.strftime("%d %b %Y, %I:%M %p") if virtual_account_number.updated_at else None,
-                }
+                'id': virtual_account_number.id,
+                'virtual_account_id': virtual_account_number.virtual_account_id,
+                'account_number': virtual_account_number.account_number,
+                'reference': virtual_account_number.reference,
+                'bank_name': virtual_account_number.account_bank_name,
+                'account_type': virtual_account_number.account_type,
+                'status': virtual_account_number.status,
+                'expiry_date': virtual_account_number.account_expiration_datetime.strftime("%d %b %Y, %I:%M %p"),
+                'customer_code': virtual_account_number.customer_code,
+                'currency_ticker': virtual_account_number.currency_ticker,
+                'is_active': virtual_account_number.is_active,
+                'user_id': virtual_account_number.user_id,
+                'currency_id': virtual_account_number.currency_id,
+                'created_at': virtual_account_number.created_at.strftime("%d %b %Y, %I:%M %p"),
+                'updated_at': virtual_account_number.updated_at.strftime("%d %b %Y, %I:%M %p") if virtual_account_number.updated_at else None,
+            }
 
             return jsonify({
                 'code': 200,
@@ -261,7 +265,11 @@ class VirtualAccountNumberResource(Resource):
                         'message': 'complete your kyc before proceeding'
                     }), 409
 
-                reference_number = secrets.token_urlsafe(16)
+                reference_number = hmac.new(
+                    config.secret_key.encode(),
+                    f'{user_datails.id}{currency_ticker}'.encode(),
+                    hashlib.sha256
+                ).hexdigest()[:20]
                 auth = FlutterwaveHelper.flutterwave_authentication()
 
                 # Flutterwave Virtual Account
