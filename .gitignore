@@ -190,3 +190,9 @@ fabric.properties
 /payverve-61d68-firebase-adminsdk-3ecm0-a03f16912a.json
 firebase-service-account.json
 /firebase-service-account.json
+
+# [Ss]cripts above is from the Python venv template and is meant for
+# venv/Scripts/. It also swallows this repo's own scripts/ directory, so
+# anything put there vanishes without a word from git status.
+!scripts/
+!scripts/**

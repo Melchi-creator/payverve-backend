@@ -18,7 +18,9 @@ from sqlalchemy.exc import (DataError, DisconnectionError, IntegrityError,
 import config
 from .notification import NotificationResource
 from ..middlewares import BellbankHelper, FlutterwaveHelper
-from ..models import CurrencyModel, KYCModel, UserModel, VirtualAccountNumberModel, WalletModel
+from ..models import (CurrencyModel, KYCModel, UserModel,
+                      VirtualAccountNumberModel, WalletModel, db)
+from ..services import registration, virtual_account
 from ..utilities import Cryptographer, RandomGenerator, decode_token, parse_params
 from ..value_object import MinimumBalance
 
@@ -144,7 +146,21 @@ class WalletResource(Resource):
                     'message': 'you already own a wallet with this currency'
                 }), 409
 
+            if not own_wallet:
+                return jsonify({
+                    'code': 404,
+                    'status_message': 'not found',
+                    'message': 'no wallet with this currency to activate'
+                }), 404
+
             kyc_check = KYCModel.query.filter_by(user_id=user_id).first()
+
+            if not kyc_check:
+                return jsonify({
+                    'code': 409,
+                    'status_message': 'unauthorise',
+                    'message': 'complete your kyc before proceeding'
+                }), 409
 
             if not compare_digest(str(kyc_check.tier), '3'):
                 return jsonify({
@@ -153,53 +169,19 @@ class WalletResource(Resource):
                     'message': 'complete your kyc before proceeding'
                 }), 409
 
-            sim_account_number = RandomGenerator.sim_account_number()
-            # external_reference = RandomGenerator.sim_external_ref()
+            currency = CurrencyModel.query.filter_by(id=currency_id).first()
 
-            intial_fund = float(0)
-            MinimumBalance(intial_fund)
-            # encrypt_fund = Cryptographer.encrypt(intial_fund)
+            if not currency:
+                return jsonify({
+                    'code': 404,
+                    'status_message': 'not found',
+                    'message': 'currency not found'
+                }), 404
 
-            currency_ticker = CurrencyModel.query.filter_by(
-                id=currency_id).first().short_code
+            currency_ticker = currency.short_code.lower()
 
-            # @TODO: integrate foreign virtual account creation (Virtual ccountModel) with third party here and remove simlated account number in wallet
-
-            currency_ticker = currency_ticker.lower()
-
-            if compare_digest(currency_ticker, 'ngn'):
-                access_code = BellbankHelper.bellbank_authentication('5')
-
-                response = BellbankHelper.bellbank_virtual_account(
-                    access_token=access_code,
-                    mobile_number=customer_confirmation.mobile_number,
-                    first_name=customer_confirmation.first_name,
-                    last_name=customer_confirmation.last_name,
-                    address=f"{kyc_check.address}",
-                    bvn=kyc_check.bvn,
-                    gender=customer_confirmation.gender,
-                    date_of_birth=str(customer_confirmation.date_of_birth),
-                    meta_data={
-                        "email_address": customer_confirmation.email_address
-                    },
-                )
-
-                if not compare_digest(str(response.status_code), '200'):
-                    return jsonify({
-                        'code': response.status_code,
-                        'status_message': 'failed to resolve bank account',
-                        'message': response.json().get('message', 'an error occurred while resolving bank account')
-                    }), response.status_code
-
-                data = response.json().get('data')
-                va_account_number = data.get('accountNumber')
-
-                own_wallet.account_number = va_account_number
-                own_wallet.is_active = True
-                own_wallet.external_reference = data.get('externalReference')
-                own_wallet.bank_name = "bellbank microfinance bank"
-                own_wallet.save()
-
+            # @TODO: integrate foreign virtual account creation with third
+            # party here.
             if not compare_digest(currency_ticker, 'ngn'):
                 return jsonify({
                     'code': 403,
@@ -207,22 +189,28 @@ class WalletResource(Resource):
                     'message': 'only NGN wallet creation is allowed at the moment'
                 }), 403
 
-            # if not compare_digest(currency_ticker, 'ngn'):
-            #     # noinspection PyArgumentList
-            #     new_wallet = WalletModel(
-            #         fund=encrypt_fund,
-            #         user_id=user_id,
-            #         currency_id=currency_id,
-            #         account_number=sim_account_number,
-            #         is_active=True,
-            #         external_reference=external_reference,
-            #         currency_ticker=currency_ticker,
-            #     )
-            #     new_wallet.save()
+            # This used to assign own_wallet.account_number, .external_reference
+            # and .bank_name, none of which exist any more -- migration
+            # 2129b3c36f79 moved them onto virtual_account_numbers. They became
+            # throwaway Python attributes, so BellBank issued a real account and
+            # Payverve recorded nothing. Same provisioning registration uses.
+            try:
+                virtual_account.provision_ngn_virtual_account(
+                    customer_confirmation, own_wallet, kyc_check.bvn,
+                    kyc_check.address, currency_id)
+                db.session.commit()
+            except registration.RegistrationError as e:
+                db.session.rollback()
+                return jsonify(e.as_payload()), e.code
+
+            issued = VirtualAccountNumberModel.query.filter_by(
+                user_id=user_id, currency_id=currency_id).first()
 
             NotificationResource.store_nofication(
                 title="Wallet Creation",
-                body=f"Your {currency_ticker.upper()} wallet has been successfully created with account number {sim_account_number if not compare_digest(currency_ticker, 'ngn') else own_wallet.account_number}.",
+                body=f"Your {currency_ticker.upper()} wallet is now active. "
+                     f"Your account number is "
+                     f"{issued.account_number if issued else 'being created'}.",
                 user_id=user_id,
             )
 
