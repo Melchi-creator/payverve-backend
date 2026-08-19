@@ -14,6 +14,11 @@ Two populations need this:
     nothing. Re-provisioning repairs those: BellBank keys the request on the
     customer's own details, so it returns the same account it issued before.
 
+Accounts issued by another provider are reported, not touched. Flutterwave
+sandbox ones show up as 'Mock Bank'; deposits to them do not arrive through the
+BellBank webhook, but replacing one moves where a customer's money lands, so
+that is a decision for a person rather than this script.
+
 DRY RUN BY DEFAULT. Nothing is written and the bank is never called until
 --apply is passed.
 
@@ -39,10 +44,23 @@ from src.models import (CurrencyModel, KYCModel, UserModel,
 from src.services import registration, virtual_account
 
 
-def already_provisioned(wallet):
-    """True when this wallet already has a virtual account on record."""
+def existing_account(wallet):
+    """The virtual account on record for this wallet, whoever issued it."""
     return VirtualAccountNumberModel.query.filter_by(
         user_id=wallet.user_id, currency_id=wallet.currency_id).first()
+
+
+def is_bellbank(virtual_account):
+    """Whether an account on record was issued by BellBank.
+
+    Accounts from other providers are already in this table -- Flutterwave
+    sandbox ones show up as 'Mock Bank' -- and deposits to them do not arrive
+    through the BellBank webhook. They are reported separately rather than
+    counted as done, because replacing one moves where a customer's money
+    lands and is not a decision this script should make quietly.
+    """
+    name = (virtual_account.account_bank_name or '').lower()
+    return 'bell' in name
 
 
 def kyc_details(user_id):
@@ -94,18 +112,14 @@ def main():
               else 'APPLYING')
         print(f'ngn wallets found: {len(wallets)}\n')
 
-        tally = {'already had one': 0, 'provisioned': 0,
-                 'waiting on kyc': 0, 'failed': 0}
+        tally = {'already on bellbank': 0, 'on another provider': 0,
+                 'provisioned': 0, 'waiting on kyc': 0, 'failed': 0}
         touched = 0
 
         for wallet in wallets:
             if args.limit is not None and touched >= args.limit:
                 print(f'\nstopping at --limit {args.limit}')
                 break
-
-            if already_provisioned(wallet):
-                tally['already had one'] += 1
-                continue
 
             user = UserModel.query.filter_by(id=wallet.user_id).first()
 
@@ -115,6 +129,20 @@ def main():
                 continue
 
             who = user.email_address
+            on_record = existing_account(wallet)
+
+            if on_record and is_bellbank(on_record):
+                tally['already on bellbank'] += 1
+                continue
+
+            if on_record:
+                tally['on another provider'] += 1
+                print(f'  OTHER   {who}: {on_record.account_number} with '
+                      f'{on_record.account_bank_name} (status '
+                      f'{on_record.status}) -- deposits to it do not arrive '
+                      f'through the BellBank webhook')
+                continue
+
             bvn, address = kyc_details(wallet.user_id)
 
             if not bvn or not address:
@@ -133,7 +161,7 @@ def main():
                     user, wallet, bvn, address, ngn.id)
                 db.session.commit()
 
-                issued = already_provisioned(wallet)
+                issued = existing_account(wallet)
                 tally['provisioned'] += 1
                 print(f'  OK      {who}: account number '
                       f'{issued.account_number if issued else "?"}')
