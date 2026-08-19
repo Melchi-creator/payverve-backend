@@ -35,13 +35,52 @@ Each wallet is committed on its own, so the run is resumable: re-running skips
 whatever already succeeded.
 """
 import argparse
+import io
+import os
+import re
 import sys
 import time
 
-import server  # builds the Flask app and binds the database
-from src.models import (CurrencyModel, KYCModel, UserModel,
+
+def _select_production_database():
+    """Point this process at the non-local DATABASE_URL in .env.
+
+    .env defines DATABASE_URL more than once and dotenv keeps the last, which
+    is localhost, so the production entry is shadowed. Reading it here keeps
+    the password out of the command line, out of shell history and out of the
+    process list. load_dotenv() does not override variables already set, so
+    putting it in the environment before importing config wins.
+    """
+    env_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env')
+
+    if not os.path.exists(env_path):
+        raise SystemExit('no .env to read a production DATABASE_URL from')
+
+    contents = io.open(env_path, encoding='utf-8').read()
+    candidates = [u.strip().strip('"').strip("'")
+                  for u in re.findall(r'^DATABASE_URL=(.+)$', contents, re.M)]
+    remote = [u for u in candidates if 'localhost' not in u and '127.0.0.1' not in u]
+
+    if not remote:
+        raise SystemExit('no non-local DATABASE_URL found in .env')
+
+    os.environ['DATABASE_URL'] = remote[0]
+    return re.sub(r'://[^@]*@', '://***@', remote[0])
+
+
+# --prod has to be handled before config and server are imported, because both
+# read the database url at import time.
+_PROD = '--prod' in sys.argv
+
+if _PROD:
+    sys.argv.remove('--prod')
+    print(f'database: {_select_production_database()}')
+
+import server  # noqa: E402  builds the Flask app and binds the database
+from src.models import (CurrencyModel, KYCModel, UserModel,  # noqa: E402
                         VirtualAccountNumberModel, WalletModel, db)
-from src.services import registration, virtual_account
+from src.services import registration, virtual_account  # noqa: E402
 
 
 def existing_account(wallet):
@@ -85,6 +124,9 @@ def main():
                         help='only this user, by email address')
     parser.add_argument('--delay', type=float, default=0.0,
                         help='seconds to wait between bank calls')
+    parser.add_argument('--prod', action='store_true',
+                        help='use the non-local DATABASE_URL from .env, which '
+                             'is otherwise shadowed by the localhost entry')
     args = parser.parse_args()
 
     with server.server.app_context():
