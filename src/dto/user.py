@@ -40,3 +40,10 @@ class UserDTOCreate(StrictBaseModel):
     referral_code: Annotated[str, StringConstraints(strip_whitespace=True, strict=True, min_length=0), 'Referral code for the user account.'] = None
     gender: Annotated[str, StringConstraints(strip_whitespace=True, strict=True, min_length=1), 'Gender of the user.']
     date_of_birth: Annotated[str, StringConstraints(strip_whitespace=True, strict=True, min_length=1), 'Date of birth of the user.']
+    # Optional at signup. BellBank issues a virtual account against a
+    # verified identity, so sending both provisions a real account number
+    # during registration; omitting them leaves the wallet unprovisioned
+    # until KYC supplies them. extra='forbid' means the model has to name
+    # them or the request is rejected outright.
+    bvn: Annotated[str, StringConstraints(strip_whitespace=True, strict=True, min_length=11, max_length=11), 'Bank verification number.'] = None
+    address: Annotated[str, StringConstraints(strip_whitespace=True, strict=True, min_length=1), 'Residential address.'] = None

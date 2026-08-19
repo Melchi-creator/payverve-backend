@@ -13,7 +13,8 @@ from psycopg2 import DataError, InternalError, OperationalError, ProgrammingErro
 from sqlalchemy.exc import DBAPIError, DisconnectionError
 
 import config
-from ..models import InboundTransferModel, TransactionModel, WalletModel
+from ..models import (InboundTransferModel, TransactionModel,
+                      VirtualAccountNumberModel, WalletModel)
 from src.resources.notification import NotificationResource
 from ..utilities import Cryptographer
 
@@ -214,6 +215,79 @@ class BellbankHelper:
             }), 500
 
     @staticmethod
+    def verify_bellbank_signature(raw_payload):
+        """
+        Confirm the request really came from BellBank.
+
+        This endpoint credits customer wallets, so it cannot be authenticated
+        with jwt_required -- BellBank has no Payverve JWT to send, which is why
+        every collection notification was being rejected with 401. It is
+        authenticated with the shared secret instead.
+
+        Fails closed: an unset secret, a missing header or a mismatch are all
+        rejected. Without this, anyone who learns the URL could POST a forged
+        'collection' event and credit any account number.
+        """
+        secret = getattr(config, 'bellbank_webhook_secret', None)
+
+        if not secret:
+            print('[bellbank] BELLBANK_WEBHOOK_SECRET is not set; '
+                  'rejecting webhook. Deposits cannot be credited until it is '
+                  'configured.')
+            return False
+
+        header_name = getattr(
+            config, 'bellbank_webhook_signature_header', 'X-Signature')
+        sent_signature = request.headers.get(header_name)
+
+        if not sent_signature:
+            print(f'[bellbank] webhook rejected: no {header_name} header')
+            return False
+
+        expected = hmac.new(
+            secret.encode(), raw_payload, hashlib.sha256
+        ).hexdigest()
+
+        # compare_digest avoids leaking the signature through timing.
+        if not hmac.compare_digest(expected, sent_signature.strip()):
+            print('[bellbank] webhook rejected: signature mismatch')
+            return False
+
+        return True
+
+    @staticmethod
+    def virtual_account_for_wallet(wallet):
+        """The BellBank account number a wallet receives into, or None."""
+        if wallet is None:
+            return None
+
+        virtual_account = VirtualAccountNumberModel.query.filter_by(
+            user_id=wallet.user_id, currency_id=wallet.currency_id).first()
+
+        return virtual_account.account_number if virtual_account else None
+
+    @staticmethod
+    def wallet_for_virtual_account(account_number):
+        """Find the NGN wallet that owns a BellBank virtual account.
+
+        The account number lives on virtual_account_numbers; wallets lost that
+        column in migration 2129b3c36f79. Stored as a string there, while the
+        webhook may send it as either, so both are tried.
+        """
+        if account_number in (None, ''):
+            return None
+
+        virtual_account = VirtualAccountNumberModel.query.filter_by(
+            account_number=str(account_number)).first()
+
+        if not virtual_account:
+            return None
+
+        return WalletModel.query.filter_by(
+            user_id=virtual_account.user_id,
+            currency_id=virtual_account.currency_id).first()
+
+    @staticmethod
     def bellbank_webhook():
         """  """
 
@@ -221,6 +295,14 @@ class BellbankHelper:
 
             # Get the request body as raw data
             payload = request.data
+
+            # Verify before parsing or touching any balance.
+            if not BellbankHelper.verify_bellbank_signature(payload):
+                return jsonify({
+                    'code': 401,
+                    'code_message': 'unauthorised',
+                    'data': 'invalid webhook signature'
+                }), 401
 
             # Parse the payload
             webhook_data = json.loads(payload)
@@ -235,13 +317,36 @@ class BellbankHelper:
 
                 if compare_digest(str(transaction_status), 'successful'):
 
-                    payverve_wallet = WalletModel.query.filter_by(account_number=source_account_number).first()
+                    # The wallet to CREDIT is the one that owns the virtual
+                    # account the money landed in. Both handlers below expect a
+                    # wallet object -- they were being passed the recipient
+                    # account number as a string, so every credit raised
+                    # AttributeError and returned 500.
+                    #
+                    # Account details live on virtual_account_numbers, not on
+                    # the wallet: migration 2129b3c36f79 dropped
+                    # wallets.account_number, so filtering wallets on it raised
+                    # InvalidRequestError on every notification.
+                    recipient_wallet = BellbankHelper.wallet_for_virtual_account(
+                        recipient_account_number)
 
-                    if payverve_wallet:
-                        BellbankHelper.payverve_to_payverve_transfer(webhook_data, recipient_account_number)
+                    if not recipient_wallet:
+                        print('[bellbank] no wallet for virtual account '
+                              f'{recipient_account_number}; ignoring')
+                        return 'webhook received', 200
 
-                    if not payverve_wallet:
-                        BellbankHelper.others_to_payverve_transfer(webhook_data, recipient_account_number)
+                    # The sender lookup only classifies the transfer as
+                    # internal (Payverve to Payverve) or external.
+                    sender_wallet = BellbankHelper.wallet_for_virtual_account(
+                        source_account_number)
+
+                    if sender_wallet:
+                        BellbankHelper.payverve_to_payverve_transfer(
+                            webhook_data, recipient_wallet)
+
+                    if not sender_wallet:
+                        BellbankHelper.others_to_payverve_transfer(
+                            webhook_data, recipient_wallet)
 
             return 'webhook received', 200
 
@@ -281,7 +386,12 @@ class BellbankHelper:
 
             recipient_account_number = data.get('virtualAccount')
 
-            if not compare_digest(str(recipient_account_number), str(payverve_wallet.account_number)):
+            # Resolved through virtual_account_numbers; the wallet no longer
+            # carries the account number.
+            wallet_account_number = BellbankHelper.virtual_account_for_wallet(
+                payverve_wallet)
+
+            if not compare_digest(str(recipient_account_number), str(wallet_account_number)):
                 return jsonify({
                     "code": 400,
                     'code_message': 'bad request',
@@ -298,10 +408,22 @@ class BellbankHelper:
             session_id = data.get('sessionId')
             stamp_duty = data.get('stampDuty')
 
-            find_session = InboundTransferModel.query.filter_by(session_id=session_id).first()
+            # Idempotency. Providers retry webhooks on timeout or a non-2xx,
+            # so the same sessionId can arrive more than once. This previously
+            # detected the duplicate and then renamed it
+            # (f"{session_id}-unique-...") so it was no longer a duplicate --
+            # and credited the wallet a second time. Stop instead.
+            find_session = InboundTransferModel.query.filter_by(
+                session_id=session_id).first()
 
             if find_session:
-                session_id = f"{session_id}-unique-{secrets.token_hex(4)}"
+                print(f'[bellbank] duplicate webhook for session {session_id}; '
+                      'already credited, ignoring')
+                return jsonify({
+                    'code': 200,
+                    'code_message': 'ok',
+                    'data': 'transaction already processed'
+                }), 200
 
             balance = Cryptographer.decrypt(payverve_wallet.fund)
             new_balance = float(balance) + float(amount_received)
@@ -319,7 +441,7 @@ class BellbankHelper:
                 narration=narration,
                 recipient_name=f'{payverve_wallet.user.first_name} {payverve_wallet.user.last_name}',
                 recipient_bank="Payverve Bank",
-                recipient_account_number=f'{payverve_wallet.account_number}',
+                recipient_account_number=f'{wallet_account_number}',
                 reference_number=reference_number,
                 session_id=session_id,
                 stamp_duty=stamp_duty,
@@ -421,7 +543,12 @@ class BellbankHelper:
 
             recipient_account_number = data.get('virtualAccount')
 
-            if not compare_digest(str(recipient_account_number), str(payverve_wallet.account_number)):
+            # Resolved through virtual_account_numbers; the wallet no longer
+            # carries the account number.
+            wallet_account_number = BellbankHelper.virtual_account_for_wallet(
+                payverve_wallet)
+
+            if not compare_digest(str(recipient_account_number), str(wallet_account_number)):
                 return jsonify({
                     "code": 400,
                     'code_message': 'bad request',
@@ -438,10 +565,22 @@ class BellbankHelper:
             session_id = data.get('sessionId')
             stamp_duty = data.get('stampDuty')
 
-            find_session = InboundTransferModel.query.filter_by(session_id=session_id).first()
+            # Idempotency. Providers retry webhooks on timeout or a non-2xx,
+            # so the same sessionId can arrive more than once. This previously
+            # detected the duplicate and then renamed it
+            # (f"{session_id}-unique-...") so it was no longer a duplicate --
+            # and credited the wallet a second time. Stop instead.
+            find_session = InboundTransferModel.query.filter_by(
+                session_id=session_id).first()
 
             if find_session:
-                session_id = f"{session_id}-unique-{secrets.token_hex(4)}"
+                print(f'[bellbank] duplicate webhook for session {session_id}; '
+                      'already credited, ignoring')
+                return jsonify({
+                    'code': 200,
+                    'code_message': 'ok',
+                    'data': 'transaction already processed'
+                }), 200
 
             balance = Cryptographer.decrypt(payverve_wallet.fund)
             new_balance = float(balance) + float(amount_received)
@@ -459,7 +598,7 @@ class BellbankHelper:
                 narration=narration,
                 recipient_name=f'{payverve_wallet.user.first_name} {payverve_wallet.user.last_name}',
                 recipient_bank="Payverve Bank",
-                recipient_account_number=f'{payverve_wallet.account_number}',
+                recipient_account_number=f'{wallet_account_number}',
                 reference_number=reference_number,
                 session_id=session_id,
                 stamp_duty=stamp_duty,

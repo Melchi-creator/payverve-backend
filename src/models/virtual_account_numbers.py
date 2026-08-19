@@ -22,7 +22,8 @@ class VirtualAccountNumberModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     account_bank_name = db.Column(db.String(), nullable=False)
     account_type = db.Column(db.String(), nullable=False, default='static')
     status = db.Column(db.String(), nullable=False, default='limited')
-    account_expiration_datetime = db.Column(db.DateTime(), nullable=False)
+    # A static account does not expire, so this is normally null.
+    account_expiration_datetime = db.Column(db.DateTime(), nullable=True)
     customer_code = db.Column(db.String(), nullable=False)
     currency_ticker = db.Column(db.String(), nullable=False, default='NGN')
     is_active = db.Column(db.Boolean(), default=True, nullable=False)

@@ -62,7 +62,22 @@ def get_config(key: str, default=None):
     return os.getenv(key, default)
 
 
+def _is_dev_value(value):
+    """True when an ENV string names a local/development environment.
+
+    Comparisons against exact strings kept taking the wrong branch because .env
+    sets ENV=development while the code tested for 'dev'. Everything that
+    branches on the environment normalises through here instead.
+    """
+    return (value or '').strip().lower() in ('dev', 'development', 'local')
+
+
 env = get_config('ENV')
+
+# Normalised environment flags. Both are False for an unrecognised value, which
+# is the safe default -- security middleware stays on and nothing auto-starts.
+is_dev = _is_dev_value(env)
+is_prod = (env or '').strip().lower() in ('prod', 'production')
 secret_key = get_config('SECRET_KEY')
 debug = get_config('DEBUG')
 
@@ -70,6 +85,13 @@ app_host = get_config('APP_HOST')
 app_port = get_config('APP_PORT')
 app_root = get_config('APP_ROOT')
 app_path = get_config('APP_PATH')
+# Shared secret for endpoints Payverve calls on itself over HTTP.
+# POST /referrals credits two wallets and was gated only by a
+# 'created_by_payverve' boolean supplied in the request body, which any
+# unauthenticated caller could simply assert.
+internal_api_secret = get_config('INTERNAL_API_SECRET')
+internal_api_secret_header = get_config(
+    'INTERNAL_API_SECRET_HEADER', 'X-Payverve-Internal')
 
 database_username = get_config('DB_USERNAME')
 database_paswword = get_config('DB_PASSWORD')
@@ -135,3 +157,8 @@ firebase_service_account_path = "firebase-service-account.json"
 bellbank_baseurl = get_config('BELLBANK_BASEURL')
 bellbank_consumer_key = get_config('BELLBANK_CONSUMER_KEY')
 bellbank_consumer_secret = get_config('BELLBANK_CONSUMER_SECRET')
+# Shared secret BellBank signs webhook payloads with. The webhook credits
+# customer wallets and rejects every request until this is set.
+bellbank_webhook_secret = get_config('BELLBANK_WEBHOOK_SECRET')
+bellbank_webhook_signature_header = get_config(
+    'BELLBANK_WEBHOOK_SIGNATURE_HEADER', 'X-Signature')

@@ -24,7 +24,8 @@ import config
 from .notification import NotificationResource
 from ..dto import UserDTOCreate
 from ..middlewares import FlutterwaveHelper, MailtrapHelper
-from ..models import CurrencyModel, UserModel, WalletModel
+from ..models import CurrencyModel, UserModel, WalletModel, db
+from ..services import registration, virtual_account
 from ..models.token_verification import TokenVerificationModel
 from ..utilities import Cryptographer, parse_params
 from ..value_object import EmailCheck, MinimumBalance, MobileNumberCheck, PasswordValidation, UsernameCheck
@@ -140,11 +141,12 @@ class UserResource(Resource):
                     'message': "gender must be either 'male' or 'female'"
                 }), 400
 
-            date_of_birth_parsed = datetime.strptime(
-                user_data.date_of_birth,
-                "%Y-%m-%d"
-            ).year
-            if datetime.now().year - int(date_of_birth_parsed) < 18:
+            # Parsed into a real date rather than handed to the column as a
+            # string: date_of_birth is a DATE, and relying on the driver to
+            # coerce it is a portability trap.
+            parsed_date_of_birth = datetime.strptime(
+                user_data.date_of_birth, "%Y-%m-%d").date()
+            if datetime.now().year - parsed_date_of_birth.year < 18:
                 return jsonify({
                     'code': 400,
                     'status_message': 'bad request',
@@ -161,190 +163,124 @@ class UserResource(Resource):
                 user_code=user_code,
                 customer_code=customer_code,
                 gender=user_data.gender.lower(),
-                date_of_birth=user_data.date_of_birth
+                date_of_birth=parsed_date_of_birth
             )
 
             new_user.set_password(user_data.password)
-            new_user.save()
 
-            # Create NGN wallet
-            payload = {
-                'user_id': str(new_user.id),
-                'currency_id': str(CurrencyModel.query.filter_by(short_code='ngn').first().id),
-                'created_by_payverve': True,
-                'email_address': new_user.email_address,
-                'bvn': '12345678901',
-            }
+            # One transaction for the whole signup. flush() assigns the user id
+            # the wallet, referral and kyc rows need without committing, so any
+            # failure below rolls the lot back. This replaced three HTTP calls
+            # the app made to its own /ngn-wallets, /referrals and /kycs
+            # endpoints, each of which committed on its own and left the earlier
+            # steps stranded when a later one failed -- unpicked by compensating
+            # deletes and a referral claw-back that debited the referrer even on
+            # paths where nothing had been credited.
+            db.session.add(new_user)
+            db.session.flush()
 
-            response = requests.request(
-                "POST", f'{config.app_path}/ngn-wallets', json=payload)
+            currency_id = registration.ngn_currency_id()
+            wallet = registration.stage_ngn_wallet(new_user.id, currency_id)
 
-            if response.status_code != 201:
-                new_user_account = UserModel.query.filter_by(
-                    id=str(new_user.id)).first()
-                new_user_account.delete()
-                return jsonify({
-                    'code': response.status_code,
-                    'status_message': response.json().get('code_status', 'error'),
-                    'message': response.json().get('data', 'an error occurred while creating wallet')
-                }), response.status_code
+            # BellBank issues an account against a verified identity, so a real
+            # number can only be handed out at signup when the client sends a
+            # bvn and address. Without them the wallet exists but stays
+            # unprovisioned until KYC supplies them -- it is never given a
+            # placeholder, because deposits are matched on that column.
+            if user_data.bvn and user_data.address:
+                virtual_account.provision_ngn_virtual_account(
+                    new_user, wallet, user_data.bvn, user_data.address,
+                    currency_id)
 
-            # Handle referral
-            referral_confirmation_id = None
             if user_data.referral_code:
-                referral_confirmation = UserModel.query.filter_by(
+                referrer = UserModel.query.filter_by(
                     user_code=user_data.referral_code).first()
 
-                if not referral_confirmation:
-                    # Rollback wallet + user
-                    WalletModel.query.filter_by(
-                        user_id=new_user.id).first().delete()
-                    UserModel.query.filter_by(id=new_user.id).first().delete()
-                    return jsonify({
-                        'code': 404,
-                        'status_message': 'not found',
-                        'message': 'there is no user with that referral code'
-                    }), 404
+                if not referrer:
+                    raise registration.RegistrationError(
+                        404, 'not found',
+                        'there is no user with that referral code')
 
-                referral_confirmation_id = referral_confirmation.id
+                registration.stage_referral(referrer, new_user, currency_id)
 
-                referral_payload = {
-                    'referral_id': str(referral_confirmation.id),
-                    'referral_code': referral_confirmation.user_code,
-                    'referred_id': str(new_user.id),
-                    'referred_code': new_user.user_code,
-                    'created_by_payverve': True,
-                    'email_address': new_user.email_address,
-                }
-
-                referral_response = requests.request(
-                    "POST", f'{config.app_path}/referrals', json=referral_payload)
-
-                if referral_response.status_code != 201:
-                    # Deduct referral bonus and rollback
-                    ngn_wallet_id = CurrencyModel.query.filter_by(
-                        short_code='ngn').first().id
-                    referral_wallet = WalletModel.query.filter_by(
-                        user_id=referral_confirmation.id,
-                        currency_id=ngn_wallet_id
-                    ).first()
-
-                    decrypted = float(
-                        Cryptographer.decrypt(referral_wallet.fund))
-                    MinimumBalance(decrypted)
-                    referral_bonus = decrypted - float(500.00)
-                    MinimumBalance(referral_bonus)
-                    referral_wallet.fund = Cryptographer.encrypt(
-                        referral_bonus)
-                    referral_wallet.save()
-
-                    WalletModel.query.filter_by(
-                        user_id=new_user.id).first().delete()
-                    UserModel.query.filter_by(id=new_user.id).first().delete()
-
-                    return jsonify({
-                        'code': referral_response.status_code,
-                        'status_message': referral_response.json().get('code_status', 'error'),
-                        'message': referral_response.json().get('data', 'an error occurred registering referrals')
-                    }), referral_response.status_code
-
-            # Create KYC
-            kyc_payload = {
-                'user_id': str(new_user.id),
-                'created_by_payverve': True,
-                'email_address': new_user.email_address,
-                'new_user': True,
-                'full_name': f"{new_user.first_name} {new_user.last_name}",
-                'mobile_number': new_user.mobile_number,
-            }
-
-            kyc_response = requests.request(
-                "POST", f'{config.app_path}/kycs', json=kyc_payload)
-
-            if kyc_response.status_code != 201:
-                if user_data.referral_code and referral_confirmation_id:
-                    ngn_wallet_id = CurrencyModel.query.filter_by(
-                        short_code='ngn').first().id
-                    referral_wallet = WalletModel.query.filter_by(
-                        user_id=referral_confirmation_id,
-                        currency_id=ngn_wallet_id
-                    ).first()
-
-                    decrypted = float(
-                        Cryptographer.decrypt(referral_wallet.fund))
-                    MinimumBalance(decrypted)
-                    referral_bonus = decrypted - float(500.00)
-                    MinimumBalance(referral_bonus)
-                    referral_wallet.fund = Cryptographer.encrypt(
-                        referral_bonus)
-                    referral_wallet.save()
-
-                WalletModel.query.filter_by(
-                    user_id=new_user.id).first().delete()
-                UserModel.query.filter_by(id=new_user.id).first().delete()
-
-                return jsonify({
-                    'code': kyc_response.status_code,
-                    'status_message': kyc_response.json().get('code_status', 'error'),
-                    'message': kyc_response.json().get('data', 'an error occurred while creating KYC')
-                }), kyc_response.status_code
-
-            # Send verification email
-            verification_code = str(secrets.randbelow(1000000)).zfill(6)
-            print("=" * 60)
-            print(f"EMAIL VERIFICATION CODE: {verification_code}")
-            print("=" * 60)
-
-            # noinspection PyArgumentList
-            new_verification_code = TokenVerificationModel(
-                channel='email',
-                channel_contact=new_user.email_address,
-                code_sent=Cryptographer.encrypt(verification_code),
-                expiration_time=900,
-                timestamp=datetime.now(),
-                status='pending'
+            registration.stage_kyc(
+                new_user.id,
+                f"{new_user.first_name} {new_user.last_name}",
+                new_user.mobile_number,
             )
 
-            new_verification_code.save()
+            db.session.commit()
 
-            expiry_time = new_verification_code.timestamp + \
-                timedelta(seconds=new_verification_code.expiration_time)
-            current_year = datetime.now().year
+            # Everything below is a side effect of an account that already
+            # exists. A template or Mailtrap failure here used to fall through
+            # to the generic handlers and return 500 for a registration that
+            # had in fact succeeded -- and the caller could not retry, because
+            # the email address was taken. The user can request a new code from
+            # the resend endpoint, so log and carry on.
+            try:
+                # Send verification email
+                verification_code = str(secrets.randbelow(1000000)).zfill(6)
+                # Local-dev convenience only. Must stay behind is_dev: in
+                # production this puts a live verification code in the logs, where
+                # anyone with log access can use it.
+                if config.is_dev:
+                    print(f"[DEV] Verification code for "
+                          f"{new_user.email_address}: {verification_code}")
 
-            MailtrapHelper.mailtrap_email_sender(
-                config.mailtrap_payverve_security_name,
-                config.mailtrap_payverve_security_email,
-                '/send',
-                [{"email": new_user.email_address,
-                    "name": f"{new_user.first_name} {new_user.last_name}"}],
-                f"{new_user.first_name} Confirm your Account",
-                render_template(
-                    'customer/email_verification.html',
-                    first_name=new_user.first_name,
-                    last_name=new_user.last_name,
-                    verification_code=verification_code,
-                    user_email_address=new_user.email_address,
-                    current_year=current_year,
-                    expiry_time=expiry_time.strftime("%I:%M %p"),
+                # noinspection PyArgumentList
+                new_verification_code = TokenVerificationModel(
+                    channel='email',
+                    channel_contact=new_user.email_address,
+                    code_sent=Cryptographer.encrypt(verification_code),
+                    expiration_time=900,
+                    timestamp=datetime.now(),
+                    status='pending'
                 )
-            )
 
-            # Send welcome email
-            MailtrapHelper.mailtrap_email_sender(
-                config.mailtrap_payverve_eva_name,
-                config.mailtrap_payverve_eva_email,
-                '/send',
-                [{"email": new_user.email_address,
-                    "name": f"{new_user.first_name} {new_user.last_name}"}],
-                f"Welcome to Payverve, {new_user.first_name} – Your Boardless Journey Starts Here 🌱",
-                render_template(
-                    'customer/email_welcome.html',
-                    first_name=new_user.first_name,
-                    last_name=new_user.last_name,
-                    user_email_address=new_user.email_address,
-                    current_year=current_year,
+                new_verification_code.save()
+
+                expiry_time = new_verification_code.timestamp + \
+                    timedelta(seconds=new_verification_code.expiration_time)
+                current_year = datetime.now().year
+
+                MailtrapHelper.mailtrap_email_sender(
+                    config.mailtrap_payverve_security_name,
+                    config.mailtrap_payverve_security_email,
+                    '/send',
+                    [{"email": new_user.email_address,
+                        "name": f"{new_user.first_name} {new_user.last_name}"}],
+                    f"{new_user.first_name} Confirm your Account",
+                    render_template(
+                        'customer/email_verification.html',
+                        first_name=new_user.first_name,
+                        last_name=new_user.last_name,
+                        verification_code=verification_code,
+                        user_email_address=new_user.email_address,
+                        current_year=current_year,
+                        expiry_time=expiry_time.strftime("%I:%M %p"),
+                    )
                 )
-            )
+
+                # Send welcome email
+                MailtrapHelper.mailtrap_email_sender(
+                    config.mailtrap_payverve_eva_name,
+                    config.mailtrap_payverve_eva_email,
+                    '/send',
+                    [{"email": new_user.email_address,
+                        "name": f"{new_user.first_name} {new_user.last_name}"}],
+                    f"Welcome to Payverve, {new_user.first_name} – Your Boardless Journey Starts Here 🌱",
+                    render_template(
+                        'customer/email_welcome.html',
+                        first_name=new_user.first_name,
+                        last_name=new_user.last_name,
+                        user_email_address=new_user.email_address,
+                        current_year=current_year,
+                    )
+                )
+            except Exception as e:
+                db.session.rollback()
+                print(f'[registration] account {new_user.email_address} was '
+                      f'created but the verification email failed: {e}')
 
             return jsonify({
                 'code': 201,
@@ -352,13 +288,22 @@ class UserResource(Resource):
                 'message': 'account was successfully created'
             }), 201
 
+        except registration.RegistrationError as e:
+            # A signup step refused. Nothing was committed, so the rollback
+            # leaves no half-registered user behind and no money moved.
+            db.session.rollback()
+            return jsonify(e.as_payload()), e.code
+
         except ValueError as e:
+            db.session.rollback()
             return jsonify({'code': 400, 'status_message': 'bad request - value error', 'message': str(e)}), 400
 
         except TypeError as e:
+            db.session.rollback()
             return jsonify({'code': 400, 'status_message': 'bad request - type error', 'message': str(e)}), 400
 
         except IntegrityError:
+            db.session.rollback()
             return jsonify({
                 'code': 409,
                 'status_message': 'conflict - integrity error',
@@ -366,15 +311,19 @@ class UserResource(Resource):
             }), 409
 
         except DataError:
+            db.session.rollback()
             return jsonify({'code': 400, 'status_message': 'bad request - data error', 'message': 'ensure input data are correct'}), 400
 
         except InternalError:
+            db.session.rollback()
             return jsonify({'code': 500, 'status_message': 'internal server error', 'message': 'could not fetch data'}), 500
 
         except (OperationalError, DisconnectionError, SQLAlchemyError):
+            db.session.rollback()
             return jsonify({'code': 500, 'status_message': 'database error', 'message': 'could not fetch data'}), 500
 
         except ProgrammingError:
+            db.session.rollback()
             return jsonify({'code': 500, 'status_message': 'database error - programming error', 'message': 'could not fetch table'}), 500
 
     @staticmethod
@@ -874,9 +823,9 @@ class UserResource(Resource):
             # resend verification email
 
             verification_code = str(secrets.randbelow(1000000)).zfill(6)
-            print("=" * 60)
-            print(f"RESEND EMAIL VERIFICATION CODE: {verification_code}")
-            print("=" * 60)
+            # Local-dev convenience only; see the note in create().
+            if config.is_dev:
+                print(f"[DEV] Resend verification code: {verification_code}")
 
             # noinspection PyArgumentList
             new_verification_code = TokenVerificationModel(
