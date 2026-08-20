@@ -19,6 +19,26 @@ from src.resources.notification import NotificationResource
 from ..utilities import Cryptographer
 
 
+BELLBANK_API_VERSION = 'v1'
+
+
+def bellbank_url(path):
+    """Build a BellBank endpoint URL.
+
+    Every call used to be built as f'{bellbank_baseurl}{path}', and
+    BELLBANK_BASEURL is the bare host, so all of them hit nginx and came back
+    404: the documented paths are /v1/generate-token,
+    /v1/account/clients/individual and so on. Tolerates a base url that already
+    carries the prefix, so setting it either way works.
+    """
+    base = (config.bellbank_baseurl or '').rstrip('/')
+
+    if not base.endswith('/' + BELLBANK_API_VERSION):
+        base = f'{base}/{BELLBANK_API_VERSION}'
+
+    return f"{base}/{path.lstrip('/')}"
+
+
 class BellbankHelper:
     """  """
 
@@ -28,7 +48,7 @@ class BellbankHelper:
 
         try:
 
-            url = f'{config.bellbank_baseurl}/generate-token'
+            url = bellbank_url('generate-token')
 
             headers = {
                 "Content-Type": "application/json",
@@ -57,7 +77,7 @@ class BellbankHelper:
 
         try:
 
-            url = f'{config.bellbank_baseurl}/account/clients/individual'
+            url = bellbank_url('account/clients/individual')
 
             message = f'{gender}{mobile_number}{first_name}{last_name}'
             idempotency_key = hmac.new(config.secret_key.encode(), message.encode(), hashlib.sha256).hexdigest()
@@ -99,7 +119,7 @@ class BellbankHelper:
 
         try:
 
-            url = f'{config.bellbank_baseurl}/transfer/banks'
+            url = bellbank_url('transfer/banks')
             access_token = BellbankHelper.bellbank_authentication('2')
 
             headers = {
@@ -125,7 +145,7 @@ class BellbankHelper:
 
         try:
 
-            url = f'{config.bellbank_baseurl}/transfer/name-enquiry'
+            url = bellbank_url('transfer/name-enquiry')
 
             headers = {
                 'content-type': 'application/json',
@@ -156,7 +176,7 @@ class BellbankHelper:
 
         try:
 
-            url = f'{config.bellbank_baseurl}/transfer'
+            url = bellbank_url('transfer')
 
             message = f'{sender_name}{amount}{bank_code}{account_number}{recipient_name}'
             idempotency_key = hmac.new(config.secret_key.encode(), message.encode(), hashlib.sha256).hexdigest()
@@ -195,7 +215,7 @@ class BellbankHelper:
 
         try:
 
-            url = f'{config.bellbank_baseurl}/transactions/reference/{reference}'
+            url = bellbank_url(f'transactions/reference/{reference}')
 
             headers = {
                 'content-type': 'application/json',
