@@ -117,6 +117,20 @@ def kyc_details(user_id):
     return kyc.bvn, kyc.address
 
 
+def kyc_gap(user_id):
+    """What is stopping this user being provisioned, for the report."""
+    kyc = KYCModel.query.filter_by(user_id=user_id).first()
+
+    if not kyc:
+        return 'no kyc record at all'
+
+    missing = [name for name, value in (('bvn', kyc.bvn),
+                                        ('address', kyc.address))
+               if not value]
+
+    return f"missing {' and '.join(missing)} (kyc tier {kyc.tier})"
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='Provision real BellBank virtual accounts for existing '
@@ -194,7 +208,7 @@ def main():
 
             if not bvn or not address:
                 tally['waiting on kyc'] += 1
-                print(f'  WAIT    {who}: no bvn/address on kyc yet')
+                print(f'  WAIT    {who}: {kyc_gap(wallet.user_id)}')
                 continue
 
             touched += 1
