@@ -264,11 +264,24 @@ class BellbankHelper:
     def client_ip():
         """The address the webhook actually came from.
 
-        Behind Render's proxy request.remote_addr is the proxy, so the client
-        is the first entry of X-Forwarded-For. That header is caller-supplied
-        and therefore only trustworthy because the platform rewrites it; it is
-        not a substitute for a signature.
+        Order matters, and X-Forwarded-For is deliberately last of the headers.
+        Cloudflare sits in front of this service and *appends* to
+        X-Forwarded-For rather than replacing it, so its leftmost entry is
+        whatever the caller sent -- anyone can put an allowlisted address there
+        and walk through the IP check. CF-Connecting-IP is written by Cloudflare
+        and overwrites any client value, so it is the one that cannot be forged
+        from outside.
+
+        If this ever runs somewhere without Cloudflare in front, the
+        X-Forwarded-For fallback becomes spoofable again and the allowlist stops
+        being a real control.
         """
+        for header in ('CF-Connecting-IP', 'True-Client-IP'):
+            value = request.headers.get(header)
+
+            if value:
+                return value.strip()
+
         forwarded = request.headers.get('X-Forwarded-For', '')
 
         if forwarded:

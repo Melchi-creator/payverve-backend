@@ -102,6 +102,25 @@ def main():
           verify(headers={'X-Forwarded-For': '203.0.113.9'},
                  secret=SECRET, ips=BELL_IP), False)
 
+    # Cloudflare sits in front of this service and appends to X-Forwarded-For
+    # rather than replacing it, so its leftmost entry is caller-controlled. An
+    # attacker putting an allowlisted address there must not get in.
+    attacker = '203.0.113.66'
+    check('spoofed X-Forwarded-For loses to CF-Connecting-IP',
+          verify(headers={'X-Forwarded-For': f'{BELL_IP}, 10.0.0.1',
+                          'CF-Connecting-IP': attacker},
+                 ips=BELL_IP), False)
+    check('  genuine CF-Connecting-IP is accepted',
+          verify(headers={'X-Forwarded-For': f'{attacker}, 10.0.0.1',
+                          'CF-Connecting-IP': BELL_IP},
+                 ips=BELL_IP), True)
+    check('  True-Client-IP also outranks X-Forwarded-For',
+          verify(headers={'X-Forwarded-For': BELL_IP,
+                          'True-Client-IP': attacker},
+                 ips=BELL_IP), False)
+    check('  X-Forwarded-For still used with no cloudflare header',
+          verify(headers={'X-Forwarded-For': BELL_IP}, ips=BELL_IP), True)
+
     if _failures:
         print(f'\n{len(_failures)} FAILURES: {_failures}')
         return 1
