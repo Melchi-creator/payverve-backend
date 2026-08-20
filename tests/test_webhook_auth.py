@@ -7,8 +7,10 @@ allowlist, and must still fail closed when neither is configured.
 
 Run:  ENV=development PYTHONPATH=. python tests/test_webhook_auth.py
 """
+import contextlib
 import hashlib
 import hmac
+import io as _io
 import json
 import sys
 
@@ -50,6 +52,18 @@ def verify(body=BODY, headers=None, secret=None, ips=''):
 def main():
     # Nothing configured -> fail closed.
     check('no secret and no ip allowlist rejected', verify(), False)
+
+    # ...but it must say where the request came from, because BellBank does not
+    # publish their addresses and the portal has no allowlist page. That log
+    # line is the only way to learn what belongs in BELLBANK_WEBHOOK_IPS.
+    log = _io.StringIO()
+    with contextlib.redirect_stdout(log):
+        verify(headers={'X-Forwarded-For': BELL_IP})
+    output = log.getvalue()
+    check('  and reports the source address for bootstrapping',
+          BELL_IP in output, True)
+    check('  and does not admit the request anyway',
+          verify(headers={'X-Forwarded-For': BELL_IP}), False)
 
     # Signature path.
     check('valid signature accepted',

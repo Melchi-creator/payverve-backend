@@ -351,15 +351,25 @@ class BellbankHelper:
                    in (getattr(config, 'bellbank_webhook_ips', '') or '').split(',')
                    if ip.strip()]
 
+        source = BellbankHelper.client_ip()
+
         if not allowed:
+            # The address is logged because it is the only way to learn it.
+            # BellBank does not publish the addresses they send from and their
+            # portal has no allowlist page, so the first genuine notification to
+            # arrive is what tells you what to put in BELLBANK_WEBHOOK_IPS.
+            # Rejected either way -- this reports, it does not admit.
             print('[bellbank] webhook rejected: neither '
                   'BELLBANK_WEBHOOK_SECRET (with a signature header) nor '
                   'BELLBANK_WEBHOOK_IPS is configured, so the request cannot '
                   'be shown to be from BellBank. Deposits cannot be credited '
                   'until one is set.')
+            print(f'[bellbank] this request came from {source}. If you are '
+                  'expecting a deposit right now, that is likely BellBank: '
+                  'verify it with them, then set BELLBANK_WEBHOOK_IPS to it.')
+            print(f'[bellbank] headers seen: '
+                  f'{sorted(request.headers.keys())}')
             return False
-
-        source = BellbankHelper.client_ip()
 
         if source not in allowed:
             print(f'[bellbank] webhook rejected: {source} is not in '
