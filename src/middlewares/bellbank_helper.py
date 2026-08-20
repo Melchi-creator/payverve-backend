@@ -424,7 +424,11 @@ class BellbankHelper:
                 return jsonify({
                     'code': 401,
                     'code_message': 'unauthorised',
-                    'data': 'invalid webhook signature'
+                    # Not necessarily a signature: BellBank does not sign,
+                    # so this is usually an unrecognised source address. The
+                    # server log says which check refused and why.
+                    'data': 'request could not be verified as coming from '
+                            'BellBank'
                 }), 401
 
             # Parse the payload
