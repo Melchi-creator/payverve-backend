@@ -316,10 +316,17 @@ class BellbankHelper:
         with jwt_required -- BellBank has no Payverve JWT to send, which is why
         every collection notification was rejected with 401.
 
-        BellBank's public documentation describes no webhook signature at all:
-        no header, no algorithm, no verification procedure. Their security model
-        for the API is IP allowlisting, so this accepts either proof, in order
-        of strength:
+        BellBank does not sign webhooks. Confirmed in the business portal
+        (Settings -> API Configuration): the whole webhook configuration, for
+        both live and test mode, is a single 'Webhook URL' field. There is no
+        signing secret, no signature setting and no IP allowlist there, and
+        their public documentation describes no signature either.
+
+        So in practice the IP branch below is the one that runs, and
+        BELLBANK_WEBHOOK_IPS has to be set from the addresses BellBank gives
+        you. The signature branch is kept because it costs nothing and is the
+        better proof if they ever add one. Either is accepted, strongest
+        first:
 
           1. a valid signature, when BELLBANK_WEBHOOK_SECRET is set and they do
              in fact sign -- confirm the header name and scheme with them, and
