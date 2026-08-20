@@ -21,6 +21,10 @@ from ..utilities import Cryptographer
 
 BELLBANK_API_VERSION = 'v1'
 
+# No call had a timeout, so a hung connection to BellBank pinned a worker
+# indefinitely. Connect and read, in seconds.
+BELLBANK_TIMEOUT = (10, 45)
+
 
 def bellbank_url(path):
     """Build a BellBank endpoint URL.
@@ -57,18 +61,20 @@ class BellbankHelper:
                 "validityTime": minutes
             }
 
-            response = requests.request('POST', url, headers=headers)
+            response = requests.request('POST', url, headers=headers,
+                                        timeout=BELLBANK_TIMEOUT)
 
             access_token = response.json().get('token')
 
             return access_token
 
         except Exception as e:
-            return jsonify({
-                'code': 500,
-                'status_message': 'server error',
-                'message': f'an error occurred: {str(e)}'
-            }), 500
+            # None rather than a jsonify tuple: callers read .status_code off
+            # this, or interpolate it into an Authorization header, so a tuple
+            # turned a bank outage into an AttributeError or a request sent as
+            # 'Bearer (<Response ...>, 500)'.
+            print(f'[bellbank] request failed: {type(e).__name__}: {e}')
+            return None
 
     @staticmethod
     def bellbank_virtual_account(access_token, mobile_number, first_name, last_name, address, bvn, gender,
@@ -102,16 +108,19 @@ class BellbankHelper:
                 "metadata": meta_data,
             }
 
-            response = requests.request('POST', url, headers=headers, json=payload)
+            response = requests.request('POST', url, headers=headers,
+                                        json=payload,
+                                        timeout=BELLBANK_TIMEOUT)
 
             return response
 
         except Exception as e:
-            return jsonify({
-                'code': 500,
-                'status_message': 'server error',
-                'message': f'an error occurred: {str(e)}'
-            }), 500
+            # None rather than a jsonify tuple: callers read .status_code off
+            # this, or interpolate it into an Authorization header, so a tuple
+            # turned a bank outage into an AttributeError or a request sent as
+            # 'Bearer (<Response ...>, 500)'.
+            print(f'[bellbank] request failed: {type(e).__name__}: {e}')
+            return None
 
     @staticmethod
     def list_bell_ngn_banks():
@@ -128,16 +137,18 @@ class BellbankHelper:
                 'Authorization': f'Bearer {access_token}',
             }
 
-            response = requests.request('GET', url, headers=headers)
+            response = requests.request('GET', url, headers=headers,
+                                        timeout=BELLBANK_TIMEOUT)
 
             return response
 
         except Exception as e:
-            return jsonify({
-                'code': 500,
-                'status_message': 'server error',
-                'message': f'an error occurred: {str(e)}'
-            }), 500
+            # None rather than a jsonify tuple: callers read .status_code off
+            # this, or interpolate it into an Authorization header, so a tuple
+            # turned a bank outage into an AttributeError or a request sent as
+            # 'Bearer (<Response ...>, 500)'.
+            print(f'[bellbank] request failed: {type(e).__name__}: {e}')
+            return None
 
     @staticmethod
     def bell_resolve_account_number(account: int, bank_code: str, access_token):
@@ -158,16 +169,19 @@ class BellbankHelper:
                 "bankCode": bank_code
             }
 
-            response = requests.request('POST', url, headers=headers, json=payload)
+            response = requests.request('POST', url, headers=headers,
+                                        json=payload,
+                                        timeout=BELLBANK_TIMEOUT)
 
             return response
 
         except Exception as e:
-            return jsonify({
-                'code': 500,
-                'status_message': 'server error',
-                'message': f'an error occurred: {str(e)}'
-            }), 500
+            # None rather than a jsonify tuple: callers read .status_code off
+            # this, or interpolate it into an Authorization header, so a tuple
+            # turned a bank outage into an AttributeError or a request sent as
+            # 'Bearer (<Response ...>, 500)'.
+            print(f'[bellbank] request failed: {type(e).__name__}: {e}')
+            return None
 
     @staticmethod
     def transfer_outbound(bank_code, amount, narration, account_number, reference, sender_name, recipient_name,
@@ -178,8 +192,15 @@ class BellbankHelper:
 
             url = bellbank_url('transfer')
 
-            message = f'{sender_name}{amount}{bank_code}{account_number}{recipient_name}'
-            idempotency_key = hmac.new(config.secret_key.encode(), message.encode(), hashlib.sha256).hexdigest()
+            # Keyed on the reference, which is unique per transfer. It used to
+            # be built from sender, amount, bank, account and recipient, so two
+            # genuine transfers of the same amount to the same person produced
+            # the same key: BellBank collapses the second into the first, while
+            # the caller reads the 200 as success and debits the wallet again.
+            # A retry of one transfer reuses its reference and still dedupes.
+            idempotency_key = hmac.new(
+                config.secret_key.encode(), str(reference).encode(),
+                hashlib.sha256).hexdigest()
 
             headers = {
                 'content-type': 'application/json',
@@ -198,16 +219,19 @@ class BellbankHelper:
                 "senderName": sender_name,
             }
 
-            response = requests.request('POST', url, headers=headers, json=payload)
+            response = requests.request('POST', url, headers=headers,
+                                        json=payload,
+                                        timeout=BELLBANK_TIMEOUT)
 
             return response
 
         except Exception as e:
-            return jsonify({
-                'code': 500,
-                'status_message': 'server error',
-                'message': f'an error occurred: {str(e)}'
-            }), 500
+            # None rather than a jsonify tuple: callers read .status_code off
+            # this, or interpolate it into an Authorization header, so a tuple
+            # turned a bank outage into an AttributeError or a request sent as
+            # 'Bearer (<Response ...>, 500)'.
+            print(f'[bellbank] request failed: {type(e).__name__}: {e}')
+            return None
 
     @staticmethod
     def transfer_requery(reference, access_token):
@@ -223,16 +247,18 @@ class BellbankHelper:
                 'Authorization': f'Bearer {access_token}',
             }
 
-            response = requests.request('GET', url, headers=headers)
+            response = requests.request('GET', url, headers=headers,
+                                        timeout=BELLBANK_TIMEOUT)
 
             return response
 
         except Exception as e:
-            return jsonify({
-                'code': 500,
-                'status_message': 'server error',
-                'message': f'an error occurred: {str(e)}'
-            }), 500
+            # None rather than a jsonify tuple: callers read .status_code off
+            # this, or interpolate it into an Authorization header, so a tuple
+            # turned a bank outage into an AttributeError or a request sent as
+            # 'Bearer (<Response ...>, 500)'.
+            print(f'[bellbank] request failed: {type(e).__name__}: {e}')
+            return None
 
     @staticmethod
     def client_ip():

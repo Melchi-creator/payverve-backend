@@ -59,6 +59,13 @@ class LocalTransferResource(Resource):
             response = BellbankHelper.bell_resolve_account_number(
                 account, bank_code, access_token)
 
+            if response is None:
+                return jsonify({
+                    'code': 502,
+                    'status_message': 'bad gateway',
+                    'message': 'could not reach the bank to resolve that account'
+                }), 502
+
             if not compare_digest(str(response.status_code), '200'):
                 return jsonify({
                     'code': response.status_code,
@@ -204,6 +211,13 @@ class LocalTransferResource(Resource):
                 access_token=access_token
             )
 
+            if transfer_response is None:
+                return jsonify({
+                    'code': 502,
+                    'status_message': 'bad gateway',
+                    'message': 'could not reach the bank to make that transfer; no money has left your wallet'
+                }), 502
+
             if not compare_digest(str(transfer_response.status_code), '200'):
                 return jsonify({
                     'code': transfer_response.status_code,
@@ -324,6 +338,13 @@ class LocalTransferResource(Resource):
             access_token = BellbankHelper.bellbank_authentication('6')
             requery_respone = BellbankHelper.transfer_requery(
                 reference_number, access_token)
+
+            if requery_respone is None:
+                return jsonify({
+                    'code': 502,
+                    'status_message': 'bad gateway',
+                    'message': 'could not reach the bank to check that transaction'
+                }), 502
 
             if not compare_digest(str(requery_respone.status_code), '200'):
                 return jsonify({

@@ -50,6 +50,13 @@ class MiscellaneousResources(Resource):
 
             response = BellbankHelper.list_bell_ngn_banks()
 
+            if response is None:
+                return jsonify({
+                    'code': 502,
+                    'status_message': 'bad gateway',
+                    'message': 'could not reach the bank to fetch the bank list'
+                }), 502
+
             if not compare_digest(str(response.status_code), '200'):
                 return jsonify({
                     'code': response.status_code,
