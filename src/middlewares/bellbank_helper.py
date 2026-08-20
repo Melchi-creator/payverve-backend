@@ -235,34 +235,41 @@ class BellbankHelper:
             }), 500
 
     @staticmethod
-    def verify_bellbank_signature(raw_payload):
+    def client_ip():
+        """The address the webhook actually came from.
+
+        Behind Render's proxy request.remote_addr is the proxy, so the client
+        is the first entry of X-Forwarded-For. That header is caller-supplied
+        and therefore only trustworthy because the platform rewrites it; it is
+        not a substitute for a signature.
         """
-        Confirm the request really came from BellBank.
+        forwarded = request.headers.get('X-Forwarded-For', '')
 
-        This endpoint credits customer wallets, so it cannot be authenticated
-        with jwt_required -- BellBank has no Payverve JWT to send, which is why
-        every collection notification was being rejected with 401. It is
-        authenticated with the shared secret instead.
+        if forwarded:
+            return forwarded.split(',')[0].strip()
 
-        Fails closed: an unset secret, a missing header or a mismatch are all
-        rejected. Without this, anyone who learns the URL could POST a forged
-        'collection' event and credit any account number.
+        return request.remote_addr
+
+    @staticmethod
+    def verify_bellbank_signature(raw_payload):
+        """Check the signature, if BellBank sends one.
+
+        Returns True/False when a secret is configured and a signature header
+        is present, and None when signature checking is not configured -- which
+        lets the caller fall back rather than treat "not configured" as "forged".
         """
         secret = getattr(config, 'bellbank_webhook_secret', None)
 
         if not secret:
-            print('[bellbank] BELLBANK_WEBHOOK_SECRET is not set; '
-                  'rejecting webhook. Deposits cannot be credited until it is '
-                  'configured.')
-            return False
+            return None
 
         header_name = getattr(
             config, 'bellbank_webhook_signature_header', 'X-Signature')
         sent_signature = request.headers.get(header_name)
 
         if not sent_signature:
-            print(f'[bellbank] webhook rejected: no {header_name} header')
-            return False
+            print(f'[bellbank] no {header_name} header on webhook')
+            return None
 
         expected = hmac.new(
             secret.encode(), raw_payload, hashlib.sha256
@@ -271,6 +278,59 @@ class BellbankHelper:
         # compare_digest avoids leaking the signature through timing.
         if not hmac.compare_digest(expected, sent_signature.strip()):
             print('[bellbank] webhook rejected: signature mismatch')
+            return False
+
+        return True
+
+    @staticmethod
+    def verify_bellbank_request(raw_payload):
+        """Confirm the request really came from BellBank.
+
+        This endpoint credits customer wallets, so it cannot be authenticated
+        with jwt_required -- BellBank has no Payverve JWT to send, which is why
+        every collection notification was rejected with 401.
+
+        BellBank's public documentation describes no webhook signature at all:
+        no header, no algorithm, no verification procedure. Their security model
+        for the API is IP allowlisting, so this accepts either proof, in order
+        of strength:
+
+          1. a valid signature, when BELLBANK_WEBHOOK_SECRET is set and they do
+             in fact sign -- confirm the header name and scheme with them, and
+             prefer this;
+          2. otherwise a source address in BELLBANK_WEBHOOK_IPS.
+
+        Fails closed when neither is configured, and a signature that is present
+        but wrong is always rejected, never downgraded to the IP check. Without
+        this, anyone who learns the URL could POST a forged 'collection' event
+        and credit any account number.
+        """
+        signature_result = BellbankHelper.verify_bellbank_signature(raw_payload)
+
+        if signature_result is True:
+            return True
+
+        if signature_result is False:
+            # A bad signature is a forgery, not a reason to try something else.
+            return False
+
+        allowed = [ip.strip() for ip
+                   in (getattr(config, 'bellbank_webhook_ips', '') or '').split(',')
+                   if ip.strip()]
+
+        if not allowed:
+            print('[bellbank] webhook rejected: neither '
+                  'BELLBANK_WEBHOOK_SECRET (with a signature header) nor '
+                  'BELLBANK_WEBHOOK_IPS is configured, so the request cannot '
+                  'be shown to be from BellBank. Deposits cannot be credited '
+                  'until one is set.')
+            return False
+
+        source = BellbankHelper.client_ip()
+
+        if source not in allowed:
+            print(f'[bellbank] webhook rejected: {source} is not in '
+                  'BELLBANK_WEBHOOK_IPS')
             return False
 
         return True
@@ -317,7 +377,7 @@ class BellbankHelper:
             payload = request.data
 
             # Verify before parsing or touching any balance.
-            if not BellbankHelper.verify_bellbank_signature(payload):
+            if not BellbankHelper.verify_bellbank_request(payload):
                 return jsonify({
                     'code': 401,
                     'code_message': 'unauthorised',

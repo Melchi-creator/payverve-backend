@@ -162,3 +162,8 @@ bellbank_consumer_secret = get_config('BELLBANK_CONSUMER_SECRET')
 bellbank_webhook_secret = get_config('BELLBANK_WEBHOOK_SECRET')
 bellbank_webhook_signature_header = get_config(
     'BELLBANK_WEBHOOK_SIGNATURE_HEADER', 'X-Signature')
+# Comma-separated addresses BellBank sends webhooks from. Their documentation
+# describes no webhook signature, and their API security is IP allowlisting, so
+# this is the fallback when signature checking is not configured. Ask BellBank
+# for the list.
+bellbank_webhook_ips = get_config('BELLBANK_WEBHOOK_IPS', '')
