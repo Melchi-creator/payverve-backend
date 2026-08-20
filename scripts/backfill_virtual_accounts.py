@@ -41,6 +41,11 @@ import re
 import sys
 import time
 
+# Run as scripts/backfill_virtual_accounts.py and sys.path[0] is scripts/, not
+# the repo root, so `import server` fails. Put the root on the path first.
+sys.path.insert(
+    0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 
 def _select_production_database():
     """Point this process at the non-local DATABASE_URL in .env.
