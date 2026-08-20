@@ -30,3 +30,8 @@ from .user import UserBlueprint
 from .virtual_account_numbers import VirtualAccountNumberBlueprint
 from .wallet import WalletBlueprint
 from .bank import BankBlueprint
+# server.py registers blueprints by iterating vars(routes), so a module that is
+# never imported here is never routed. bellbank_helper.py defined this
+# blueprint but nothing imported it, so /bellbank/webhook did not exist on any
+# deployment -- BellBank's collection notifications had nowhere to land.
+from .bellbank_helper import BellbankBlueprint
