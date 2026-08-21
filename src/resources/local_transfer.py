@@ -278,10 +278,11 @@ class LocalTransferResource(Resource):
 
             note_amount = Cryptographer.decrypt(amount)
 
-            NotificationResource.store_nofication(
+            NotificationResource.store_and_push(
                 title="Local Transfer",
                 body=f"{wallet_check.currency_ticker}{float(note_amount): ,.2f} was sent to  {recipient_name}",
                 user_id=user_id,
+                data={"type": "wallet_debit", "amount": note_amount},
             )
 
             # Spend and Save Transactions

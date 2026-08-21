@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(venv/Scripts/python.exe scripts/backfill_virtual_accounts.py:*)"
+    ]
+  }
+}

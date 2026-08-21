@@ -608,10 +608,11 @@ class BellbankHelper:
 
             new_transaction.save()
 
-            NotificationResource.store_nofication(
+            NotificationResource.store_and_push(
                 title="Payverve Transfer",
                 body=f"{payverve_wallet.currency_ticker}{float(amount_received): ,.2f} was received from {sender_name} | {sender_account_number}",
                 user_id=payverve_wallet.user_id,
+                data={"type": "wallet_credit", "amount": amount_received},
             )
 
             # Debit Charges
@@ -765,10 +766,11 @@ class BellbankHelper:
 
             new_transaction.save()
 
-            NotificationResource.store_nofication(
+            NotificationResource.store_and_push(
                 title="Local Transfer",
                 body=f"₦{float(amount_received): ,.2f} was received from {sender_name} | {sender_account_number}",
                 user_id=payverve_wallet.user_id,
+                data={"type": "wallet_credit", "amount": amount_received},
             )
 
             # Debit Charges
