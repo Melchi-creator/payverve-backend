@@ -1,13 +1,8 @@
 """
 
 """
-import hashlib
-import hmac
-import secrets
 from datetime import datetime
 from hmac import compare_digest
-
-import config
 
 from flask import jsonify, request
 from flask_restful import Resource
@@ -16,8 +11,8 @@ from sqlalchemy.exc import DisconnectionError, \
     OperationalError, \
     ProgrammingError
 
-from ..middlewares import FlutterwaveHelper
-from ..models import CurrencyModel, KYCModel, UserModel, VirtualAccountNumberModel
+from ..models import CurrencyModel, VirtualAccountNumberModel
+from ..services import registration, virtual_account
 
 
 class VirtualAccountNumberResource(Resource):
@@ -247,103 +242,33 @@ class VirtualAccountNumberResource(Resource):
         try:
             if not virtual_account_number:
 
-                user_datails = UserModel.query.filter_by(id=id).first()
-
-                if not user_datails:
+                # This branch used to create the account at Flutterwave, a
+                # different provider from the one that owns NGN deposits, and
+                # only ever ran because BellBank provisioning had not happened
+                # for this user. Issuing a Flutterwave number here handed the
+                # customer an account no BellBank webhook would ever credit.
+                # Provision the right provider instead.
+                if not compare_digest(currency_ticker, 'NGN'):
                     return jsonify({
-                        'code': 404,
-                        'status_message': 'not found',
-                        'message': 'user not found'
-                    }), 404
+                        'code': 403,
+                        'status_message': 'forbidden',
+                        'message': 'only ngn account numbers are available '
+                                   'at the moment'
+                    }), 403
 
-                kyc_check = KYCModel.query.filter_by(user_id=id).first()
+                try:
+                    virtual_account_number = (
+                        virtual_account.ensure_ngn_virtual_account(id))
+                except registration.RegistrationError as e:
+                    return jsonify(e.as_payload()), e.code
 
-                if not compare_digest(str(kyc_check.tier), '3'):
+                if not virtual_account_number:
                     return jsonify({
-                        'code': 409,
-                        'status_message': 'unauthorise',
-                        'message': 'complete your kyc before proceeding'
-                    }), 409
-
-                reference_number = hmac.new(
-                    config.secret_key.encode(),
-                    f'{user_datails.id}{currency_ticker}'.encode(),
-                    hashlib.sha256
-                ).hexdigest()[:20]
-                auth = FlutterwaveHelper.flutterwave_authentication()
-
-                # Flutterwave Virtual Account
-
-                create_virtual_account = FlutterwaveHelper.virtual_account(auth,
-                                                                           reference_number,
-                                                                           user_datails.customer_code,
-                                                                           user_datails.email_address,
-                                                                           currency_ticker,
-                                                                           user_datails,
-                                                                           kyc_check)
-
-                create_virtual_account_json = create_virtual_account.json()
-
-                if compare_digest(str(create_virtual_account.status_code), '201'):
-                    # expiry = create_virtual_account_json["data"]["account_expiration_datetime"]
-                    expiry = create_virtual_account_json.get(
-                        'data').get('account_expiration_datetime')
-
-                    # noinspection PyArgumentList
-                    currency = CurrencyModel.query.filter_by(
-                        short_code=currency_ticker_lower).first()
-
-                    create_bank_account = VirtualAccountNumberModel(
-                        virtual_account_id=create_virtual_account_json.get(
-                            'data').get('id'),
-                        account_number=create_virtual_account_json.get(
-                            'data').get('account_number'),
-                        reference=reference_number,
-                        account_bank_name=create_virtual_account_json.get(
-                            'data').get('account_bank_name'),
-                        account_type=create_virtual_account_json.get(
-                            'data').get('account_type'),
-                        account_expiration_datetime=datetime.fromisoformat(
-                            expiry.replace("Z", "+00:00")
-                        ),
-                        customer_code=user_datails.customer_code,
-                        user_id=id,
-                        currency_id=currency.id,
-                    )
-                    create_bank_account.save()
-
-                if not compare_digest(str(create_virtual_account.status_code),
-                                      '201') and not compare_digest(str(create_virtual_account.status_code), '409'):
-
-                    if compare_digest(str(create_virtual_account.status_code), '400') and 'CurrencyEnum' in create_virtual_account_json.get('error').get('message'):
-                        return jsonify({
-                            'code': create_virtual_account.status_code,
-                            'status_message': "bad request",
-                            'message': "currency not available"
-                        }), create_virtual_account.status_code
-
-                    return jsonify({
-                        'code': create_virtual_account.status_code,
-                        'status_message': create_virtual_account_json.get('status'),
-                        'message': create_virtual_account_json.get('error').get('message') if 'Failed to create virtual account' not in create_virtual_account_json.get('error').get('message') else 'Failed to retreive account, please try again'
-                    }), create_virtual_account.status_code
-
-                if compare_digest(str(create_virtual_account.status_code), '409'):
-                    search_virtual_account = FlutterwaveHelper.retreive_virtual_account(auth,
-                                                                                        create_virtual_account_json.get(
-                                                                                            'id'))
-
-                    search_virtual_account_json = search_virtual_account.json()
-
-                    if not compare_digest(str(search_virtual_account.status_code), '200'):
-                        return jsonify({
-                            'code': search_virtual_account.status_code,
-                            'status_message': search_virtual_account_json.get('status'),
-                            'message': search_virtual_account_json.get('error').get('message') if 'Failed to create virtual account' not in search_virtual_account_json.get('error').get('message') else 'Failed to retreive account, please try again'
-                        }), create_virtual_account.status_code
-
-                virtual_account_number = VirtualAccountNumberModel.query.filter_by(
-                    user_id=id, currency_ticker=currency_ticker).first()
+                        'code': 502,
+                        'status_message': 'bad gateway',
+                        'message': 'your account number could not be created, '
+                                   'please try again later'
+                    }), 502
 
             data = {
                 'id': virtual_account_number.id,

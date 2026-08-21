@@ -14,6 +14,7 @@ from sqlalchemy.exc import DataError, \
 
 from .notification import NotificationResource
 from ..models import KYCModel, UserModel
+from ..services import registration, virtual_account
 from ..utilities import parse_params
 from ..value_object import BVNCheck, NINCheck
 
@@ -368,10 +369,31 @@ class KYCResource(Resource):
                 user_id=kyc.user_id,
             )
 
+            # Provisioning previously ran only at registration and wallet
+            # creation, so anyone who supplied a bvn or address afterwards
+            # never got an account number. Now that the details are on file,
+            # retry it. Best effort on purpose: the KYC update itself has
+            # already committed, and failing the whole request over the bank
+            # would lose that.
+            account_number = None
+
+            if kyc.bvn_present and kyc.address_present:
+                try:
+                    issued = virtual_account.ensure_ngn_virtual_account(
+                        kyc.user_id)
+                    account_number = issued.account_number if issued else None
+                except registration.RegistrationError as e:
+                    print(f'[kyc] provisioning deferred for {kyc.user_id}: '
+                          f'{e.as_payload()}')
+                except Exception as e:  # noqa: BLE001 - never fail the update
+                    print(f'[kyc] provisioning errored for {kyc.user_id}: '
+                          f'{type(e).__name__}: {e}')
+
             return jsonify({
                 'code': 200,
                 'status_message': 'success',
-                'message': "kyc successfully updated"
+                'message': "kyc successfully updated",
+                'data': {'account_number': account_number}
             }), 200
 
         except IntegrityError:

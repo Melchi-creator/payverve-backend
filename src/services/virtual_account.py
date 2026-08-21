@@ -40,6 +40,66 @@ def _parse_expiry(value):
     return None
 
 
+def ensure_ngn_virtual_account(user_id):
+    """Provision a user's NGN virtual account if it is still missing.
+
+    Registration and wallet creation both provision, but only at that instant.
+    A user whose KYC had no bvn or address at the time was left without an
+    account, and nothing ever retried -- updating the KYC afterwards did not
+    reach this code. That left the account permanently unprovisioned and sent
+    the read endpoint down its legacy fallback instead.
+
+    Returns the VirtualAccountNumberModel. Raises RegistrationError carrying
+    the response the API should send when it cannot be provisioned yet.
+    """
+    # Imported here for the same reason provision_ngn_virtual_account defers
+    # its BellbankHelper import: src.models is safe, but keeping both local
+    # keeps this module importable from either side of the cycle.
+    from ..models import CurrencyModel, KYCModel, UserModel, WalletModel
+
+    currency = CurrencyModel.query.filter_by(short_code='ngn').first()
+
+    if not currency:
+        raise RegistrationError(
+            404, 'not found', 'ngn currency is not configured')
+
+    existing = VirtualAccountNumberModel.query.filter_by(
+        user_id=user_id, currency_id=currency.id).first()
+
+    if existing:
+        return existing
+
+    user = UserModel.query.filter_by(id=user_id).first()
+
+    if not user:
+        raise RegistrationError(
+            404, 'not found', 'the customer was not found')
+
+    kyc = KYCModel.query.filter_by(user_id=user_id).first()
+
+    if not kyc:
+        raise RegistrationError(
+            409, 'unauthorise', 'complete your kyc before proceeding')
+
+    wallet = WalletModel.query.filter_by(
+        user_id=user_id, currency_id=currency.id).first()
+
+    if not wallet:
+        raise RegistrationError(
+            404, 'not found', 'no ngn wallet to provision')
+
+    try:
+        provision_ngn_virtual_account(
+            user, wallet, kyc.bvn, kyc.address, currency.id)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raise
+
+    return VirtualAccountNumberModel.query.filter_by(
+        user_id=user_id, currency_id=currency.id).first()
+
+
 def provision_ngn_virtual_account(user, wallet, bvn, address, currency_id=None):
     """Attach a real BellBank virtual account to an NGN wallet.
 
