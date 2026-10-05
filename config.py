@@ -167,3 +167,8 @@ bellbank_webhook_signature_header = get_config(
 # this is the fallback when signature checking is not configured. Ask BellBank
 # for the list.
 bellbank_webhook_ips = get_config('BELLBANK_WEBHOOK_IPS', '')
+# Static-IP proxy that outbound BellBank API calls go through, e.g.
+# http://user:password@proxy-host:80. BellBank only accepts calls from
+# whitelisted addresses and Render's are shared, so whitelist the proxy's IPs
+# instead. Empty sends BellBank calls directly.
+bellbank_proxy_url = get_config('BELLBANK_PROXY_URL', '')

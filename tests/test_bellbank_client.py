@@ -34,9 +34,10 @@ class _Recorder:
         return {'data': {}}
 
 
-def record(method, url, headers=None, json=None, timeout=None, **kw):
+def record(method, url, headers=None, json=None, timeout=None, proxies=None,
+           **kw):
     _seen.append({'method': method, 'url': url, 'headers': headers or {},
-                  'json': json, 'timeout': timeout})
+                  'json': json, 'timeout': timeout, 'proxies': proxies})
     return _Recorder()
 
 
@@ -83,6 +84,36 @@ def main():
     BellbankHelper.list_bell_ngn_banks()
     check('every call passes a timeout',
           all(c['timeout'] == BELLBANK_TIMEOUT for c in _seen), True)
+
+    # With no proxy configured, calls go straight to BellBank.
+    original_proxy = getattr(config, 'bellbank_proxy_url', '')
+    config.bellbank_proxy_url = ''
+    _seen.clear()
+    transfer('REF-PRX')
+    check('no proxy configured: calls go direct',
+          _seen[0]['proxies'], None)
+
+    # With one configured, every call leaves through it -- that is what
+    # BellBank's IP whitelist sees.
+    proxy = 'http://user:secret@proxy.example:80'
+    config.bellbank_proxy_url = proxy
+    _seen.clear()
+    BellbankHelper.bellbank_authentication('5')
+    transfer('REF-PRX')
+    BellbankHelper.transfer_requery('REF-PRX', 'tok')
+    BellbankHelper.list_bell_ngn_banks()
+    check('proxy configured: every call uses it for https',
+          all(c['proxies'] == {'http': proxy, 'https': proxy} for c in _seen),
+          True)
+    check('  and token generation is one of them',
+          'generate-token' in _seen[0]['url'], True)
+
+    config.bellbank_proxy_url = '  '
+    _seen.clear()
+    transfer('REF-PRX')
+    check('a blank proxy setting means direct',
+          _seen[0]['proxies'], None)
+    config.bellbank_proxy_url = original_proxy
 
     # Paths carry the version prefix.
     check('transfer url is versioned',

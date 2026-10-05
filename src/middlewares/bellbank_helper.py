@@ -26,6 +26,35 @@ BELLBANK_API_VERSION = 'v1'
 BELLBANK_TIMEOUT = (10, 45)
 
 
+def bellbank_proxies():
+    """The proxy BellBank calls go out through, or None to go direct.
+
+    BellBank only answers API calls from whitelisted addresses ('IP Address Not
+    Whitlisted' otherwise), and Render's outbound addresses are ranges shared
+    with every other Render customer in the region. BELLBANK_PROXY_URL points
+    at a static-IP proxy (Fixie, QuotaGuard Static, or our own VPS), so BellBank
+    only has to whitelist that proxy's addresses. Only BellBank traffic uses it.
+
+    The URL usually carries the proxy's username and password, so it is never
+    logged.
+    """
+    proxy_url = (getattr(config, 'bellbank_proxy_url', '') or '').strip()
+
+    if not proxy_url:
+        return None
+
+    # HTTPS requests are tunnelled through the proxy with CONNECT, so the
+    # proxy sees only the host name, never the request or the bank's response.
+    return {'http': proxy_url, 'https': proxy_url}
+
+
+def bellbank_request(method, url, **kwargs):
+    """Every BellBank call goes through here, so each one is bounded by
+    BELLBANK_TIMEOUT and leaves through the proxy when one is configured."""
+    return requests.request(method, url, timeout=BELLBANK_TIMEOUT,
+                            proxies=bellbank_proxies(), **kwargs)
+
+
 def bellbank_url(path):
     """Build a BellBank endpoint URL.
 
@@ -61,8 +90,7 @@ class BellbankHelper:
                 "validityTime": minutes
             }
 
-            response = requests.request('POST', url, headers=headers,
-                                        timeout=BELLBANK_TIMEOUT)
+            response = bellbank_request('POST', url, headers=headers)
 
             access_token = response.json().get('token')
 
@@ -108,9 +136,8 @@ class BellbankHelper:
                 "metadata": meta_data,
             }
 
-            response = requests.request('POST', url, headers=headers,
-                                        json=payload,
-                                        timeout=BELLBANK_TIMEOUT)
+            response = bellbank_request('POST', url, headers=headers,
+                                        json=payload)
 
             return response
 
@@ -137,8 +164,7 @@ class BellbankHelper:
                 'Authorization': f'Bearer {access_token}',
             }
 
-            response = requests.request('GET', url, headers=headers,
-                                        timeout=BELLBANK_TIMEOUT)
+            response = bellbank_request('GET', url, headers=headers)
 
             return response
 
@@ -169,9 +195,8 @@ class BellbankHelper:
                 "bankCode": bank_code
             }
 
-            response = requests.request('POST', url, headers=headers,
-                                        json=payload,
-                                        timeout=BELLBANK_TIMEOUT)
+            response = bellbank_request('POST', url, headers=headers,
+                                        json=payload)
 
             return response
 
@@ -219,9 +244,8 @@ class BellbankHelper:
                 "senderName": sender_name,
             }
 
-            response = requests.request('POST', url, headers=headers,
-                                        json=payload,
-                                        timeout=BELLBANK_TIMEOUT)
+            response = bellbank_request('POST', url, headers=headers,
+                                        json=payload)
 
             return response
 
@@ -247,8 +271,7 @@ class BellbankHelper:
                 'Authorization': f'Bearer {access_token}',
             }
 
-            response = requests.request('GET', url, headers=headers,
-                                        timeout=BELLBANK_TIMEOUT)
+            response = bellbank_request('GET', url, headers=headers)
 
             return response
 
