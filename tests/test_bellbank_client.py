@@ -145,6 +145,25 @@ def main():
     check('  no bvn means no lookup',
           BellbankHelper.find_individual_client('tok', '', 'ada@example.com'),
           None)
+    helper.requests.request = lambda m, u, **k: _Clients(
+        {'data': clients, 'total': 2})
+    check('  a list nested under data.data is read too',
+          (BellbankHelper.find_individual_client(
+              'tok', '22222222222', 'ada@example.com') or {})
+          .get('accountNumber'), '1000137010')
+    masked = [{'bvn': '222****2222', 'emailAddress': 'ada@example.com',
+               'accountNumber': '1000137010'}]
+    helper.requests.request = lambda m, u, **k: _Clients(masked)
+    check('  a masked bvn still matches on email',
+          (BellbankHelper.find_individual_client(
+              'tok', '22222222222', 'ada@example.com') or {})
+          .get('accountNumber'), '1000137010')
+    other = [{'bvn': '99999999999', 'emailAddress': 'ada@example.com',
+              'accountNumber': '1000137010'}]
+    helper.requests.request = lambda m, u, **k: _Clients(other)
+    check('  same email with a different bvn is refused',
+          BellbankHelper.find_individual_client(
+              'tok', '22222222222', 'ada@example.com'), None)
     helper.requests.request = lambda m, u, **k: _Clients({'oops': 1})
     check('  an unexpected response is no match',
           BellbankHelper.find_individual_client(

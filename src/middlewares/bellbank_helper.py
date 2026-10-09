@@ -48,6 +48,34 @@ def bellbank_proxies():
     return {'http': proxy_url, 'https': proxy_url}
 
 
+def _keys(value):
+    """Sorted keys of a dict, for logging a response's shape without values."""
+    return sorted(value.keys()) if isinstance(value, dict) else None
+
+
+def _client_list(body):
+    """The client records in a GET /v1/account/clients response, or None.
+
+    The docs show them as a list under 'data'. Paginated APIs often nest the
+    list one level deeper instead, so the usual wrappers are accepted too.
+    """
+    if not isinstance(body, dict):
+        return None
+
+    data = body.get('data')
+
+    if isinstance(data, list):
+        return data
+
+    if isinstance(data, dict):
+        for key in ('data', 'items', 'clients', 'docs', 'rows', 'results',
+                    'records'):
+            if isinstance(data.get(key), list):
+                return data[key]
+
+    return None
+
+
 def bellbank_request(method, url, **kwargs):
     """Every BellBank call goes through here, so each one is bounded by
     BELLBANK_TIMEOUT and leaves through the proxy when one is configured."""
@@ -279,8 +307,10 @@ class BellbankHelper:
         the customer already exists at BellBank, and the account number we were
         given is lost. This finds it again through GET /v1/account/clients.
 
-        A client only counts as a match when both the BVN and the email agree,
-        so a shared or mistyped BVN can never attach someone else's account.
+        BellBank allows one client per email ('Email address already exists'),
+        so the email identifies the client. The BVN must also agree whenever
+        BellBank returns one that can be compared, so a reused email can never
+        attach someone else's account.
         """
         if not bvn or not email_address:
             return None
@@ -301,23 +331,51 @@ class BellbankHelper:
 
             try:
                 response = bellbank_request('GET', url, headers=headers)
-                clients = response.json().get('data') or []
+                body = response.json()
             except Exception as e:
                 print(f'[bellbank] client lookup failed: '
                       f'{type(e).__name__}: {e}')
                 return None
 
-            if not isinstance(clients, list):
+            clients = _client_list(body)
+
+            # Shapes only, never values: these records hold BVNs and emails.
+            if clients is None:
+                data = body.get('data') if isinstance(body, dict) else None
+                print(f'[bellbank] client lookup: unexpected response '
+                      f'(HTTP {getattr(response, "status_code", None)}), '
+                      f'top-level keys {_keys(body)}, '
+                      f'data is {type(data).__name__} with keys {_keys(data)}')
                 return None
 
+            print(f'[bellbank] client lookup page {page}: '
+                  f'HTTP {getattr(response, "status_code", None)}, '
+                  f'{len(clients)} clients'
+                  + (f', record keys {_keys(clients[0])}' if clients else ''))
+
             for client in clients:
-                if (str(client.get('bvn') or '').strip() == wanted_bvn
-                        and str(client.get('emailAddress') or '')
-                        .strip().lower() == wanted_email
-                        and client.get('accountNumber')):
-                    return client
+                if not isinstance(client, dict):
+                    continue
+
+                email = str(client.get('emailAddress') or '').strip().lower()
+
+                if email != wanted_email or not client.get('accountNumber'):
+                    continue
+
+                # BellBank allows one client per email, so the email is what
+                # identifies them. The BVN must still agree whenever it is
+                # comparable; a masked one (222****221) cannot be compared.
+                their_bvn = str(client.get('bvn') or '').strip()
+
+                if their_bvn.isdigit() and their_bvn != wanted_bvn:
+                    print('[bellbank] client lookup: email matched but the '
+                          'BVN differs, so it is not attached')
+                    return None
+
+                return client
 
             if len(clients) < page_limit:
+                print('[bellbank] client lookup: no client with that email')
                 return None
 
         print(f'[bellbank] client lookup stopped after {max_pages} pages')
