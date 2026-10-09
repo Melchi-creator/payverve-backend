@@ -48,6 +48,11 @@ def bellbank_proxies():
     return {'http': proxy_url, 'https': proxy_url}
 
 
+# Returned by a client listing that BellBank could not serve at all, as
+# opposed to one that worked and simply had no match.
+_LOOKUP_FAILED = object()
+
+
 def _keys(value):
     """Sorted keys of a dict, for logging a response's shape without values."""
     return sorted(value.keys()) if isinstance(value, dict) else None
@@ -324,10 +329,38 @@ class BellbankHelper:
             'Authorization': f'Bearer {access_token}',
         }
 
-        for page in range(1, max_pages + 1):
-            url = bellbank_url(
-                f'account/clients?accountType=individual'
-                f'&page={page}&limit={page_limit}')
+        # BellBank answered the documented, filtered query with a 500 in
+        # production, so on a failure the same lookup is retried with fewer
+        # parameters before giving up.
+        queries = (
+            f'?accountType=individual&page={{page}}&limit={page_limit}',
+            f'?page={{page}}&limit={page_limit}',
+            '',
+        )
+
+        for query in queries:
+            result = BellbankHelper._search_clients(
+                headers, query, wanted_bvn, wanted_email, page_limit,
+                max_pages)
+
+            if result is not _LOOKUP_FAILED:
+                return result
+
+        return None
+
+    @staticmethod
+    def _search_clients(headers, query, wanted_bvn, wanted_email, page_limit,
+                        max_pages):
+        """One way of paging through GET /v1/account/clients.
+
+        Returns the matching client, None when the listing worked and nobody
+        matched, or _LOOKUP_FAILED when BellBank could not list clients this
+        way at all.
+        """
+        pages = range(1, max_pages + 1) if '{page}' in query else (1,)
+
+        for page in pages:
+            url = bellbank_url('account/clients' + query.format(page=page))
 
             try:
                 response = bellbank_request('GET', url, headers=headers)
@@ -335,18 +368,29 @@ class BellbankHelper:
             except Exception as e:
                 print(f'[bellbank] client lookup failed: '
                       f'{type(e).__name__}: {e}')
-                return None
+                return _LOOKUP_FAILED
 
             clients = _client_list(body)
 
             # Shapes only, never values: these records hold BVNs and emails.
+            # BellBank's own error text is safe to log, and is the one thing
+            # that says why a listing failed.
             if clients is None:
                 data = body.get('data') if isinstance(body, dict) else None
-                print(f'[bellbank] client lookup: unexpected response '
+                error = ''
+
+                if isinstance(body, dict):
+                    error = (f', errorCode {body.get("errorCode")!r}, '
+                             f'message {body.get("message")!r}')
+
+                print(f'[bellbank] client lookup '
+                      f'(account/clients{query.format(page=page)}): '
+                      f'unexpected response '
                       f'(HTTP {getattr(response, "status_code", None)}), '
                       f'top-level keys {_keys(body)}, '
-                      f'data is {type(data).__name__} with keys {_keys(data)}')
-                return None
+                      f'data is {type(data).__name__} with keys {_keys(data)}'
+                      f'{error}')
+                return _LOOKUP_FAILED
 
             print(f'[bellbank] client lookup page {page}: '
                   f'HTTP {getattr(response, "status_code", None)}, '
@@ -374,7 +418,7 @@ class BellbankHelper:
 
                 return client
 
-            if len(clients) < page_limit:
+            if len(clients) < page_limit or '{page}' not in query:
                 print('[bellbank] client lookup: no client with that email')
                 return None
 

@@ -164,6 +164,47 @@ def main():
     check('  same email with a different bvn is refused',
           BellbankHelper.find_individual_client(
               'tok', '22222222222', 'ada@example.com'), None)
+    # BellBank answered the filtered query with a 500 in production: the
+    # lookup retries with fewer parameters and finds the client that way.
+    class _Error:
+        status_code = 500
+
+        @staticmethod
+        def json():
+            return {'success': False, 'errorCode': 'E1', 'message': 'boom'}
+
+    _seen.clear()
+
+    def _filtered_fails(m, u, **k):
+        _seen.append(u)
+        return _Error() if 'accountType=' in u else _Clients(clients)
+
+    helper.requests.request = _filtered_fails
+    check('  a failing filtered query is retried without the filter',
+          (BellbankHelper.find_individual_client(
+              'tok', '22222222222', 'ada@example.com') or {})
+          .get('accountNumber'), '1000137010')
+    check('    and the retry drops accountType',
+          'accountType=' not in _seen[-1] and 'page=1' in _seen[-1], True)
+
+    _seen.clear()
+
+    def _only_bare_works(m, u, **k):
+        _seen.append(u)
+        return _Clients(clients) if u.endswith('/account/clients') else _Error()
+
+    helper.requests.request = _only_bare_works
+    check('    falls back to the bare listing last',
+          (BellbankHelper.find_individual_client(
+              'tok', '22222222222', 'ada@example.com') or {})
+          .get('accountNumber'), '1000137010')
+    check('    after trying all three forms', len(_seen), 3)
+
+    helper.requests.request = lambda m, u, **k: _Error()
+    check('    every form failing is no match',
+          BellbankHelper.find_individual_client(
+              'tok', '22222222222', 'ada@example.com'), None)
+
     helper.requests.request = lambda m, u, **k: _Clients({'oops': 1})
     check('  an unexpected response is no match',
           BellbankHelper.find_individual_client(
