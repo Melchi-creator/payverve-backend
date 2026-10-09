@@ -15,6 +15,18 @@ from ..models import CurrencyModel, VirtualAccountNumberModel
 from ..services import registration, virtual_account
 
 
+def _expiry_text(expires_at):
+    """The account's expiry for display, or None when it never expires.
+
+    BellBank accounts are static: they have no expiry, so the column is NULL
+    and calling strftime on it crashed every read of a provisioned account.
+    """
+    if expires_at is None:
+        return None
+
+    return expires_at.strftime("%d %b %Y, %I:%M %p")
+
+
 class VirtualAccountNumberResource(Resource):
     """  """
 
@@ -41,7 +53,7 @@ class VirtualAccountNumberResource(Resource):
                     'bank_name': virtual_account_number.account_bank_name,
                     'account_type': virtual_account_number.account_type,
                     'status': virtual_account_number.status,
-                    'expiry_date': virtual_account_number.account_expiration_datetime.strftime("%d %b %Y, %I:%M %p"),
+                    'expiry_date': _expiry_text(virtual_account_number.account_expiration_datetime),
                     'customer_code': virtual_account_number.customer_code,
                     'currency_ticker': virtual_account_number.currency_ticker,
                     'is_active': virtual_account_number.is_active,
@@ -103,7 +115,7 @@ class VirtualAccountNumberResource(Resource):
                 'bank_name': virtual_account_number.account_bank_name,
                 'account_type': virtual_account_number.account_type,
                 'status': virtual_account_number.status,
-                'expiry_date': virtual_account_number.account_expiration_datetime.strftime("%d %b %Y, %I:%M %p"),
+                'expiry_date': _expiry_text(virtual_account_number.account_expiration_datetime),
                 'customer_code': virtual_account_number.customer_code,
                 'currency_ticker': virtual_account_number.currency_ticker,
                 'is_active': virtual_account_number.is_active,
@@ -164,7 +176,7 @@ class VirtualAccountNumberResource(Resource):
                     'bank_name': virtual_account_number.account_bank_name,
                     'account_type': virtual_account_number.account_type,
                     'status': virtual_account_number.status,
-                    'expiry_date': virtual_account_number.account_expiration_datetime.strftime("%d %b %Y, %I:%M %p"),
+                    'expiry_date': _expiry_text(virtual_account_number.account_expiration_datetime),
                     'customer_code': virtual_account_number.customer_code,
                     'currency_ticker': virtual_account_number.currency_ticker,
                     'is_active': virtual_account_number.is_active,
@@ -278,7 +290,7 @@ class VirtualAccountNumberResource(Resource):
                 'bank_name': virtual_account_number.account_bank_name,
                 'account_type': virtual_account_number.account_type,
                 'status': virtual_account_number.status,
-                'expiry_date': virtual_account_number.account_expiration_datetime.strftime("%d %b %Y, %I:%M %p"),
+                'expiry_date': _expiry_text(virtual_account_number.account_expiration_datetime),
                 'customer_code': virtual_account_number.customer_code,
                 'currency_ticker': virtual_account_number.currency_ticker,
                 'is_active': virtual_account_number.is_active,

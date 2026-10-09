@@ -189,6 +189,16 @@ def main():
               VirtualAccountNumberModel.query.first().account_expiration_datetime,
               None)
 
+        # Reading the account back must not crash on the missing expiry:
+        # every read of a provisioned account did, with a 500.
+        from src.resources.virtual_account_numbers import _expiry_text
+        check('  a permanent account displays no expiry',
+              _expiry_text(issued.account_expiration_datetime), None)
+        from datetime import datetime
+        check('  a dated expiry still displays',
+              _expiry_text(datetime(2026, 10, 9, 14, 5)),
+              '09 Oct 2026, 02:05 PM')
+
         # The webhook resolves deposits through exactly this call.
         from src.middlewares import BellbankHelper
         found = BellbankHelper.wallet_for_virtual_account(REAL_ACCOUNT)
