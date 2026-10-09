@@ -148,7 +148,8 @@ def provision_ngn_virtual_account(user, wallet, bvn, address, currency_id=None):
         address=str(address),
         bvn=bvn,
         gender=user.gender,
-        date_of_birth=str(user.date_of_birth),
+        date_of_birth=user.date_of_birth,
+        email_address=user.email_address,
         meta_data={'email_address': user.email_address},
     )
 

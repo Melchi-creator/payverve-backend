@@ -85,6 +85,32 @@ def main():
     check('every call passes a timeout',
           all(c['timeout'] == BELLBANK_TIMEOUT for c in _seen), True)
 
+    # Creating a client sends the fields BellBank's docs ask for. Without
+    # emailAddress BellBank answered 500 instead of issuing an account.
+    from datetime import date
+    _seen.clear()
+    BellbankHelper.bellbank_virtual_account(
+        access_token='tok', mobile_number='08012345678', first_name='Ada',
+        last_name='Obi', address='12 Broad St', bvn='22222222222',
+        gender='Female', date_of_birth=date(1990, 1, 31),
+        email_address='ada@example.com')
+    body = _seen[0]['json']
+    check('client creation sends emailAddress',
+          body.get('emailAddress'), 'ada@example.com')
+    check('  gender is lowercase male/female', body.get('gender'), 'female')
+    check('  dateOfBirth is YYYY/MM/DD', body.get('dateOfBirth'), '1990/01/31')
+    check('  posts to the individual client endpoint',
+          _seen[0]['url'].endswith('/v1/account/clients/individual'), True)
+
+    _seen.clear()
+    BellbankHelper.bellbank_virtual_account(
+        access_token='tok', mobile_number='08012345678', first_name='Ada',
+        last_name='Obi', address='12 Broad St', bvn='22222222222',
+        gender='male', date_of_birth='1990-01-31',
+        email_address='ada@example.com')
+    check('  a string date is reformatted too',
+          _seen[0]['json'].get('dateOfBirth'), '1990/01/31')
+
     # With no proxy configured, calls go straight to BellBank.
     original_proxy = getattr(config, 'bellbank_proxy_url', '')
     config.bellbank_proxy_url = ''

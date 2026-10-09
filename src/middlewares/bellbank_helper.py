@@ -106,8 +106,15 @@ class BellbankHelper:
 
     @staticmethod
     def bellbank_virtual_account(access_token, mobile_number, first_name, last_name, address, bvn, gender,
-                                 date_of_birth, meta_data=None, middle_name=None):
-        """ """
+                                 date_of_birth, meta_data=None, middle_name=None,
+                                 email_address=None):
+        """Create the customer at BellBank, which issues their account number.
+
+        Field names and formats follow /v1/account/clients/individual in
+        BellBank's docs. emailAddress was missing, and BellBank does not
+        validate its input: it ran a lookup on the absent field and answered
+        500 'WHERE parameter "emailAddress" has invalid "undefined" value'.
+        """
 
         try:
 
@@ -129,10 +136,15 @@ class BellbankHelper:
                 "lastname": last_name,
                 "middlename": middle_name,
                 "phoneNumber": mobile_number,
+                "emailAddress": email_address,
                 "address": address,
                 "bvn": bvn,
-                "gender": gender,
-                "dateOfBirth": date_of_birth,
+                # Documented as 'male' or 'female'.
+                "gender": str(gender or '').strip().lower(),
+                # Documented as 1993/12/29.
+                "dateOfBirth": (date_of_birth.strftime('%Y/%m/%d')
+                                if hasattr(date_of_birth, 'strftime')
+                                else str(date_of_birth).replace('-', '/')),
                 "metadata": meta_data,
             }
 
