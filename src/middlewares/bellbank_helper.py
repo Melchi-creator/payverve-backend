@@ -270,6 +270,60 @@ class BellbankHelper:
             return None
 
     @staticmethod
+    def find_individual_client(access_token, bvn, email_address,
+                               page_limit=100, max_pages=20):
+        """The BellBank client already created for this customer, or None.
+
+        BellBank can issue an account and we can still fail to save it (a
+        database error after their 200). Every retry is then refused, because
+        the customer already exists at BellBank, and the account number we were
+        given is lost. This finds it again through GET /v1/account/clients.
+
+        A client only counts as a match when both the BVN and the email agree,
+        so a shared or mistyped BVN can never attach someone else's account.
+        """
+        if not bvn or not email_address:
+            return None
+
+        wanted_bvn = str(bvn).strip()
+        wanted_email = str(email_address).strip().lower()
+
+        headers = {
+            'content-type': 'application/json',
+            'accept': 'application/json',
+            'Authorization': f'Bearer {access_token}',
+        }
+
+        for page in range(1, max_pages + 1):
+            url = bellbank_url(
+                f'account/clients?accountType=individual'
+                f'&page={page}&limit={page_limit}')
+
+            try:
+                response = bellbank_request('GET', url, headers=headers)
+                clients = response.json().get('data') or []
+            except Exception as e:
+                print(f'[bellbank] client lookup failed: '
+                      f'{type(e).__name__}: {e}')
+                return None
+
+            if not isinstance(clients, list):
+                return None
+
+            for client in clients:
+                if (str(client.get('bvn') or '').strip() == wanted_bvn
+                        and str(client.get('emailAddress') or '')
+                        .strip().lower() == wanted_email
+                        and client.get('accountNumber')):
+                    return client
+
+            if len(clients) < page_limit:
+                return None
+
+        print(f'[bellbank] client lookup stopped after {max_pages} pages')
+        return None
+
+    @staticmethod
     def transfer_requery(reference, access_token):
         """ """
 

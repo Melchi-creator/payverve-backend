@@ -77,12 +77,14 @@ class _BankResponse:
         return self._payload
 
 
-def stub_bank(response):
+def stub_bank(response, existing_client=None):
     """Replace the BellBank calls the service makes."""
     middlewares.BellbankHelper.bellbank_authentication = \
         staticmethod(lambda *a, **k: 'stub-token')
     middlewares.BellbankHelper.bellbank_virtual_account = \
         staticmethod(lambda *a, **k: response)
+    middlewares.BellbankHelper.find_individual_client = \
+        staticmethod(lambda *a, **k: existing_client)
 
 
 def seed():
@@ -146,6 +148,23 @@ def main():
         except registration.RegistrationError as e:
             check('empty bank response refused', e.code, 502)
         db.session.rollback()
+
+        # BellBank refuses because the customer already exists there (an
+        # earlier attempt was issued an account, then failed to save it):
+        # the existing account is recovered instead of refusing for ever.
+        stub_bank(_BankResponse(400, {'message': 'client already exists'}),
+                  existing_client={'accountNumber': '1000137010',
+                                   'externalReference': 'bb-ext-0'})
+        virtual_account.provision_ngn_virtual_account(
+            user, wallet, '22222222222', '12 Broad St', ngn.id)
+        db.session.commit()
+        recovered = VirtualAccountNumberModel.query.first()
+        check('existing bank account recovered on refusal',
+              recovered.account_number, '1000137010')
+        check('  with its reference', recovered.reference, 'bb-ext-0')
+        db.session.delete(recovered)
+        wallet.is_active = False
+        db.session.commit()
 
         # Success.
         stub_bank(_BankResponse(200, {'data': {

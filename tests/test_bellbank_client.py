@@ -111,6 +111,46 @@ def main():
     check('  a string date is reformatted too',
           _seen[0]['json'].get('dateOfBirth'), '1990/01/31')
 
+    # Finding a client BellBank already created: BVN and email must both
+    # match, so a shared BVN can never attach someone else's account.
+    class _Clients:
+        status_code = 200
+
+        def __init__(self, data):
+            self._data = data
+
+        def json(self):
+            return {'success': True, 'data': self._data}
+
+    clients = [
+        {'bvn': '22222222222', 'emailAddress': 'someone@else.com',
+         'accountNumber': '1111111111'},
+        {'bvn': '22222222222', 'emailAddress': 'Ada@Example.com',
+         'accountNumber': '1000137010', 'externalReference': 'ref-1'},
+    ]
+    _seen.clear()
+    helper.requests.request = lambda m, u, **k: (
+        _seen.append({'url': u, 'proxies': k.get('proxies')})
+        or _Clients(clients))
+    found = BellbankHelper.find_individual_client(
+        'tok', '22222222222', 'ada@example.com')
+    check('client lookup matches bvn and email',
+          found and found['accountNumber'], '1000137010')
+    check('  queries individual clients',
+          '/v1/account/clients?accountType=individual' in _seen[0]['url'],
+          True)
+    check('  a matching bvn with another email is not a match',
+          BellbankHelper.find_individual_client(
+              'tok', '22222222222', 'nobody@example.com'), None)
+    check('  no bvn means no lookup',
+          BellbankHelper.find_individual_client('tok', '', 'ada@example.com'),
+          None)
+    helper.requests.request = lambda m, u, **k: _Clients({'oops': 1})
+    check('  an unexpected response is no match',
+          BellbankHelper.find_individual_client(
+              'tok', '22222222222', 'ada@example.com'), None)
+    helper.requests.request = record
+
     # With no proxy configured, calls go straight to BellBank.
     original_proxy = getattr(config, 'bellbank_proxy_url', '')
     config.bellbank_proxy_url = ''

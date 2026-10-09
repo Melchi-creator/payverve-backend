@@ -167,13 +167,25 @@ def provision_ngn_virtual_account(user, wallet, bvn, address, currency_id=None):
                 'message', 'the bank rejected the account request')
         except ValueError:
             message = 'the bank returned an unexpected response'
-        raise RegistrationError(status_code, 'bad gateway', message)
 
-    try:
-        data = response.json().get('data') or {}
-    except ValueError:
-        raise RegistrationError(
-            502, 'bad gateway', 'the bank returned an unexpected response')
+        # The customer may already exist at BellBank: an earlier attempt got
+        # an account issued and then failed to save it here. Recover that
+        # account rather than refusing every retry.
+        data = BellbankHelper.find_individual_client(
+            access_token, bvn, user.email_address)
+
+        if not data:
+            print(f'[bellbank] account request refused ({status_code}): '
+                  f'{message}')
+            raise RegistrationError(status_code, 'bad gateway', message)
+
+        print(f'[bellbank] recovered existing account for user {user.id}')
+    else:
+        try:
+            data = response.json().get('data') or {}
+        except ValueError:
+            raise RegistrationError(
+                502, 'bad gateway', 'the bank returned an unexpected response')
 
     account_number = data.get('accountNumber')
 
