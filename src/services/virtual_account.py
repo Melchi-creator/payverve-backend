@@ -149,6 +149,10 @@ def provision_ngn_virtual_account(user, wallet, bvn, address, currency_id=None):
         mobile_number=user.mobile_number,
         first_name=user.first_name,
         last_name=user.last_name,
+        # BellBank accepts a middlename and matches the client against the
+        # BVN record. The parameter existed but was never supplied, so it
+        # always went as null even for a customer whose BVN carries one.
+        middle_name=user.middle_name,
         address=str(address),
         bvn=bvn,
         gender=user.gender,
