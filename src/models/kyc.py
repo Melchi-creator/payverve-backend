@@ -17,8 +17,15 @@ class KYCModel(db.Model, BaseModel, metaclass=MetaBaseModel):
 
     id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     tier = db.Column(db.Integer, nullable=False, default=0)
-    bvn = db.Column(db.String(), nullable=True, unique=True)
-    nin = db.Column(db.String(), nullable=True, unique=True)
+    # Encrypted at rest. Fernet is non-deterministic, so these cannot carry
+    # a unique constraint -- the same BVN encrypts differently each time and
+    # the database would accept it twice. Uniqueness lives on the *_hash
+    # columns, which hold a keyed HMAC of the value. Read these through
+    # utilities.decrypt_identifier, never directly.
+    bvn = db.Column(db.String(), nullable=True)
+    bvn_hash = db.Column(db.String(64), nullable=True, unique=True)
+    nin = db.Column(db.String(), nullable=True)
+    nin_hash = db.Column(db.String(64), nullable=True, unique=True)
     address = db.Column(db.Text, nullable=True)
     selfie = db.Column(db.String(), nullable=True)
     bvn_present = db.Column(db.Boolean(), nullable=False, default=False)

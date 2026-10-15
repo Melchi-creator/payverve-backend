@@ -16,6 +16,7 @@ from datetime import datetime
 from hmac import compare_digest
 
 from ..models import VirtualAccountNumberModel, db
+from ..utilities import decrypt_identifier
 from .registration import RegistrationError
 
 BELLBANK_BANK_NAME = 'bellbank microfinance bank'
@@ -89,8 +90,11 @@ def ensure_ngn_virtual_account(user_id):
             404, 'not found', 'no ngn wallet to provision')
 
     try:
+        # Decrypted here: provision_ngn_virtual_account hands the bvn to
+        # BellBank, and the column now holds ciphertext.
         provision_ngn_virtual_account(
-            user, wallet, kyc.bvn, kyc.address, currency.id)
+            user, wallet, decrypt_identifier(kyc.bvn), kyc.address,
+            currency.id)
         db.session.commit()
     except Exception:
         db.session.rollback()

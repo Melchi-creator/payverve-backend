@@ -21,7 +21,8 @@ from ..middlewares import BellbankHelper, FlutterwaveHelper
 from ..models import (CurrencyModel, KYCModel, UserModel,
                       VirtualAccountNumberModel, WalletModel, db)
 from ..services import registration, virtual_account
-from ..utilities import Cryptographer, RandomGenerator, decode_token, parse_params
+from ..utilities import (Cryptographer, RandomGenerator, decode_token,
+                         decrypt_identifier, parse_params)
 from ..value_object import MinimumBalance
 
 
@@ -196,7 +197,8 @@ class WalletResource(Resource):
             # Payverve recorded nothing. Same provisioning registration uses.
             try:
                 virtual_account.provision_ngn_virtual_account(
-                    customer_confirmation, own_wallet, kyc_check.bvn,
+                    customer_confirmation, own_wallet,
+                    decrypt_identifier(kyc_check.bvn),
                     kyc_check.address, currency_id)
                 db.session.commit()
             except registration.RegistrationError as e:

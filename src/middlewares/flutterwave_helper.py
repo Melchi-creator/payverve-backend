@@ -19,7 +19,7 @@ from ..models import UserModel
 
 from ..models import TransactionModel, VirtualAccountNumberModel, WalletModel
 from ..resources.notification import NotificationResource
-from ..utilities import Cryptographer
+from ..utilities import Cryptographer, decrypt_identifier
 from ..utilities.push_notifications import send_push_notification
 
 
@@ -181,7 +181,7 @@ class FlutterwaveHelper:
 
             if short_code.lower() == 'ngn':
                 payload['bank_code'] = '090772'
-                payload['bvn'] = kyc_check.bvn
+                payload['bvn'] = decrypt_identifier(kyc_check.bvn)
 
             if short_code.lower() == 'ghs':
                 payload['bank_code'] = 'GH200100'

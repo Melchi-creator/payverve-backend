@@ -13,10 +13,32 @@ from sqlalchemy.exc import DataError, \
     SQLAlchemyError
 
 from .notification import NotificationResource
-from ..models import KYCModel, UserModel
+from ..models import AdminModel, KYCModel, UserModel
 from ..services import registration, virtual_account
-from ..utilities import parse_params
+from ..utilities import (encrypt_identifier, hash_identifier,
+                         parse_params)
 from ..value_object import BVNCheck, NINCheck
+
+
+def _caller_id():
+    """The authenticated subject, as jwt_required recorded it."""
+    current = getattr(request, 'current_user', None) or {}
+    return str(current.get('sub') or '')
+
+
+def _caller_is_admin():
+    """Whether the caller is an admin rather than a customer.
+
+    jwt_required admits customers and admins alike and records no role,
+    so the distinction has to be re-established here. There is no
+    admin-only decorator in this codebase to lean on.
+    """
+    caller = _caller_id()
+
+    if not caller:
+        return False
+
+    return AdminModel.query.filter_by(id=caller).first() is not None
 
 
 class KYCResource(Resource):
@@ -131,9 +153,17 @@ class KYCResource(Resource):
 
     @staticmethod
     def read_all():
-        """  """
+        """Every KYC record for an admin; your own if you are a customer.
 
-        kycs = KYCModel.query.all()
+        This returned KYCModel.query.all() behind nothing but
+        jwt_required, so any signed-in customer could read every other
+        customer's bvn, nin, address and selfie in one request.
+        """
+
+        if _caller_is_admin():
+            kycs = KYCModel.query.all()
+        else:
+            kycs = KYCModel.query.filter_by(user_id=_caller_id()).all()
 
         try:
             if not kycs:
@@ -149,8 +179,9 @@ class KYCResource(Resource):
                 data.append({
                     'id': kyc.id,
                     'tier': kyc.tier,
-                    'bvn': kyc.bvn,
-                    'nin': kyc.nin,
+                    # Deliberately absent: the identifier itself is never
+                    # returned. bvn_present / nin_present below carry
+                    # everything the client needs to render KYC state.
                     'selfie': kyc.selfie,
                     'address': kyc.address,
                     'bvn_present': kyc.bvn_present,
@@ -205,11 +236,21 @@ class KYCResource(Resource):
                     'message': 'no kyc was found'
                 }), 404
 
+            # There was no ownership check here, so any signed-in customer
+            # could read any KYC record by its id. 404 rather than 403: a
+            # 403 would confirm the record exists, which is the thing an
+            # enumerating caller is trying to learn.
+            if not _caller_is_admin() and str(kyc.user_id) != _caller_id():
+                return jsonify({
+                    'code': 404,
+                    'status_message': 'data not found',
+                    'message': 'no kyc was found'
+                }), 404
+
             data = {
                 'id': kyc.id,
                 'tier': kyc.tier,
-                'bvn': kyc.bvn,
-                'nin': kyc.nin,
+                # Deliberately absent -- see read_all.
                 'selfie': kyc.selfie,
                 'address': kyc.address,
                 'bvn_present': kyc.bvn_present,
@@ -272,6 +313,17 @@ class KYCResource(Resource):
                     'message': 'the customer was not found'
                 }), 404
 
+            # The id in the path is a user_id and was trusted outright, so
+            # any signed-in customer could write a bvn, nin or address onto
+            # another customer KYC record -- and since bvn can be set only
+            # once, doing so would lock the real owner out permanently.
+            if not _caller_is_admin() and str(id) != _caller_id():
+                return jsonify({
+                    'code': 403,
+                    'status_message': 'forbidden',
+                    'message': 'you cannot update the kyc of another customer'
+                }), 403
+
             if 'bvn' in fields and fields['bvn'] is not None:
                 if kyc.bvn_present:
                     return jsonify({
@@ -303,7 +355,27 @@ class KYCResource(Resource):
 
                 BVNCheck(fields['bvn'])
 
-                kyc.bvn = fields['bvn']
+                # Uniqueness moved off the value column, which is now
+                # ciphertext and cannot be constrained: Fernet is
+                # non-deterministic. Check the keyed hash instead.
+                bvn_hash = hash_identifier(fields['bvn'])
+
+                taken = KYCModel.query.filter(
+                    KYCModel.bvn_hash == bvn_hash,
+                    KYCModel.user_id != kyc.user_id).first()
+
+                if taken:
+                    # Intentionally does not say the bvn is already
+                    # registered: that answer turns this endpoint into an
+                    # oracle for whether a given person banks here.
+                    return jsonify({
+                        'code': 409,
+                        'status_message': 'conflict',
+                        'message': 'we could not verify that bvn, please contact support'
+                    }), 409
+
+                kyc.bvn = encrypt_identifier(fields['bvn'])
+                kyc.bvn_hash = bvn_hash
                 # kyc.selfie = fields['selfie']
                 kyc.bvn_present = True
                 kyc.selfie_present = True
@@ -326,7 +398,21 @@ class KYCResource(Resource):
 
                 NINCheck(fields['nin'])
 
-                kyc.nin = fields['nin']
+                nin_hash = hash_identifier(fields['nin'])
+
+                taken = KYCModel.query.filter(
+                    KYCModel.nin_hash == nin_hash,
+                    KYCModel.user_id != kyc.user_id).first()
+
+                if taken:
+                    return jsonify({
+                        'code': 409,
+                        'status_message': 'conflict',
+                        'message': 'we could not verify that nin, please contact support'
+                    }), 409
+
+                kyc.nin = encrypt_identifier(fields['nin'])
+                kyc.nin_hash = nin_hash
                 kyc.nin_present = True
                 kyc.tier = 2
 
