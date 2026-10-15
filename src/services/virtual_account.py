@@ -216,7 +216,17 @@ def provision_ngn_virtual_account(user, wallet, bvn, address, currency_id=None,
             'that account number is already assigned to another user')
 
     external_reference = data.get('externalReference') or str(account_number)
-    bank_name = data.get('bankName') or BELLBANK_BANK_NAME
+    # BellBank returns 'BlocMFB' here -- Bloc is the core banking provider
+    # behind BellBank MFB -- but every other bank lists the destination as
+    # 'BELLBANK Microfinance Bank'. This name is shown to the customer as
+    # the bank to send to, so storing BellBank's internal one sends them
+    # looking for an entry that does not exist in their bank's list.
+    reported_name = (data.get('bankName') or '').strip()
+
+    if not reported_name or 'bloc' in reported_name.lower():
+        bank_name = BELLBANK_BANK_NAME
+    else:
+        bank_name = reported_name
 
     # Account details live here rather than on the wallet: migration
     # 2129b3c36f79 dropped those columns from wallets.

@@ -104,7 +104,14 @@ def is_bellbank(virtual_account):
     lands and is not a decision this script should make quietly.
     """
     name = (virtual_account.account_bank_name or '').lower()
-    return 'bell' in name
+
+    # 'bloc' as well as 'bell': BellBank names the same account two ways.
+    # Creating one returns bankName 'BlocMFB' (Bloc is the core banking
+    # provider behind BellBank MFB) while listing clients returns
+    # 'BellBank MFB'. Matching only on 'bell' classified every account we
+    # had actually provisioned as another provider's, so this script
+    # skipped the very rows it exists to manage.
+    return 'bell' in name or 'bloc' in name
 
 
 def kyc_details(user_id):
