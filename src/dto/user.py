@@ -47,3 +47,4 @@ class UserDTOCreate(StrictBaseModel):
     # them or the request is rejected outright.
     bvn: Annotated[str, StringConstraints(strip_whitespace=True, strict=True, min_length=11, max_length=11), 'Bank verification number.'] = None
     address: Annotated[str, StringConstraints(strip_whitespace=True, strict=True, min_length=1), 'Residential address.'] = None
+    nin: Annotated[str, StringConstraints(strip_whitespace=True, strict=True, min_length=11, max_length=11), 'National identification number.'] = None

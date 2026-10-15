@@ -200,7 +200,8 @@ class WalletResource(Resource):
                 virtual_account.provision_ngn_virtual_account(
                     customer_confirmation, own_wallet,
                     decrypt_identifier(kyc_check.bvn),
-                    kyc_check.address, currency_id)
+                    kyc_check.address, currency_id,
+                    nin=decrypt_identifier(kyc_check.nin))
                 db.session.commit()
             except registration.RegistrationError as e:
                 db.session.rollback()

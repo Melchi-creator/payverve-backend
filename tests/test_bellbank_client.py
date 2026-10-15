@@ -93,10 +93,15 @@ def main():
         access_token='tok', mobile_number='08012345678', first_name='Ada',
         last_name='Obi', address='12 Broad St', bvn='22222222222',
         gender='Female', date_of_birth=date(1990, 1, 31),
-        email_address='ada@example.com')
+        email_address='ada@example.com', nin='12345678901')
     body = _seen[0]['json']
     check('client creation sends emailAddress',
           body.get('emailAddress'), 'ada@example.com')
+    # Without a nin BellBank holds the client at accountTier null and
+    # answers a name enquiry on its account with "Recipient's KYC
+    # verification incomplete", so no other bank will send the customer
+    # money, and there is no endpoint to add one afterwards.
+    check('  and sends nin', body.get('nin'), '12345678901')
     check('  gender is lowercase male/female', body.get('gender'), 'female')
     check('  dateOfBirth is YYYY/MM/DD', body.get('dateOfBirth'), '1990/01/31')
     check('  posts to the individual client endpoint',

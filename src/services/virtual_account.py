@@ -94,7 +94,7 @@ def ensure_ngn_virtual_account(user_id):
         # BellBank, and the column now holds ciphertext.
         provision_ngn_virtual_account(
             user, wallet, decrypt_identifier(kyc.bvn), kyc.address,
-            currency.id)
+            currency.id, nin=decrypt_identifier(kyc.nin))
         db.session.commit()
     except Exception:
         db.session.rollback()
@@ -104,7 +104,8 @@ def ensure_ngn_virtual_account(user_id):
         user_id=user_id, currency_id=currency.id).first()
 
 
-def provision_ngn_virtual_account(user, wallet, bvn, address, currency_id=None):
+def provision_ngn_virtual_account(user, wallet, bvn, address, currency_id=None,
+                                  nin=None):
     """Attach a real BellBank virtual account to an NGN wallet.
 
     Stages the change in the session; the caller commits. Returns the wallet.
@@ -155,6 +156,9 @@ def provision_ngn_virtual_account(user, wallet, bvn, address, currency_id=None):
         middle_name=user.middle_name,
         address=str(address),
         bvn=bvn,
+        # BellBank leaves the client KYC-incomplete without it, and then
+        # refuses inbound transfers at name enquiry.
+        nin=nin,
         gender=user.gender,
         date_of_birth=user.date_of_birth,
         email_address=user.email_address,

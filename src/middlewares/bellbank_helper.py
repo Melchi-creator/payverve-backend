@@ -140,7 +140,7 @@ class BellbankHelper:
     @staticmethod
     def bellbank_virtual_account(access_token, mobile_number, first_name, last_name, address, bvn, gender,
                                  date_of_birth, meta_data=None, middle_name=None,
-                                 email_address=None):
+                                 email_address=None, nin=None):
         """Create the customer at BellBank, which issues their account number.
 
         Field names and formats follow /v1/account/clients/individual in
@@ -172,6 +172,12 @@ class BellbankHelper:
                 "emailAddress": email_address,
                 "address": address,
                 "bvn": bvn,
+                # Without this BellBank holds the client with nin null and
+                # accountTier null, and answers a name enquiry on the
+                # account with "Recipient's KYC verification incomplete" --
+                # so no other bank will send the customer money. We had the
+                # nin on file the whole time and never passed it.
+                "nin": nin,
                 # Documented as 'male' or 'female'.
                 "gender": str(gender or '').strip().lower(),
                 # Documented as 1993/12/29.

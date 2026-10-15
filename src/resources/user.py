@@ -173,10 +173,16 @@ class UserResource(Resource):
             # bvn and address. Without them the wallet exists but stays
             # unprovisioned until KYC supplies them -- it is never given a
             # placeholder, because deposits are matched on that column.
-            if user_data.bvn and user_data.address:
+            # A nin is required as well, not just a bvn: BellBank holds a
+            # client created without one at accountTier null and refuses
+            # inbound transfers to it at name enquiry, and there is no
+            # endpoint to add it afterwards. Provisioning early without a
+            # nin therefore burns the account permanently -- better to wait
+            # for KYC, which collects it.
+            if user_data.bvn and user_data.address and user_data.nin:
                 virtual_account.provision_ngn_virtual_account(
                     new_user, wallet, user_data.bvn, user_data.address,
-                    currency_id)
+                    currency_id, nin=user_data.nin)
 
             if user_data.referral_code:
                 referrer = UserModel.query.filter_by(
