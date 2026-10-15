@@ -18,7 +18,8 @@ from sqlalchemy.exc import DataError, \
 import config
 from .notification import NotificationResource
 from ..middlewares import FlutterwaveHelper
-from ..auth import (caller_id, caller_is_admin, not_found, owns)
+from ..auth import (caller_id, caller_is_admin, not_found, owns)
+from ..auth import forbidden
 from ..models import CurrencyModel, \
     ForeignTransferModel, \
     PayverveWalletModel, \
@@ -140,6 +141,11 @@ class ForeignTransferResource(Resource):
         """ """
 
         try:
+            # the owner came from the request, with no check that it is the caller.
+            if not owns(user_id):
+                return forbidden(
+                    'you cannot transfer from another customer wallet')
+
             # KYC Tier Check
             KYCTierCheck.kyc_transfer_check(user_id, amount, 'international')
 

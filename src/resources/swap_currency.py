@@ -19,7 +19,8 @@ from sqlalchemy.exc import DataError, \
 
 import config
 from .notification import NotificationResource
-from ..auth import (caller_id, caller_is_admin, not_found, owns)
+from ..auth import (caller_id, caller_is_admin, not_found, owns)
+from ..auth import forbidden
 from ..models import PayverveWalletModel, SwapCurrencyModel, TransactionModel, WalletModel
 from ..utilities import Cryptographer, RandomGenerator, parse_params
 from ..value_object import MinimumBalance
@@ -42,6 +43,11 @@ class SwapCurrencyResource(Resource):
         # @ TODO: add a real fx charge system
 
         try:
+            # the owner came from the request, with no check that it is the caller.
+            if not owns(user_id):
+                return forbidden(
+                    'you cannot swap from another customer wallet')
+
 
             # @ TODO: to be update when foreign currencies become available
 

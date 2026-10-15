@@ -18,6 +18,7 @@ from sqlalchemy.exc import DataError, \
 
 from .notification import NotificationResource
 from ..auth import forbidden, owns
+from ..auth import caller_id, caller_is_admin, not_found
 from ..models import CurrencyModel, SpendSaveModel, TransactionModel, UserModel, WalletModel
 from ..utilities import Cryptographer, parse_params
 
@@ -34,6 +35,11 @@ class SpendSaveResource(Resource):
         """ """
 
         try:
+            # the owner came from the request, with no check that it is the caller.
+            if not owns(user_id):
+                return forbidden(
+                    'you cannot create a plan for another customer')
+
 
             confirm_user = UserModel.query.filter_by(id=user_id).first()
 
@@ -126,6 +132,12 @@ class SpendSaveResource(Resource):
         spend_saves = SpendSaveModel.query.order_by(
             SpendSaveModel.created_at.desc()).all()
 
+        # Was an unscoped dump of every row to any signed-in customer.
+        if not caller_is_admin():
+            _me = caller_id()
+            spend_saves = [r for r in spend_saves
+                      if str(getattr(r, 'user_id', None)) == _me]
+
         try:
             if not spend_saves:
                 return jsonify({
@@ -182,6 +194,11 @@ class SpendSaveResource(Resource):
         spend_save = SpendSaveModel.query.filter_by(user_id=id).first()
 
         try:
+            # the owner came from the request, with no check that it is the caller.
+            if not owns(id):
+                return not_found(
+                    'no spend and save was found')
+
             if not spend_save:
                 return jsonify({
                     'code': 404,

@@ -13,6 +13,7 @@ from sqlalchemy.exc import DisconnectionError, SQLAlchemyError
 
 from .notification import NotificationResource
 from ..auth import forbidden, owns
+from ..auth import caller_id, caller_is_admin, not_found
 from ..models import CurrencyModel, TargetSaveModel, TransactionModel, WalletModel
 from ..utilities import Cryptographer, parse_params
 from ..value_object import MinimumBalance
@@ -33,6 +34,11 @@ class TargetSaveResource(Resource):
         """ """
 
         try:
+            # the owner came from the request, with no check that it is the caller.
+            if not owns(user_id):
+                return forbidden(
+                    'you cannot create a plan for another customer')
+
 
             existing_ts = TargetSaveModel.query.filter_by(title=title.lower()).first()
 
@@ -195,6 +201,12 @@ class TargetSaveResource(Resource):
 
             target_savings = TargetSaveModel.query.all()
 
+            # Was an unscoped dump of every row to any signed-in customer.
+            if not caller_is_admin():
+                _me = caller_id()
+                target_savings = [r for r in target_savings
+                          if str(getattr(r, 'user_id', None)) == _me]
+
             if not target_savings:
                 return jsonify({
                     'code': 404,
@@ -258,6 +270,12 @@ class TargetSaveResource(Resource):
         """ """
 
         try:
+            # the owner came from the request, with no check that it is the caller.
+            _owner = TargetSaveModel.query.filter_by(id=id).first()
+            if _owner is not None and not owns(_owner.user_id):
+                return not_found(
+                    'no target saving was found')
+
 
             target_saving = TargetSaveModel.query.filter_by(id=id).first()
 

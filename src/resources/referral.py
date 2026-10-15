@@ -15,6 +15,7 @@ from sqlalchemy.exc import DataError, \
     ProgrammingError, \
     SQLAlchemyError
 
+from ..auth import caller_id, caller_is_admin, not_found
 from ..models import ReferralModel, UserModel, db
 from ..services import registration
 
@@ -160,6 +161,13 @@ class ReferralResource(Resource):
         """  """
 
         referrals = ReferralModel.query.all()
+        # referrals carry no user_id: a row belongs to both parties, so
+        # ownership means the caller is one of them.
+        if not caller_is_admin():
+            _me = caller_id()
+            referrals = [r for r in referrals
+                      if _me in (str(r.referral_id), str(r.referred_id))]
+
 
         try:
             if not referrals:
@@ -216,6 +224,13 @@ class ReferralResource(Resource):
         referral = ReferralModel.query.filter_by(id=id).first()
 
         try:
+            # A referral belongs to both parties and carries no user_id, so
+            # ownership means the caller is one of them.
+            _row = ReferralModel.query.filter_by(id=id).first()
+            if _row is not None and not caller_is_admin() and caller_id() not in (
+                    str(_row.referral_id), str(_row.referred_id)):
+                return not_found('no referral was found')
+
             if not referral:
                 return jsonify({
                     'code': 404,
