@@ -4,6 +4,8 @@ This module initializes the middlewares package.
 """
 
 from .bellbank_helper import BellbankHelper
+from .identity_helper import (BvnCheck, is_configured,
+                              lookup_bvn, verify_bvn_identity)
 from .exchange_rate_api import ExchangeRate
 from .flutterwave_helper import FlutterwaveHelper
 from .mailtrap_helper import MailtrapHelper

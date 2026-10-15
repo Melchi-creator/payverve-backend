@@ -13,6 +13,7 @@ from sqlalchemy.exc import DataError, \
     SQLAlchemyError
 
 from .notification import NotificationResource
+from ..middlewares import verify_bvn_identity
 from ..models import AdminModel, KYCModel, UserModel
 from ..services import registration, virtual_account
 from ..utilities import (encrypt_identifier, hash_identifier,
@@ -354,6 +355,35 @@ class KYCResource(Resource):
                 #     }), 400
 
                 BVNCheck(fields['bvn'])
+
+                # Check the submitted identity against the BVN record
+                # before anything is stored. BellBank runs this check
+                # itself when it creates the client, but by then the
+                # client exists and a mismatch can only be fixed by
+                # deleting it -- the customer just sees inbound transfers
+                # refused with 'KYC verification incomplete'. Catching it
+                # here turns that into a form error they can correct.
+                owner = UserModel.query.filter_by(id=kyc.user_id).first()
+                identity = verify_bvn_identity(
+                    fields['bvn'],
+                    first_name=owner.first_name if owner else None,
+                    last_name=owner.last_name if owner else None,
+                    date_of_birth=owner.date_of_birth if owner else None,
+                    gender=owner.gender if owner else None)
+
+                if identity.checked and not identity.ok:
+                    # Names the fields that disagree and never the values
+                    # held against the bvn: returning those would make
+                    # this endpoint a lookup service for any bvn.
+                    wrong = ', '.join(
+                        f.replace('_', ' ') for f in identity.mismatches)
+                    return jsonify({
+                        'code': 400,
+                        'status_message': 'bad request',
+                        'message': f'your {wrong} does not match your bvn '
+                                   f'record, please correct it and try again',
+                        'data': {'mismatched_fields': identity.mismatches}
+                    }), 400
 
                 # Uniqueness moved off the value column, which is now
                 # ciphertext and cannot be constrained: Fernet is

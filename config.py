@@ -172,3 +172,12 @@ bellbank_webhook_ips = get_config('BELLBANK_WEBHOOK_IPS', '')
 # whitelisted addresses and Render's are shared, so whitelist the proxy's IPs
 # instead. Empty sends BellBank calls directly.
 bellbank_proxy_url = get_config('BELLBANK_PROXY_URL', '')
+
+# Identity provider used to check a customer's name, date of birth and
+# gender against their BVN at the KYC step. With these unset the lookup is
+# skipped and KYC accepts whatever was typed, which is how one account
+# reached BellBank with a wrong gender and a date of birth sixteen years
+# out. Set them before onboarding real customers.
+dojah_app_id = get_config('DOJAH_APP_ID', '')
+dojah_secret_key = get_config('DOJAH_SECRET_KEY', '')
+dojah_base_url = get_config('DOJAH_BASE_URL', 'https://api.dojah.io')
