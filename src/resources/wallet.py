@@ -21,6 +21,7 @@ from ..middlewares import BellbankHelper, FlutterwaveHelper
 from ..models import (CurrencyModel, KYCModel, UserModel,
                       VirtualAccountNumberModel, WalletModel, db)
 from ..services import registration, virtual_account
+from ..auth import caller_id, caller_is_admin, not_found, owns
 from ..utilities import (Cryptographer, RandomGenerator, decode_token,
                          decrypt_identifier, parse_params)
 from ..value_object import MinimumBalance
@@ -259,9 +260,20 @@ class WalletResource(Resource):
 
     @staticmethod
     def read_all():
-        """ Retrieve all wallets """
+        """ Every wallet for an admin; your own if you are a customer.
 
-        wallets = WalletModel.query.order_by(WalletModel.user_id.desc()).all()
+        This returned every wallet id, user_id and decrypted balance to any
+        signed-in customer, ordered so the largest balances were easy to
+        find -- and those are precisely the two ids POST /local-transfers
+        used to authorise a payout.
+        """
+
+        if caller_is_admin():
+            wallets = WalletModel.query.order_by(
+                WalletModel.user_id.desc()).all()
+        else:
+            wallets = WalletModel.query.filter_by(
+                user_id=caller_id()).all()
 
         try:
             if not wallets:
@@ -322,6 +334,12 @@ class WalletResource(Resource):
 
         wallet = WalletModel.query.filter_by(id=id).first()
 
+        # No ownership check, so any customer could read any wallet by id,
+        # balance included. 404 rather than 403 so it does not confirm the
+        # wallet exists.
+        if wallet is not None and not owns(wallet.user_id):
+            return not_found('no wallet was found')
+
         try:
             if not wallet:
                 return jsonify({
@@ -374,7 +392,10 @@ class WalletResource(Resource):
 
     @staticmethod
     def read_all_user(id=None):
-        """ Retrieve all wallets """
+        """ Retrieve one customer wallets. """
+
+        if not owns(id):
+            return not_found('no wallet was found')
 
         wallets = WalletModel.query.filter_by(user_id=id).all()
 

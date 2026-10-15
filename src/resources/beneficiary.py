@@ -10,6 +10,8 @@ from sqlalchemy.exc import (DataError, DisconnectionError, IntegrityError,
                             InternalError, OperationalError, ProgrammingError,
                             SQLAlchemyError)
 
+from ..auth import (caller_id, caller_is_admin, forbidden,
+                    not_found, owns)
 from ..models import BeneficiaryModel, UserModel
 from ..utilities import parse_params
 
@@ -29,6 +31,11 @@ class BeneficiaryResource(Resource):
         """ Adds new beneficiary to User """
 
         _user = UserModel.query.filter_by(id=user).first()
+        # user arrives in the request body; without this a caller could
+        # attach a payee to another customer account.
+        if not owns(user):
+            return forbidden('you cannot add a payee for another customer')
+
         _beneficiary = BeneficiaryModel.query.filter_by(user=user, account_number=account_number).first()
 
         try:
@@ -112,7 +119,12 @@ class BeneficiaryResource(Resource):
     def read_all():
         """ Retrieves all beneficiaries """
 
-        __beneficiaries = BeneficiaryModel.query.all()
+        # Scoped to the caller: this listed every customer payee.
+        if caller_is_admin():
+            __beneficiaries = BeneficiaryModel.query.all()
+        else:
+            __beneficiaries = BeneficiaryModel.query.filter_by(
+                user_id=caller_id()).all()
 
         data = []
 
@@ -165,6 +177,11 @@ class BeneficiaryResource(Resource):
         """ Retrieves a beneficiary by id """
 
         beneficiary = BeneficiaryModel.query.filter_by(id=id).first()
+
+        # Keyed only on the record id, so any caller could reach any
+        # customer payee.
+        if beneficiary is not None and not owns(beneficiary.user_id):
+            return not_found('no beneficiary was found')
 
         try:
             if not beneficiary:
@@ -222,6 +239,11 @@ class BeneficiaryResource(Resource):
 
         beneficiary = BeneficiaryModel.query.filter_by(id=id).first()
 
+        # Keyed only on the record id, so any caller could reach any
+        # customer payee.
+        if beneficiary is not None and not owns(beneficiary.user_id):
+            return not_found('no beneficiary was found')
+
         try:
             if not beneficiary:
                 return jsonify({
@@ -278,6 +300,9 @@ class BeneficiaryResource(Resource):
         """ Updates a beneficiary by id """
 
         beneficiay = BeneficiaryModel.query.filter_by(id=id).first()
+
+        if beneficiay is not None and not owns(beneficiay.user_id):
+            return not_found('no beneficiary was found')
 
         try:
             if not beneficiay:

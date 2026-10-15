@@ -44,7 +44,9 @@ class TokenVerification(Resource):
                     'id': token_verification.id,
                     'channel': token_verification.channel,
                     'channel_contact': token_verification.channel_contact,
-                    'code_sent': token_verification.code_sent,
+                    # The one-time code is never returned, not even to an
+                    # admin: a live OTP plus the contact it was sent to is
+                    # enough to take over the account it belongs to.
                     'expiration_time': token_verification.expiration_time,
                     'timestamp': token_verification.timestamp,
                     'status': token_verification.status,

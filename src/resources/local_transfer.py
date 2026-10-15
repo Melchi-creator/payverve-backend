@@ -15,6 +15,7 @@ from sqlalchemy.exc import DataError, \
     SQLAlchemyError
 
 from .notification import NotificationResource
+from ..auth import forbidden, owns
 from ..middlewares import BellbankHelper
 from ..models import CurrencyModel, LocalTransferModel, SpendSaveModel, TransactionModel, UserModel, WalletModel
 from ..utilities import Cryptographer, KYCTierCheck, RandomGenerator, parse_params
@@ -144,6 +145,17 @@ class LocalTransferResource(Resource):
         """ """
 
         try:
+
+            # user_id arrives in the request body, and the only check below
+            # was that wallet_id belongs to it -- both caller-supplied and
+            # self-consistent, so pointing this at another customer's
+            # user_id and wallet_id moved their money to any bank account.
+            # GET /wallets handed out exactly those two ids. Authorise
+            # against the token instead; the body value is now only
+            # accepted when it agrees with it.
+            if not owns(user_id):
+                return forbidden(
+                    'you cannot transfer from another customer wallet')
 
             # KYC Tier Check
             kyc_check = KYCTierCheck.kyc_transfer_check(
