@@ -27,6 +27,47 @@ from collections import defaultdict
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+
+def _select_production_database():
+    """Point this process at the non-local DATABASE_URL in .env.
+
+    .env defines DATABASE_URL more than once and dotenv keeps the last,
+    which is localhost, so the production entry is shadowed. Reading it
+    here keeps the password out of the command line, out of shell history
+    and out of the process list. load_dotenv() does not override variables
+    already set, so putting it in the environment before importing config
+    wins. Same approach as backfill_virtual_accounts.py.
+    """
+    import io as _io
+    import re as _re
+
+    env_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env')
+
+    if not os.path.exists(env_path):
+        raise SystemExit('no .env to read a production DATABASE_URL from')
+
+    contents = _io.open(env_path, encoding='utf-8').read()
+    candidates = [u.strip().strip('"').strip("'")
+                  for u in _re.findall(r'^DATABASE_URL=(.+)$', contents, _re.M)]
+    remote = [u for u in candidates
+              if 'localhost' not in u and '127.0.0.1' not in u]
+
+    if not remote:
+        raise SystemExit('no non-local DATABASE_URL found in .env')
+
+    os.environ['DATABASE_URL'] = remote[0]
+    return _re.sub(r'://[^@]*@', '://***@', remote[0])
+
+
+# --prod has to be handled before config is imported, because config reads
+# the database url at import time.
+_PROD = '--prod' in sys.argv
+
+if _PROD:
+    sys.argv.remove('--prod')
+    print(f'database: {_select_production_database()}')
+
 import sqlalchemy as sa  # noqa: E402
 
 import config  # noqa: E402
@@ -74,11 +115,15 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--mobile', action='append', default=[],
                         help='mobile_number as stored, e.g. 9034837062')
+    parser.add_argument('--email', action='append', default=[],
+                        help='email_address as stored, matched case-insensitively')
+    parser.add_argument('--prod', action='store_true',
+                        help='target the non-local DATABASE_URL in .env')
     parser.add_argument('--apply', action='store_true')
     args = parser.parse_args()
 
-    if not args.mobile:
-        parser.error('give at least one --mobile')
+    if not args.mobile and not args.email:
+        parser.error('give at least one --mobile or --email')
 
     url = config.database_uri
     host = sa.engine.make_url(url).host
@@ -93,8 +138,18 @@ def main():
 
         users = conn.execute(sa.text(
             'SELECT id, first_name, last_name, email_address, mobile_number '
-            'FROM users WHERE mobile_number = ANY(:m)'),
-            {'m': args.mobile}).mappings().all()
+            'FROM users WHERE mobile_number = ANY(:m) '
+            'OR lower(email_address) = ANY(:e)'),
+            {'m': args.mobile,
+             'e': [x.lower() for x in args.email]}).mappings().all()
+
+        # Anything named but not found is reported rather than ignored: a
+        # typo in a destructive call should not pass silently.
+        found_emails = {(u['email_address'] or '').lower() for u in users}
+        missing_emails = {x.lower() for x in args.email} - found_emails
+
+        if missing_emails:
+            print(f'not found by email: {sorted(missing_emails)}')
 
         missing = set(args.mobile) - {u['mobile_number'] for u in users}
         if missing:

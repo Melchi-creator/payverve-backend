@@ -12,6 +12,7 @@ from psycopg2 import DataError, IntegrityError, InternalError, OperationalError,
 from sqlalchemy.exc import DisconnectionError, SQLAlchemyError
 
 from .notification import NotificationResource
+from ..auth import forbidden, owns
 from ..models import CurrencyModel, FixedDepositModel, TransactionModel, WalletModel
 from ..utilities import Cryptographer, parse_params
 from ..value_object import MinimumBalance
@@ -289,6 +290,11 @@ class FixedDepositResource(Resource):
         """ """
 
         try:
+            # the owner id came from the URL and was trusted outright.
+            if not owns(id):
+                return forbidden(
+                    'you cannot read another customer deposits')
+
 
             fixed_deposits = FixedDepositModel.query.filter_by(user_id=id).all()
 
@@ -351,6 +357,12 @@ class FixedDepositResource(Resource):
         """ """
 
         try:
+            # the owner id came from the URL and was trusted outright, so this
+            # moved another customer fixed deposit.
+            if not owns(user_id):
+                return forbidden(
+                    'you cannot withdraw from another customer deposit')
+
 
             fixed_deposits = FixedDepositModel.query.filter_by(user_id=user_id, id=id, is_active=False).first()
 

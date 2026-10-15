@@ -17,6 +17,7 @@ from sqlalchemy.exc import DataError, \
     ProgrammingError, SQLAlchemyError
 
 from .notification import NotificationResource
+from ..auth import forbidden, owns
 from ..models import CurrencyModel, SpendSaveModel, TransactionModel, UserModel, WalletModel
 from ..utilities import Cryptographer, parse_params
 
@@ -233,6 +234,11 @@ class SpendSaveResource(Resource):
         spend_saves = SpendSaveModel.query.filter_by(user_id=id).all()
 
         try:
+            # the owner id came from the URL and was trusted outright.
+            if not owns(id):
+                return forbidden(
+                    'you cannot read another customer savings')
+
             if not spend_saves:
                 return jsonify({
                     'code': 404,
@@ -290,6 +296,11 @@ class SpendSaveResource(Resource):
         """ Update a wallet's fund """
 
         try:
+            # the owner id came from the URL and was trusted outright.
+            if not owns(id):
+                return forbidden(
+                    'you cannot change another customer savings settings')
+
 
             spend_save = SpendSaveModel.query.filter_by(user_id=id).first()
 
@@ -361,6 +372,11 @@ class SpendSaveResource(Resource):
         """ Update a wallet's fund """
 
         try:
+            # the owner id came from the URL and was trusted outright.
+            if not owns(id):
+                return forbidden(
+                    'you cannot change another customer savings settings')
+
 
             spend_save = SpendSaveModel.query.filter_by(user_id=id).first()
 
@@ -446,6 +462,12 @@ class SpendSaveResource(Resource):
         """ """
 
         try:
+            # the owner id came from the URL and was trusted outright, so this
+            # moved another customer savings balance.
+            if not owns(id):
+                return forbidden(
+                    'you cannot withdraw from another customer savings')
+
 
             confirm_user = SpendSaveModel.query.filter_by(user_id=id).first()
 

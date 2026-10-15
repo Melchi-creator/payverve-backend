@@ -102,6 +102,36 @@ def main():
     check('wallets read_all is scoped to the caller',
           'caller_id()' in read_all_src, True)
 
+    # Withdrawals, pin control and savings mutation all keyed the owner off
+    # the URL. Each must now establish the caller from the token.
+    OWNERSHIP_GUARDED = [
+        ('src.resources.user', 'UserResource', 'user_create_transaction_pin', 'id'),
+        ('src.resources.user', 'UserResource', 'user_change_transaction_pin', 'id'),
+        ('src.resources.user', 'UserResource', 'confirm_transaction_pin', 'id'),
+        ('src.resources.user', 'UserResource', 'user_create_auth_pin', 'id'),
+        ('src.resources.user', 'UserResource', 'user_change_auth_pin', 'id'),
+        ('src.resources.user', 'UserResource', 'confirm_auth_pin', 'id'),
+        ('src.resources.spend_save', 'SpendSaveResource', 'withdraw_spend_save', 'id'),
+        ('src.resources.spend_save', 'SpendSaveResource', 'update_percentage', 'id'),
+        ('src.resources.spend_save', 'SpendSaveResource', 'toggle_spend_save', 'id'),
+        ('src.resources.spend_save', 'SpendSaveResource', 'user_read', 'id'),
+        ('src.resources.target_save', 'TargetSaveResource', 'withdraw_target_saving', 'user_id'),
+        ('src.resources.target_save', 'TargetSaveResource', 'break_ts', 'user_id'),
+        ('src.resources.target_save', 'TargetSaveResource', 'delete_target_saving', 'user_id'),
+        ('src.resources.target_save', 'TargetSaveResource', 'fetch_user_ts', 'id'),
+        ('src.resources.fixed_deposit', 'FixedDepositResource', 'withdraw_fixed_deposit', 'user_id'),
+        ('src.resources.fixed_deposit', 'FixedDepositResource', 'fetch_user_fd', 'id'),
+    ]
+
+    import importlib
+
+    for module_name, cls_name, fn_name, owner in OWNERSHIP_GUARDED:
+        module = importlib.import_module(module_name)
+        fn = getattr(getattr(module, cls_name), fn_name)
+        body = inspect.getsource(fn)
+        check(f'{fn_name} checks owns({owner})',
+              f'owns({owner})' in body, True)
+
     print()
     if _failures:
         print(f'{len(_failures)} FAILED: ' + ', '.join(_failures))

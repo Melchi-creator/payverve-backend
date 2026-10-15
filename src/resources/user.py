@@ -23,6 +23,7 @@ from sqlalchemy.exc import DBAPIError, DataError, \
 import config
 from .notification import NotificationResource
 from ..dto import UserDTOCreate
+from ..auth import forbidden, owns
 from ..middlewares import MailtrapHelper
 from ..models import CurrencyModel, UserModel, WalletModel, db
 from ..services import registration, virtual_account
@@ -973,6 +974,11 @@ class UserResource(Resource):
         """ this method is used to create the auth pin of a user """
 
         try:
+            # the owner id came from the URL and was trusted outright.
+            if not owns(id):
+                return forbidden(
+                    'you cannot set a pin on another customer account')
+
 
             if auth_pin is None or len(str(auth_pin)) != 6:
                 return jsonify({
@@ -1058,6 +1064,11 @@ class UserResource(Resource):
         """ this method is used to change the auth pin of a user """
 
         try:
+            # the owner id came from the URL and was trusted outright.
+            if not owns(id):
+                return forbidden(
+                    'you cannot change the pin on another customer account')
+
 
             if old_auth_pin is None or len(str(old_auth_pin)) != 6:
                 return jsonify({
@@ -1179,6 +1190,12 @@ class UserResource(Resource):
         """ this method is used to create the transaction_pin of a user """
 
         try:
+            # the owner id came from the URL and was trusted outright, so a
+            # caller could set a transaction pin on any account that had none.
+            if not owns(id):
+                return forbidden(
+                    'you cannot set a pin on another customer account')
+
 
             if transaction_pin is None or len(str(transaction_pin)) != 4:
                 return jsonify({
@@ -1263,6 +1280,12 @@ class UserResource(Resource):
         """ this method is used to change the transaction_pin of a user """
 
         try:
+            # the owner id came from the URL and was trusted outright; the old
+            # pin is verified, so this was a pin-guessing oracle.
+            if not owns(id):
+                return forbidden(
+                    'you cannot change the pin on another customer account')
+
 
             if old_transaction_pin is None or len(str(old_transaction_pin)) != 4:
                 return jsonify({
@@ -1383,6 +1406,12 @@ class UserResource(Resource):
         """  """
 
         try:
+            # the owner id came from the URL and was trusted outright, which
+            # made this a pin-guessing oracle against any account.
+            if not owns(id):
+                return forbidden(
+                    'you cannot verify a pin on another customer account')
+
 
             if transaction_pin is None or len(str(transaction_pin)) != 4:
                 return jsonify({
@@ -1473,6 +1502,11 @@ class UserResource(Resource):
         """  """
 
         try:
+            # the owner id came from the URL and was trusted outright.
+            if not owns(id):
+                return forbidden(
+                    'you cannot verify a pin on another customer account')
+
 
             if auth_pin is None or len(str(auth_pin)) != 6:
                 return jsonify({
