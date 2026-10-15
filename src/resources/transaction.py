@@ -9,6 +9,7 @@ from sqlalchemy.exc import DisconnectionError, \
     OperationalError, \
     ProgrammingError
 
+from ..auth import (caller_id, caller_is_admin, not_found, owns)
 from ..models import TransactionModel
 from ..utilities import Cryptographer
 
@@ -21,6 +22,14 @@ class TransactionResource(Resource):
         """ """
 
         transactions = TransactionModel.query.order_by(TransactionModel.created_at.desc()).all()
+        # Was an unscoped dump of every row to any signed-in customer.
+        # Filtered on the result rather than in the query so the existing
+        # ordering and shape are untouched; these tables are small.
+        if not caller_is_admin():
+            _me = caller_id()
+            transactions = [r for r in transactions
+                      if str(getattr(r, 'user_id', None)) == _me]
+
 
         try:
             if not transactions:
@@ -85,6 +94,12 @@ class TransactionResource(Resource):
         transaction = TransactionModel.query.filter_by(id=id).first()
 
         try:
+            # the id in the path was trusted outright, with no check that it belongs to the caller.
+            _owner = TransactionModel.query.filter_by(id=id).first()
+            if _owner is not None and not owns(_owner.user_id):
+                return not_found(
+                    'no transaction was found')
+
             if not transaction:
                 return jsonify({
                     'code': 404,
@@ -144,6 +159,11 @@ class TransactionResource(Resource):
         transactions = TransactionModel.query.filter_by(user_id=id).all()
 
         try:
+            # the id in the path was trusted outright, with no check that it belongs to the caller.
+            if not owns(id):
+                return not_found(
+                    'no transaction was found')
+
             if not transactions:
                 return jsonify({
                     'code': 404,

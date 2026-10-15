@@ -6,6 +6,7 @@ from typing import Optional
 from flask import jsonify
 from flask_restful import Resource
 
+from ..auth import not_found, owns
 from ..models import NotificationModel, UserModel
 from ..utilities.push_notifications import send_push_notification
 
@@ -85,6 +86,11 @@ class NotificationResource(Resource):
         """ this function will read all messages for a specific user"""
 
         try:
+            # the id in the path was trusted outright, with no check that it belongs to the caller.
+            if not owns(id):
+                return not_found(
+                    'no messages found for this user')
+
 
             messages = NotificationModel.query.filter_by(user_id=id).order_by(NotificationModel.created_at.desc()).all()
 
@@ -127,6 +133,12 @@ class NotificationResource(Resource):
         """ """
 
         try:
+            # the id in the path was trusted outright, with no check that it belongs to the caller.
+            _owner = NotificationModel.query.filter_by(id=id).first()
+            if _owner is not None and not owns(_owner.user_id):
+                return not_found(
+                    'no message was found')
+
 
             notification = NotificationModel.query.filter_by(id=id).first()
 
@@ -158,6 +170,11 @@ class NotificationResource(Resource):
         """ """
 
         try:
+            # the id in the path was trusted outright, with no check that it belongs to the caller.
+            if not owns(id):
+                return not_found(
+                    'no message was found')
+
 
             notification = NotificationModel.query.filter_by(user_id=id, is_read=False).all()
 
@@ -190,6 +207,11 @@ class NotificationResource(Resource):
         """ this function will count all read messages for a specific user"""
 
         try:
+            # the id in the path was trusted outright, with no check that it belongs to the caller.
+            if not owns(id):
+                return not_found(
+                    'no message was found')
+
             count = NotificationModel.query.filter_by(user_id=id, is_read=True).count() or 0
 
             return jsonify({
@@ -210,6 +232,11 @@ class NotificationResource(Resource):
         """ the function will count all unread messages for a specific user"""
 
         try:
+            # the id in the path was trusted outright, with no check that it belongs to the caller.
+            if not owns(id):
+                return not_found(
+                    'no message was found')
+
             count = NotificationModel.query.filter_by(user_id=id, is_read=False).count() or 0
 
             return jsonify({

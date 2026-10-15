@@ -18,6 +18,7 @@ from sqlalchemy.exc import DataError, \
 import config
 from .notification import NotificationResource
 from ..middlewares import FlutterwaveHelper
+from ..auth import (caller_id, caller_is_admin, not_found, owns)
 from ..models import CurrencyModel, \
     ForeignTransferModel, \
     PayverveWalletModel, \
@@ -407,6 +408,14 @@ class ForeignTransferResource(Resource):
         """ Retrieve all foreign transfers """
 
         foreign_transfers = ForeignTransferModel.query.order_by(ForeignTransferModel.created_at.desc()).all()
+        # Was an unscoped dump of every row to any signed-in customer.
+        # Filtered on the result rather than in the query so the existing
+        # ordering and shape are untouched; these tables are small.
+        if not caller_is_admin():
+            _me = caller_id()
+            foreign_transfers = [r for r in foreign_transfers
+                      if str(getattr(r, 'user_id', None)) == _me]
+
 
         try:
             if not foreign_transfers:
@@ -471,6 +480,12 @@ class ForeignTransferResource(Resource):
         foreign_transfer = ForeignTransferModel.query.filter_by(id=id).first()
 
         try:
+            # the id in the path was trusted outright, with no check that it belongs to the caller.
+            _owner = ForeignTransferModel.query.filter_by(id=id).first()
+            if _owner is not None and not owns(_owner.user_id):
+                return not_found(
+                    'no transfer was found')
+
             if not foreign_transfer:
                 return jsonify({
                     'code': 404,
@@ -530,6 +545,11 @@ class ForeignTransferResource(Resource):
         foreign_transfers = ForeignTransferModel.query.filter_by(user_id=id).order_by(ForeignTransferModel.created_at.desc()).all()
 
         try:
+            # the id in the path was trusted outright, with no check that it belongs to the caller.
+            if not owns(id):
+                return not_found(
+                    'no transfer was found')
+
             if not foreign_transfers:
                 return jsonify({
                     'code': 404,

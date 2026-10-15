@@ -23,7 +23,8 @@ from sqlalchemy.exc import DBAPIError, DataError, \
 import config
 from .notification import NotificationResource
 from ..dto import UserDTOCreate
-from ..auth import forbidden, owns
+from ..auth import (caller_id, caller_is_admin, forbidden, not_found,
+                    owns)
 from ..middlewares import MailtrapHelper
 from ..models import CurrencyModel, UserModel, WalletModel, db
 from ..services import registration, virtual_account
@@ -317,6 +318,14 @@ class UserResource(Resource):
 
         users = UserModel.query.all()
 
+        # Was an unscoped dump of every row to any signed-in customer.
+        # Filtered on the result rather than in the query so the existing
+        # ordering and shape are untouched; these tables are small.
+        if not caller_is_admin():
+            _me = caller_id()
+            users = [r for r in users
+                      if str(getattr(r, 'id', None)) == _me]
+
         try:
             if not users:
                 return jsonify({
@@ -389,6 +398,11 @@ class UserResource(Resource):
         user = UserModel.query.filter_by(id=id).first()
 
         try:
+            # the id in the path was trusted outright, with no check that it belongs to the caller.
+            if not owns(id):
+                return not_found(
+                    'no user account was found')
+
             if not user:
                 return jsonify({
                     'code': 404,
@@ -474,6 +488,11 @@ class UserResource(Resource):
         user = UserModel.query.filter_by(id=id).first()
 
         try:
+            # the id in the path was trusted outright, with no check that it belongs to the caller.
+            if not owns(id):
+                return forbidden(
+                    'you cannot modify another customer account')
+
             if not user:
                 return jsonify({
                     'code': 404,
@@ -588,6 +607,11 @@ class UserResource(Resource):
         user = UserModel.query.filter_by(id=id).first()
 
         try:
+            # the id in the path was trusted outright, with no check that it belongs to the caller.
+            if not owns(id):
+                return forbidden(
+                    'you cannot delete another customer account')
+
             if not user:
                 return jsonify({
                     'code': 404,
@@ -888,6 +912,11 @@ class UserResource(Resource):
         """ this method is used to change the password of a user """
 
         try:
+            # the id in the path was trusted outright, with no check that it belongs to the caller.
+            if not owns(id):
+                return forbidden(
+                    'you cannot change the password on another customer account')
+
 
             PasswordValidation(password)
 

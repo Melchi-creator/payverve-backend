@@ -49,6 +49,8 @@ MUST_REQUIRE_AUTH = [
     ('GET', '/beneficiaries/9b16338e-57dc-414b-b835-50cd11d9874b'),
     ('PUT', '/beneficiaries/9b16338e-57dc-414b-b835-50cd11d9874b'),
     ('DELETE', '/beneficiaries/9b16338e-57dc-414b-b835-50cd11d9874b'),
+    ('POST', '/ngn-wallets'),
+    ('POST', '/kycs'),
 ]
 
 # Deliberately public: anonymous callers have to be able to reach these.
@@ -121,6 +123,21 @@ def main():
         ('src.resources.target_save', 'TargetSaveResource', 'fetch_user_ts', 'id'),
         ('src.resources.fixed_deposit', 'FixedDepositResource', 'withdraw_fixed_deposit', 'user_id'),
         ('src.resources.fixed_deposit', 'FixedDepositResource', 'fetch_user_fd', 'id'),
+        ('src.resources.user', 'UserResource', 'read_one', 'id'),
+        ('src.resources.user', 'UserResource', 'update', 'id'),
+        ('src.resources.user', 'UserResource', 'delete', 'id'),
+        ('src.resources.user', 'UserResource', 'user_change_password', 'id'),
+        ('src.resources.transaction', 'TransactionResource', 'user_transation', 'id'),
+        ('src.resources.notification', 'NotificationResource', 'read_user_message', 'id'),
+        ('src.resources.notification', 'NotificationResource', 'mark_all_as_read', 'id'),
+        ('src.resources.notification', 'NotificationResource', 'count_read_message', 'id'),
+        ('src.resources.notification', 'NotificationResource', 'count_unread_message', 'id'),
+        ('src.resources.local_transfer', 'LocalTransferResource', 'user_ltf_all', 'id'),
+        ('src.resources.payverve_transfer', 'PayverveTransferResource', 'user_ptf_all', 'id'),
+        ('src.resources.foreign_transfer', 'ForeignTransferResource', 'user_ftf_all', 'id'),
+        ('src.resources.swap_currency', 'SwapCurrencyResource', 'user_sc_all', 'id'),
+        ('src.resources.virtual_account_numbers', 'VirtualAccountNumberResource', 'user_virtual_account', 'id'),
+        ('src.resources.virtual_account_numbers', 'VirtualAccountNumberResource', 'user_one_virtual_account', 'id'),
     ]
 
     import importlib
@@ -131,6 +148,26 @@ def main():
         body = inspect.getsource(fn)
         check(f'{fn_name} checks owns({owner})',
               f'owns({owner})' in body, True)
+
+    # No read_all may return rows the caller does not own.
+    SCOPED_LISTS = [
+        ('src.resources.user', 'UserResource'),
+        ('src.resources.transaction', 'TransactionResource'),
+        ('src.resources.local_transfer', 'LocalTransferResource'),
+        ('src.resources.payverve_transfer', 'PayverveTransferResource'),
+        ('src.resources.foreign_transfer', 'ForeignTransferResource'),
+        ('src.resources.swap_currency', 'SwapCurrencyResource'),
+        ('src.resources.virtual_account_numbers', 'VirtualAccountNumberResource'),
+        ('src.resources.wallet', 'WalletResource'),
+        ('src.resources.beneficiary', 'BeneficiaryResource'),
+        ('src.resources.kyc', 'KYCResource'),
+    ]
+
+    for module_name, cls_name in SCOPED_LISTS:
+        module = importlib.import_module(module_name)
+        body = inspect.getsource(getattr(getattr(module, cls_name), 'read_all'))
+        check(f'{cls_name}.read_all is scoped',
+              'caller_is_admin()' in body, True)
 
     print()
     if _failures:
