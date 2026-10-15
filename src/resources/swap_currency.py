@@ -19,7 +19,7 @@ from sqlalchemy.exc import DataError, \
 
 import config
 from .notification import NotificationResource
-from ..auth import (caller_id, caller_is_admin, not_found, owns)
+from ..auth import (caller_id, caller_is_admin, not_found, owns)
 from ..auth import forbidden
 from ..models import PayverveWalletModel, SwapCurrencyModel, TransactionModel, WalletModel
 from ..utilities import Cryptographer, RandomGenerator, parse_params
