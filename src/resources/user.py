@@ -23,7 +23,7 @@ from sqlalchemy.exc import DBAPIError, DataError, \
 import config
 from .notification import NotificationResource
 from ..dto import UserDTOCreate
-from ..middlewares import FlutterwaveHelper, MailtrapHelper
+from ..middlewares import MailtrapHelper
 from ..models import CurrencyModel, UserModel, WalletModel, db
 from ..services import registration, virtual_account
 from ..models.token_verification import TokenVerificationModel
@@ -96,42 +96,26 @@ class UserResource(Resource):
             if len(user_data.mobile_number) > 10:
                 user_data.mobile_number = user_data.mobile_number[-10:]
 
-            # START START START Flutterwave (Authentication, Customer Account Creation, Search for Existing, Create Virtual Account)
-
-            auth = FlutterwaveHelper.flutterwave_authentication()
-            flutter_account = FlutterwaveHelper.create_flutterwave_account(auth,
-                                                                           user_data.email_address,
-                                                                           user_data.mobile_number,
-                                                                           first_name, last_name)
-
-            flutter_account_json = flutter_account.json().get('data')
-
-            if not compare_digest(str(flutter_account.status_code),
-                                  '201') and not compare_digest(str(flutter_account.status_code), '409'):
-                return jsonify({
-                    'code': flutter_account.status_code,
-                    'status_message': flutter_account_json.get('status'),
-                    'message': flutter_account_json.get('error').get('message')
-                }), flutter_account.status_code
-
-            if compare_digest(str(flutter_account.status_code), '409'):
-                search_account = FlutterwaveHelper.search_for_customer(
-                    auth, user_data.email_address)
-
-                search_account_json = search_account.json()
-
-                if not compare_digest(str(search_account.status_code), '200'):
-                    return jsonify({
-                        'code': search_account.status_code,
-                        'status_message': search_account_json.get('status'),
-                        'message': search_account_json.get('error').get('message')
-                    }), flutter_account.status_code
-
-                flutter_account_json = search_account_json.get('data')[0]
-
-            customer_code = flutter_account_json.get('id')
-
-            # END END END Flutterwave (Authentication, Customer Account Creation, Search for Existing, Create Virtual Account)
+            # Signup talks to no payment provider at all.
+            #
+            # This used to authenticate with Flutterwave and create a customer
+            # there purely to borrow its id as customer_code. Flutterwave does
+            # not issue virtual accounts -- which is the whole reason accounts
+            # are issued by BellBank -- and BellBank cannot issue one until a
+            # bvn and address have been verified, which happens at KYC, not
+            # here. So the provider call bought nothing at signup while giving
+            # every registration four unbounded HTTP calls to stall on: one
+            # slow upstream and the client gave up after 60s with no response.
+            #
+            # customer_code is now ours, generated like user_code above. It
+            # identifies the customer in our own records and on the virtual
+            # account row, and owes nothing to any provider.
+            #
+            # The Flutterwave implementation is deliberately kept intact in
+            # middlewares/flutterwave_helper.py, dormant but ready, in case a
+            # use is found for it. Nothing in the signup or account path calls
+            # it any more.
+            customer_code = ''.join(secrets.choice(alphabet) for _ in range(16))
 
             gender_check = ["male", "female"]
             if user_data.gender.lower() not in gender_check:

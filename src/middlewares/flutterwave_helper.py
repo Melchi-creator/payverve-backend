@@ -23,6 +23,14 @@ from ..utilities import Cryptographer
 from ..utilities.push_notifications import send_push_notification
 
 
+# (connect, read). requests defaults to no timeout at all, which means a slow
+# or black-holed upstream hangs the worker forever -- registration makes up to
+# four of these calls in series, so one stall took the whole signup past the
+# mobile client's 60s receive timeout and the user saw nothing come back.
+# Matches the BELLBANK_TIMEOUT treatment in bellbank_helper.
+FLUTTERWAVE_TIMEOUT = (10, 30)
+
+
 class FlutterwaveHelper:
     """  """
 
@@ -45,17 +53,20 @@ class FlutterwaveHelper:
             }
 
             response = requests.request(
-                'POST', url, headers=headers, data=data)
+                'POST', url, headers=headers, data=data,
+                timeout=FLUTTERWAVE_TIMEOUT)
             access_token = response.json().get('access_token')
 
             return access_token
 
         except Exception as e:
-            return jsonify({
-                'code': 500,
-                'status_message': 'server error',
-                'message': f'an error occurred: {str(e)}'
-            }), 500
+            # None rather than a jsonify tuple: every caller drops this
+            # straight into f'Bearer {access_token}', so returning a tuple
+            # sent 'Bearer (<Response 500>, 500)' upstream and turned a
+            # Flutterwave outage into a baffling 401 instead of a clear
+            # failure. Callers must treat None as "auth unavailable".
+            print(f'[flutterwave] authentication failed: {type(e).__name__}: {e}')
+            return None
 
     @staticmethod
     def create_flutterwave_account(access_token, email_address, mobile_number, first_name, last_name, middle_name=None):
@@ -93,7 +104,8 @@ class FlutterwaveHelper:
             }
         }
 
-        response = requests.request('POST', url, headers=headers, json=payload)
+        response = requests.request('POST', url, headers=headers, json=payload,
+                                    timeout=FLUTTERWAVE_TIMEOUT)
         print("CREATE CUSTOMER STATUS:", response.status_code)
         print("CREATE CUSTOMER BODY:", response.text)
 
@@ -124,7 +136,8 @@ class FlutterwaveHelper:
             }
 
             response = requests.request(
-                'POST', url, headers=headers, json=payload)
+                'POST', url, headers=headers, json=payload,
+                timeout=FLUTTERWAVE_TIMEOUT)
 
             return response
 
@@ -176,7 +189,8 @@ class FlutterwaveHelper:
             print(payload)
 
             response_va = requests.request(
-                'POST', url, headers=headers, json=payload)
+                'POST', url, headers=headers, json=payload,
+                timeout=FLUTTERWAVE_TIMEOUT)
 
             print(response_va.text)
 
@@ -204,7 +218,8 @@ class FlutterwaveHelper:
                 'X-Trace-Id': secrets.token_urlsafe(12),
             }
 
-            response = requests.request('GET', url, headers=headers)
+            response = requests.request('GET', url, headers=headers,
+                                        timeout=FLUTTERWAVE_TIMEOUT)
 
             return response
 
@@ -233,7 +248,8 @@ class FlutterwaveHelper:
                 'X-Trace-Id': secrets.token_urlsafe(12)
             }
 
-            response = requests.request('GET', url, headers=headers)
+            response = requests.request('GET', url, headers=headers,
+                                        timeout=FLUTTERWAVE_TIMEOUT)
 
             return response
 
@@ -264,7 +280,8 @@ class FlutterwaveHelper:
             }
 
             response = requests.request(
-                'POST', url, headers=headers, json=payload)
+                'POST', url, headers=headers, json=payload,
+                timeout=FLUTTERWAVE_TIMEOUT)
 
             return response
 
@@ -540,7 +557,8 @@ class FlutterwaveHelper:
                 'Authorization': f'Bearer {access_token}',
             }
 
-            response = requests.request('GET', url, headers=headers)
+            response = requests.request('GET', url, headers=headers,
+                                        timeout=FLUTTERWAVE_TIMEOUT)
             print("RETRIEVE CHARGE STATUS:", response.status_code)
             print("RETRIEVE CHARGE BODY:", response.text)
 

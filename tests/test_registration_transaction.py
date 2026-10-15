@@ -4,7 +4,7 @@ Signup used to POST to its own /ngn-wallets, /referrals and /kycs endpoints.
 Each hop committed independently, so a later failure left the earlier rows
 behind and had to be unpicked by compensating deletes. These tests assert the
 replacement: every row lands in one commit, a failure leaves nothing at all,
-and `requests` is never touched.
+and `requests` is never touched -- signup contacts no payment provider.
 
 Run:  ENV=development PYTHONPATH=. python tests/test_registration_transaction.py
 """
@@ -62,29 +62,26 @@ def check(label, got, want):
     print(f"{'PASS' if ok else 'FAIL'}  {label:<46} got={got!r} want={want!r}")
 
 
-class _FakeFlutterwaveResponse:
-    status_code = 201
-    text = '{}'
-
-    @staticmethod
-    def json():
-        return {'data': {'id': 'cust_stub'}}
-
-
 def install_stubs():
-    """Force the production path, but stub everything that leaves the process."""
-    user_resource.FlutterwaveHelper.flutterwave_authentication = \
-        staticmethod(lambda *a, **k: 'stub-token')
-    user_resource.FlutterwaveHelper.create_flutterwave_account = \
-        staticmethod(lambda *a, **k: _FakeFlutterwaveResponse())
-    user_resource.MailtrapHelper.mailtrap_email_sender = \
-        staticmethod(lambda *a, **k: None)
+    """Force the production path, but stub everything that leaves the process.
+
+    Signup used to authenticate with Flutterwave and create a customer there
+    just to borrow its id as customer_code, so this test had to stub two
+    Flutterwave calls to run at all. Flutterwave does not issue virtual
+    accounts -- BellBank does, and only once a bvn and address are verified at
+    KYC -- so signup now contacts no provider and those stubs are gone.
+
+    The _no_http guard below is what holds that line: if signup ever reaches
+    for a provider again, this fails loudly instead of quietly putting an
+    unbounded network call back on the registration path.
+    """
+    user_resource.MailtrapHelper.mailtrap_email_sender = staticmethod(
+        lambda *a, **k: None)
 
     def _no_http(*a, **k):
         raise AssertionError(f'registration made an HTTP call: {a} {k}')
 
     user_resource.requests.request = _no_http
-
 
 def seed_currency():
     db.create_all()

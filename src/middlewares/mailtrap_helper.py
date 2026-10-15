@@ -9,6 +9,11 @@ import requests
 
 import config
 
+# (connect, read). Without this, a stalled Mailtrap call hangs the request that
+# triggered it indefinitely -- signup sends the verification email inline, so
+# the whole registration sat there until the mobile client gave up at 60s.
+MAILTRAP_TIMEOUT = (10, 20)
+
 
 class MailtrapHelper:
     """ A helper class for sending emails using Mailtrap """
@@ -38,7 +43,8 @@ class MailtrapHelper:
                 'Api-Token': config.mailtrap_api_key
             }
             response = requests.request(
-                "POST", url, headers=headers, json=payload)
+                "POST", url, headers=headers, json=payload,
+                timeout=MAILTRAP_TIMEOUT)
             return response
 
         except Exception as e:

@@ -217,7 +217,12 @@ def provision_ngn_virtual_account(user, wallet, bvn, address, currency_id=None):
         account_type='static',
         status='active',
         account_expiration_datetime=_parse_expiry(data.get('expiryDate')),
-        customer_code=user.customer_code,
+        # NOT NULL on this table, but nullable on users -- and signup no
+        # longer borrows a Flutterwave customer id to fill it, so fall back to
+        # user_code (NOT NULL) rather than letting an older account with no
+        # customer_code fail provisioning on an IntegrityError at the KYC step,
+        # long after signup appeared to succeed.
+        customer_code=user.customer_code or user.user_code,
         currency_ticker='NGN',
         is_active=True,
         user_id=user.id,
