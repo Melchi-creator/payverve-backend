@@ -18,10 +18,9 @@ from .notification import NotificationResource
 from ..auth import (caller_id, caller_is_admin, forbidden, not_found, owns)
 from ..middlewares import BellbankHelper
 from ..models import LocalTransferModel, SpendSaveModel, TransactionModel, UserModel, WalletModel, db
+from ..services import transfer_status
+from ..services.transfer_status import normalise_status as _normalise_status
 from ..utilities import Cryptographer, KYCTierCheck, RandomGenerator, parse_params
-
-# BellBank's words for a transfer that will not complete.
-_FAILED_STATUSES = ('failed', 'reversed', 'declined', 'cancelled')
 
 
 def _bank_message(response, default):
@@ -29,15 +28,6 @@ def _bank_message(response, default):
         return (response.json() or {}).get('message') or default
     except ValueError:
         return default
-
-
-def _normalise_status(value):
-    status = str(value or '').strip().lower()
-
-    if status in _FAILED_STATUSES:
-        return 'failed'
-
-    return 'successful' if status == 'successful' else 'pending'
 
 
 def _transfer_outcome(response, reference, access_token):
@@ -74,7 +64,8 @@ def _transfer_outcome(response, reference, access_token):
         except ValueError:
             data = {}
         if data:
-            return {'status': _normalise_status(data.get('status')),
+            return {'status': _normalise_status(data.get('status'),
+                                                data.get('reversedFlag')),
                     'data': data, 'message': ''}
 
     print(f'[transfer] {reference}: outcome unknown, left pending with the '
@@ -397,6 +388,9 @@ class LocalTransferResource(Resource):
 
             # noinspection PyArgumentList
             history = TransactionModel(
+                # Links the history row to its transfer, so settling a
+                # pending transfer later can update both.
+                tx_ref=reference_number,
                 amount=Cryptographer.encrypt(f'{amount_value:.2f}'),
                 transaction_type='domestic_transfer',
                 user_id=user_id,
@@ -597,6 +591,47 @@ class LocalTransferResource(Resource):
                 'status_message': 'database error - programming error',
                 'message': 'could not fetch table'
             }), 500
+
+    @staticmethod
+    def refresh_status(id=None):
+        """Ask BellBank what became of a pending transfer, and apply it.
+
+        A failed or reversed transfer is refunded here; a completed one is
+        marked successful. Safe to call repeatedly, from the app or anywhere.
+        """
+        transfer = LocalTransferModel.query.filter_by(id=id).first()
+
+        # Someone else's transfer is reported as missing, not as forbidden.
+        if transfer is None or not owns(transfer.user_id):
+            return not_found('no transfer was found')
+
+        try:
+            result = transfer_status.settle_transfer(transfer.id)
+        except Exception as e:  # noqa: BLE001
+            db.session.rollback()
+            print(f'[transfer] status refresh failed for '
+                  f'{transfer.reference_number}: {type(e).__name__}: {e}')
+            return jsonify({
+                'code': 502,
+                'status_message': 'bad gateway',
+                'message': 'could not check the transfer with the bank; '
+                           'try again shortly'
+            }), 502
+
+        messages = {
+            'successful': 'transfer was done successfully',
+            'failed': 'transfer failed; the money is back in your wallet',
+            'pending': 'transfer is still processing',
+        }
+
+        return jsonify({
+            'code': 200,
+            'status_message': 'success',
+            'message': messages.get(result['now'], result['now']),
+            'data': {'reference': result['reference'],
+                     'status': result['now'],
+                     'refunded': result['refunded']},
+        }), 200
 
     @staticmethod
     def read_one(id=None):
