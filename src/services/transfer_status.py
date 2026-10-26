@@ -14,6 +14,7 @@ transfer is refunded at most once.
 import time
 from datetime import datetime, timedelta
 
+import config
 from ..models import LocalTransferModel, TransactionModel, WalletModel, db
 from ..utilities import Cryptographer
 
@@ -67,11 +68,85 @@ def _bank_status(reference, access_token=None):
     return normalise_status(data.get('status'), data.get('reversedFlag')), data
 
 
-def _history_for(transfer):
-    """The customer's 'Money Sent' history row for this transfer, if linked."""
+def expected_fee():
+    """The fee held from the customer before BellBank says what it charged.
+
+    Customers pay BellBank's transfer charge, but the exact amount only
+    arrives once BellBank accepts the transfer. This much is held with the
+    amount, then corrected to the real charge.
+    """
+    return round(float(getattr(config, 'bellbank_transfer_fee', 20) or 0), 2)
+
+
+def _history_rows(transfer):
+    """The customer's history rows for this transfer: 'Money Sent' and, when
+    a fee was held, 'Bank Charge'. Linked by the reference in tx_ref."""
+    return TransactionModel.query.filter_by(
+        tx_ref=transfer.reference_number).all()
+
+
+def _fee_row(transfer):
     return TransactionModel.query.filter_by(
         tx_ref=transfer.reference_number,
-        transaction_type='domestic_transfer').first()
+        transaction_type='transaction_charges').first()
+
+
+def refund_locked(transfer):
+    """Return a transfer's amount and fee to the wallet and mark it failed.
+
+    The caller holds the transfer row lock and commits. Returns the total
+    refunded.
+    """
+    wallet = WalletModel.query.filter_by(
+        id=transfer.wallet_id).with_for_update().one()
+    total = round(float(Cryptographer.decrypt(transfer.amount))
+                  + float(transfer.charge_amount or 0), 2)
+    wallet.fund = Cryptographer.encrypt(
+        float(Cryptographer.decrypt(wallet.fund)) + total)
+    transfer.transaction_status = 'failed'
+
+    for row in _history_rows(transfer):
+        row.status = 'failed'
+
+    return total
+
+
+def apply_charge_locked(transfer, actual_charge):
+    """Correct the fee held from the customer to what BellBank charged.
+
+    Gives back any excess, or takes the shortfall -- never more than the
+    wallet holds; anything it cannot cover is logged for follow-up rather
+    than driving the balance negative. The caller holds the transfer row
+    lock and commits.
+    """
+    if actual_charge in (None, ''):
+        return
+
+    actual = round(float(actual_charge), 2)
+    held = round(float(transfer.charge_amount or 0), 2)
+
+    if actual == held:
+        return
+
+    wallet = WalletModel.query.filter_by(
+        id=transfer.wallet_id).with_for_update().one()
+    balance = float(Cryptographer.decrypt(wallet.fund))
+    change = round(actual - held, 2)
+
+    if change > 0 and balance < change:
+        print(f'[transfer] {transfer.reference_number}: BellBank charged '
+              f'₦{actual:,.2f} but only ₦{held + balance:,.2f} could be '
+              f'collected; ₦{change - balance:,.2f} not recovered')
+        change = round(balance, 2)
+
+    wallet.fund = Cryptographer.encrypt(balance - change)
+    collected = round(held + change, 2)
+    transfer.charge_amount = collected
+
+    fee_row = _fee_row(transfer)
+
+    if fee_row is not None:
+        fee_row.amount = Cryptographer.encrypt(f'{collected:.2f}')
 
 
 def settle_transfer(transfer_id, apply=True, access_token=None):
@@ -109,23 +184,15 @@ def settle_transfer(transfer_id, apply=True, access_token=None):
         result['now'] = transfer.transaction_status
         return result
 
-    history = _history_for(transfer)
-
-    if data.get('charge') not in (None, ''):
-        transfer.charge_amount = float(data['charge'])
-
     if bank_status == 'failed':
-        wallet = WalletModel.query.filter_by(
-            id=transfer.wallet_id).with_for_update().one()
-        amount = float(Cryptographer.decrypt(transfer.amount))
-        wallet.fund = Cryptographer.encrypt(
-            float(Cryptographer.decrypt(wallet.fund)) + amount)
+        refund_locked(transfer)
         result['refunded'] = True
+    else:
+        apply_charge_locked(transfer, data.get('charge'))
+        transfer.transaction_status = bank_status
 
-    transfer.transaction_status = bank_status
-
-    if history is not None:
-        history.status = bank_status
+        for row in _history_rows(transfer):
+            row.status = bank_status
 
     db.session.commit()
     result['now'] = bank_status
@@ -144,15 +211,18 @@ def _notify(transfer, status):
 
     try:
         amount = float(Cryptographer.decrypt(transfer.amount))
+        fee = float(transfer.charge_amount or 0)
 
         if status == 'failed':
             NotificationResource.store_and_push(
                 title='Transfer Failed',
                 body=f'Your transfer of ₦{amount:,.2f} to '
                      f'{transfer.recipient_name} did not go through. '
-                     f'The money is back in your wallet.',
+                     f'The ₦{amount + fee:,.2f} (including the ₦{fee:,.2f} '
+                     f'fee) is back in your wallet.',
                 user_id=transfer.user_id,
-                data={'type': 'wallet_credit', 'amount': f'{amount:.2f}'},
+                data={'type': 'wallet_credit',
+                      'amount': f'{amount + fee:.2f}'},
             )
         elif status == 'successful':
             NotificationResource.store_nofication(

@@ -85,14 +85,14 @@ def balance(wallet_id):
         db.session.get(WalletModel, wallet_id).fund))
 
 
-def pending_transfer(user, wallet, amount=100.0):
-    """A transfer as the send flow leaves it: wallet already debited."""
+def pending_transfer(user, wallet, amount=100.0, fee=20.0):
+    """A transfer as the send flow leaves it: amount and expected fee held."""
     w = db.session.get(WalletModel, wallet.id)
     w.fund = Cryptographer.encrypt(
-        float(Cryptographer.decrypt(w.fund)) - amount)
+        float(Cryptographer.decrypt(w.fund)) - amount - fee)
     reference = uuid.uuid4().hex[:24]
     transfer = LocalTransferModel(
-        amount=Cryptographer.encrypt(f'{amount:.2f}'), charge_amount=0.0,
+        amount=Cryptographer.encrypt(f'{amount:.2f}'), charge_amount=fee,
         sender_name='Ada Obi', sender_account_number=9901234567,
         narration='rent', recipient_name='Test Account',
         recipient_bank='Test Bank', recipient_account_number=1001011000,
@@ -106,13 +106,20 @@ def pending_transfer(user, wallet, amount=100.0):
         currency_id=wallet.currency_id, status='pending',
         name='Test Account', transaction_flow='debit',
         transaction_title='Money Sent', currency_ticker='ngn'))
+    db.session.add(TransactionModel(
+        tx_ref=reference, amount=Cryptographer.encrypt(f'{fee:.2f}'),
+        transaction_type='transaction_charges', user_id=user.id,
+        currency_id=wallet.currency_id, status='pending',
+        name='Test Account', transaction_flow='debit',
+        transaction_title='Bank Charge', currency_ticker='ngn'))
     db.session.commit()
     return transfer.id, reference
 
 
 def statuses(transfer_id, reference):
     db.session.expire_all()
-    history = TransactionModel.query.filter_by(tx_ref=reference).one()
+    history = TransactionModel.query.filter_by(
+        tx_ref=reference, transaction_type='domestic_transfer').one()
     return (db.session.get(LocalTransferModel, transfer_id).transaction_status,
             history.status)
 
@@ -154,30 +161,33 @@ def main():
         check('successful transfer is marked successful',
               statuses(tid, ref), ('successful', 'successful'))
         check('  no refund', (result['refunded'], balance(wid)),
-              (False, 900.0))
+              (False, 880.0))
         check('  bank charge recorded',
               db.session.get(LocalTransferModel, tid).charge_amount, 20.0)
 
         # Failed: refunded and marked failed...
         tid, ref = pending_transfer(user, wallet)
-        check('a pending transfer holds the money', balance(wid), 800.0)
+        check('a pending transfer holds amount and fee', balance(wid), 760.0)
         bank_says('failed')
         result = transfer_status.settle_transfer(tid)
-        check('failed transfer is refunded', (result['refunded'],
-              balance(wid)), (True, 900.0))
+        check('failed transfer refunds amount and fee', (result['refunded'],
+              balance(wid)), (True, 880.0))
         check('  and marked failed', statuses(tid, ref),
               ('failed', 'failed'))
 
         # ...exactly once, however often it is settled again.
         transfer_status.settle_transfer(tid)
         transfer_status.settle_transfer(tid)
-        check('  settling again never refunds twice', balance(wid), 900.0)
+        check('  settling again never refunds twice', balance(wid), 880.0)
+        fee_status = TransactionModel.query.filter_by(
+            tx_ref=ref, transaction_type='transaction_charges').one().status
+        check('  bank charge row marked failed too', fee_status, 'failed')
 
         # Reversed (status still 'successful' but reversedFlag set).
         tid, ref = pending_transfer(user, wallet)
         bank_says('successful', reversed_flag=1)
         transfer_status.settle_transfer(tid)
-        check('a reversed transfer is refunded', balance(wid), 900.0)
+        check('a reversed transfer is refunded', balance(wid), 880.0)
         check('  and marked failed', statuses(tid, ref)[0], 'failed')
 
         # Still pending at the bank, or the bank unreachable: left alone.
@@ -185,18 +195,18 @@ def main():
         bank_says('pending')
         transfer_status.settle_transfer(tid)
         check('still pending at the bank stays pending',
-              (statuses(tid, ref)[0], balance(wid)), ('pending', 800.0))
+              (statuses(tid, ref)[0], balance(wid)), ('pending', 760.0))
         bank.transfer_requery = staticmethod(lambda *a, **k: None)
         transfer_status.settle_transfer(tid)
         check('bank unreachable changes nothing',
-              (statuses(tid, ref)[0], balance(wid)), ('pending', 800.0))
+              (statuses(tid, ref)[0], balance(wid)), ('pending', 760.0))
 
         # Dry run reports the bank's answer without acting on it.
         bank_says('failed')
         result = transfer_status.settle_transfer(tid, apply=False)
         check('dry run reports the bank status', result['bank'], 'failed')
         check('  without refunding', (statuses(tid, ref)[0], balance(wid)),
-              ('pending', 800.0))
+              ('pending', 760.0))
 
         check('pending transfers are listed for the script',
               tid in transfer_status.pending_transfer_ids(
@@ -216,7 +226,7 @@ def main():
         status, body = refresh(user)
         check('owner refresh settles it', (status, body['data']['status'],
               body['data']['refunded']), (200, 'failed', True))
-        check('  and the money is back', balance(wid), 900.0)
+        check('  and the money is back', balance(wid), 880.0)
 
         # The scheduled endpoint: secret required, fails closed.
         import config
@@ -244,13 +254,25 @@ def main():
         check('  with a wrong secret is refused',
               scheduled('s3cret', 'wrong')[0], 403)
         check('  with no header is refused', scheduled('s3cret', None)[0], 403)
-        check('  and none of that touched the money', balance(wid), 700.0)
+        check('  and none of that touched the money', balance(wid), 640.0)
 
         status, body = scheduled('s3cret', 's3cret')
         check('right secret settles the batch',
               (status, body['data']['refunded'], body['data']['checked']),
               (200, 2, 2))
-        check('  both refunded', balance(wid), 900.0)
+        check('  both refunded', balance(wid), 880.0)
+
+        # BellBank charged less than the fee held: the excess comes back.
+        tid5, ref5 = pending_transfer(user, wallet)
+        bank_says('successful', charge='10.00')
+        transfer_status.settle_transfer(tid5)
+        check('a lower real fee returns the excess', balance(wid),
+              880.0 - 110)
+        fee_row = TransactionModel.query.filter_by(
+            tx_ref=ref5, transaction_type='transaction_charges').one()
+        check('  bank charge row shows the real fee',
+              (Cryptographer.decrypt(fee_row.amount), fee_row.status),
+              ('10.00', 'successful'))
 
         # The time budget stops a long batch before gunicorn's timeout.
         tid4, _ = pending_transfer(user, wallet)

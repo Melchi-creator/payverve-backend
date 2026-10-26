@@ -110,6 +110,10 @@ def main():
     NotificationResource.store_nofication = staticmethod(lambda *a, **k: None)
     KYCTierCheck.kyc_transfer_check = staticmethod(lambda *a, **k: None)
     bank.bellbank_authentication = staticmethod(lambda *a, **k: 'tok')
+    # Customers pay BellBank's charge: N20 is held with the amount, then
+    # corrected to what BellBank reports (N10 in accepted()).
+    import config
+    config.bellbank_transfer_fee = 20
 
     with app.app_context():
         db.create_all()
@@ -144,7 +148,8 @@ def main():
         bank.transfer_outbound = staticmethod(lambda **k: accepted())
         status, body = send(uid, wid)
         check('accepted transfer answers 201', status, 201)
-        check('  wallet debited by the amount', balance(wid), 4000.0)
+        check('  wallet debited by amount plus the real fee', balance(wid),
+              3990.0)
         row = transfer(body['data']['reference'])
         check('  recorded as pending', row.transaction_status, 'pending')
         check('  with the bank session id and charge',
@@ -152,6 +157,14 @@ def main():
               (True, 10.0))
         check('  history row written', TransactionModel.query.filter_by(
             user_id=uid, transaction_title='Money Sent').count(), 1)
+        fee_row = TransactionModel.query.filter_by(
+            tx_ref=row.reference_number,
+            transaction_title='Bank Charge').one()
+        check('  bank charge row shows the real fee',
+              Cryptographer.decrypt(fee_row.amount), '10.00')
+        check('  response reports amount and fee',
+              (body['data']['amount'], body['data']['fee']),
+              ('1000.00', '10.00'))
 
         # Successful straight away.
         bank.transfer_outbound = staticmethod(
@@ -160,14 +173,14 @@ def main():
         check('successful transfer is marked successful',
               transfer(body['data']['reference']).transaction_status,
               'successful')
-        check('  and debited', balance(wid), 3500.0)
+        check('  and debited', balance(wid), 3480.0)
 
         # The bank refuses: refunded, marked failed.
         bank.transfer_outbound = staticmethod(lambda **k: _Response(
             400, {'success': False, 'message': 'Invalid account'}))
         status, body = send(uid, wid)
         check('refused transfer answers 400', status, 400)
-        check('  and the money is back', balance(wid), 3500.0)
+        check('  amount and fee are back', balance(wid), 3480.0)
         failed = LocalTransferModel.query.filter_by(
             transaction_status='failed').count()
         check('  recorded as failed', failed, 1)
@@ -179,7 +192,7 @@ def main():
         status, body = send(uid, wid)
         check('unknown outcome is accepted as processing',
               (status, body['data']['status']), (201, 'pending'))
-        check('  with the money still reserved', balance(wid), 2500.0)
+        check('  with amount and expected fee held', balance(wid), 2460.0)
 
         # Unknown at first, but the requery says it went through.
         bank.transfer_requery = staticmethod(lambda *a, **k: _Response(
@@ -197,7 +210,7 @@ def main():
         bank.transfer_outbound = staticmethod(must_not_call)
         status, body = send(uid, wid, '999999')
         check('insufficient funds refused', status, 400)
-        check('  balance unchanged', balance(wid), 2400.0)
+        check('  balance unchanged', balance(wid), 2350.0)
 
         # A deposit credited while the bank call is in flight survives.
         def deposit_during_call(**k):
@@ -210,7 +223,7 @@ def main():
         bank.transfer_outbound = staticmethod(deposit_during_call)
         send(uid, wid, '400')
         check('a deposit during the bank call is kept', balance(wid),
-              2400.0 - 400 + 700)
+              2350.0 - 410 + 700)
 
         # Spend & Save takes its share from the wallet, not from nowhere.
         db.session.add(SpendSaveModel(
@@ -224,7 +237,25 @@ def main():
             SpendSaveModel.query.filter_by(user_id=uid).one().balance))
         check('spend & save moves 10% into savings', saved, 100.0)
         check('  and takes it out of the wallet', balance(wid),
-              before - 1000 - 100)
+              before - 1010 - 100)
+
+        # BellBank charges more than was held: the difference is taken.
+        bank.transfer_outbound = staticmethod(
+            lambda **k: accepted('successful', charge=35))
+        before = balance(wid)
+        status, body = send(uid, wid, '100')
+        check('a higher real fee is collected', balance(wid),
+              before - 135 - 10)  # 10: Spend & Save is still on
+        check('  and recorded', transfer(
+            body['data']['reference']).charge_amount, 35.0)
+
+        # Enough for the amount but not the fee: refused before the bank.
+        bank.transfer_outbound = staticmethod(must_not_call)
+        set_balance(wid, 100)
+        status, body = send(uid, wid, '100')
+        check('amount without the fee is refused', status, 400)
+        check('  and says the fee is needed', 'fee' in body['message'], True)
+        check('  balance untouched', balance(wid), 100.0)
 
     if _failures:
         print(f'\n{len(_failures)} FAILURES: {_failures}')

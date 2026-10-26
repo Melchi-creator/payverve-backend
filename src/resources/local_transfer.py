@@ -73,17 +73,6 @@ def _transfer_outcome(response, reference, access_token):
     return {'status': 'pending', 'data': {}, 'message': ''}
 
 
-def _refund(transfer_id, history_id, wallet_id, amount_value):
-    """Give a refused transfer's money back and mark it failed, together."""
-    wallet = WalletModel.query.filter_by(id=wallet_id).with_for_update().one()
-    wallet.fund = Cryptographer.encrypt(
-        float(Cryptographer.decrypt(wallet.fund)) + amount_value)
-    db.session.get(LocalTransferModel, transfer_id).transaction_status = \
-        'failed'
-    db.session.get(TransactionModel, history_id).status = 'failed'
-    db.session.commit()
-
-
 def _spend_and_save(user_id, wallet_id, amount_value, owner_name):
     """Move the customer's Spend & Save percentage of a transfer to savings.
 
@@ -317,12 +306,14 @@ class LocalTransferResource(Resource):
                 }), 400
 
             decrypt_fund = Cryptographer.decrypt(wallet_check.fund)
+            fee = transfer_status.expected_fee()
 
-            if float(decrypt_fund) < float(amount):
+            if float(decrypt_fund) < float(amount) + fee:
                 return jsonify({
                     'code': 400,
                     'status_message': 'bad request',
-                    'message': 'insufficient funds'
+                    'message': f'insufficient funds: ₦{float(amount):,.2f} '
+                               f'plus the ₦{fee:,.2f} transfer fee is needed'
                 }), 400
 
             # The money is reserved BEFORE the bank is asked to move it, and
@@ -352,21 +343,26 @@ class LocalTransferResource(Resource):
             wallet = WalletModel.query.filter_by(
                 id=wallet_id).with_for_update().one()
 
-            if float(Cryptographer.decrypt(wallet.fund)) < amount_value:
+            # Customers pay BellBank's charge. Its exact amount is only known
+            # once BellBank accepts, so the expected fee is held with the
+            # amount and corrected to the real charge afterwards.
+            if float(Cryptographer.decrypt(wallet.fund)) < amount_value + fee:
                 db.session.rollback()
                 return jsonify({
                     'code': 400,
                     'status_message': 'bad request',
-                    'message': 'insufficient funds'
+                    'message': f'insufficient funds: ₦{amount_value:,.2f} '
+                               f'plus the ₦{fee:,.2f} transfer fee is needed'
                 }), 400
 
             wallet.fund = Cryptographer.encrypt(
-                float(Cryptographer.decrypt(wallet.fund)) - amount_value)
+                float(Cryptographer.decrypt(wallet.fund))
+                - amount_value - fee)
 
             # noinspection PyArgumentList
             local_transfer = LocalTransferModel(
                 amount=Cryptographer.encrypt(f'{amount_value:.2f}'),
-                charge_amount=0.0,
+                charge_amount=fee,
                 sender_name=sender_name,
                 sender_account_number=int(sender_account or 0),
                 narration=narration,
@@ -403,6 +399,24 @@ class LocalTransferResource(Resource):
                 currency_ticker='ngn'
             )
             db.session.add(history)
+
+            if fee > 0:
+                # noinspection PyArgumentList
+                db.session.add(TransactionModel(
+                    tx_ref=reference_number,
+                    amount=Cryptographer.encrypt(f'{fee:.2f}'),
+                    transaction_type='transaction_charges',
+                    user_id=user_id,
+                    currency_id=wallet.currency_id,
+                    note=f'Bank charge for transfer of ₦{amount_value:,.2f} '
+                         f'to {recipient_name}',
+                    status='pending',
+                    name=recipient_name,
+                    transaction_flow='debit',
+                    transaction_title='Bank Charge',
+                    currency_ticker='ngn'
+                ))
+
             db.session.commit()
 
             access_token = BellbankHelper.bellbank_authentication('6')
@@ -424,7 +438,10 @@ class LocalTransferResource(Resource):
                                         access_token)
 
             if outcome['status'] == 'failed':
-                _refund(local_transfer.id, history.id, wallet_id, amount_value)
+                transfer_status.refund_locked(
+                    LocalTransferModel.query.filter_by(
+                        id=local_transfer.id).with_for_update().one())
+                db.session.commit()
                 print(f'[transfer] {reference_number} refused by the bank, '
                       f'refunded: {outcome["message"]}')
                 return jsonify({
@@ -434,13 +451,16 @@ class LocalTransferResource(Resource):
                                f'your wallet'
                 }), 400
 
-            local_transfer = db.session.get(LocalTransferModel,
-                                            local_transfer.id)
-            history = db.session.get(TransactionModel, history.id)
+            local_transfer = LocalTransferModel.query.filter_by(
+                id=local_transfer.id).with_for_update().one()
             data = outcome['data']
+            transfer_status.apply_charge_locked(local_transfer,
+                                                data.get('charge'))
             local_transfer.transaction_status = outcome['status']
-            history.status = outcome['status']
-            local_transfer.charge_amount = float(data.get('charge') or 0)
+
+            for row in TransactionModel.query.filter_by(
+                    tx_ref=reference_number).all():
+                row.status = outcome['status']
 
             if data.get('sessionId'):
                 local_transfer.session_id = str(data['sessionId'])
@@ -471,7 +491,9 @@ class LocalTransferResource(Resource):
                 'message': 'transfer is still processing' if processing
                 else 'transfer was done successfully',
                 'data': {'reference': reference_number,
-                         'status': outcome['status']},
+                         'status': outcome['status'],
+                         'amount': f'{amount_value:.2f}',
+                         'fee': f'{local_transfer.charge_amount:.2f}'},
             }), 201
 
         except IntegrityError:

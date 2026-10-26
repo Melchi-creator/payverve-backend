@@ -191,6 +191,13 @@ bellbank_proxy_url = get_config('BELLBANK_PROXY_URL', '')
 # already sent. Empty disables the endpoint.
 settle_transfers_secret = get_config('SETTLE_TRANSFERS_SECRET', '')
 
+# Customers pay BellBank's transfer charge, but BellBank only reports the
+# exact amount once it accepts the transfer. This much is held with the
+# amount when sending, then corrected to the real charge (excess returned,
+# shortfall taken). Set it to BellBank's usual charge; 20 is what the sandbox
+# charged on N100.
+bellbank_transfer_fee = float(get_config('BELLBANK_TRANSFER_FEE', '20') or 0)
+
 # Set in .env.sandbox. Refuses to start unless BellBank calls really go to the
 # sandbox, so a test session can never move live money because one line in a
 # profile was missing and .env's live base url filled the gap.
