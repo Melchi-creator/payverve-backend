@@ -17,8 +17,138 @@ from sqlalchemy.exc import DataError, \
 from .notification import NotificationResource
 from ..auth import (caller_id, caller_is_admin, forbidden, not_found, owns)
 from ..middlewares import BellbankHelper
-from ..models import CurrencyModel, LocalTransferModel, SpendSaveModel, TransactionModel, UserModel, WalletModel
+from ..models import LocalTransferModel, SpendSaveModel, TransactionModel, UserModel, WalletModel, db
 from ..utilities import Cryptographer, KYCTierCheck, RandomGenerator, parse_params
+
+# BellBank's words for a transfer that will not complete.
+_FAILED_STATUSES = ('failed', 'reversed', 'declined', 'cancelled')
+
+
+def _bank_message(response, default):
+    try:
+        return (response.json() or {}).get('message') or default
+    except ValueError:
+        return default
+
+
+def _normalise_status(value):
+    status = str(value or '').strip().lower()
+
+    if status in _FAILED_STATUSES:
+        return 'failed'
+
+    return 'successful' if status == 'successful' else 'pending'
+
+
+def _transfer_outcome(response, reference, access_token):
+    """Decide what happened to a transfer: successful, pending or failed.
+
+    'failed' means the money certainly did not leave and is refunded. When
+    that cannot be known -- the request errored in flight, or BellBank
+    answered 5xx -- the transfer is asked about by reference, and if that
+    is inconclusive too it stays pending with the money reserved, because
+    refunding a transfer that did go through would pay it out twice.
+    """
+    if not access_token:
+        return {'status': 'failed', 'data': {},
+                'message': 'could not reach the bank'}
+
+    if response is not None and 200 <= response.status_code < 300:
+        try:
+            data = (response.json() or {}).get('data') or {}
+        except ValueError:
+            data = {}
+        return {'status': _normalise_status(data.get('status')), 'data': data,
+                'message': ''}
+
+    if response is not None and 400 <= response.status_code < 500:
+        return {'status': 'failed', 'data': {},
+                'message': _bank_message(response, 'the bank refused the '
+                                                   'transfer')}
+
+    requery = BellbankHelper.transfer_requery(reference, access_token)
+
+    if requery is not None and requery.status_code == 200:
+        try:
+            data = (requery.json() or {}).get('data') or {}
+        except ValueError:
+            data = {}
+        if data:
+            return {'status': _normalise_status(data.get('status')),
+                    'data': data, 'message': ''}
+
+    print(f'[transfer] {reference}: outcome unknown, left pending with the '
+          'money reserved; requery it before refunding')
+    return {'status': 'pending', 'data': {}, 'message': ''}
+
+
+def _refund(transfer_id, history_id, wallet_id, amount_value):
+    """Give a refused transfer's money back and mark it failed, together."""
+    wallet = WalletModel.query.filter_by(id=wallet_id).with_for_update().one()
+    wallet.fund = Cryptographer.encrypt(
+        float(Cryptographer.decrypt(wallet.fund)) + amount_value)
+    db.session.get(LocalTransferModel, transfer_id).transaction_status = \
+        'failed'
+    db.session.get(TransactionModel, history_id).status = 'failed'
+    db.session.commit()
+
+
+def _spend_and_save(user_id, wallet_id, amount_value, owner_name):
+    """Move the customer's Spend & Save percentage of a transfer to savings.
+
+    This used to add the percentage to the savings balance without taking it
+    out of the wallet, so every transfer created that money from nothing.
+    Best effort: the transfer has already happened and must not be undone
+    by a savings failure.
+    """
+    try:
+        spend_save = SpendSaveModel.query.filter_by(user_id=user_id).first()
+
+        if not spend_save or not spend_save.is_active:
+            return
+
+        to_save = round(amount_value * float(spend_save.percentage_to_save)
+                        / 100, 2)
+
+        if to_save <= 0:
+            return
+
+        wallet = WalletModel.query.filter_by(
+            id=wallet_id).with_for_update().one()
+        balance = float(Cryptographer.decrypt(wallet.fund))
+
+        if balance < to_save:
+            db.session.rollback()
+            return
+
+        wallet.fund = Cryptographer.encrypt(balance - to_save)
+        spend_save.balance = Cryptographer.encrypt(
+            float(Cryptographer.decrypt(spend_save.balance)) + to_save)
+
+        # noinspection PyArgumentList
+        db.session.add(TransactionModel(
+            amount=Cryptographer.encrypt(f'{to_save:.2f}'),
+            transaction_type='spend_and_save',
+            user_id=user_id,
+            currency_id=wallet.currency_id,
+            note=f"{spend_save.percentage_to_save}% of this transaction was "
+                 f"saved under Spend & Save plan",
+            status='successful',
+            name=owner_name,
+            transaction_flow='debit',
+            transaction_title='Money Saved',
+            currency_ticker='ngn'
+        ))
+        db.session.commit()
+
+        NotificationResource.store_nofication(
+            title="Spend Save",
+            body=f"₦{to_save:,.2f} was saved under Spend & Save plan",
+            user_id=user_id,
+        )
+    except Exception as e:  # noqa: BLE001
+        db.session.rollback()
+        print(f'[transfer] spend & save skipped: {type(e).__name__}: {e}')
 
 
 class LocalTransferResource(Resource):
@@ -204,185 +334,150 @@ class LocalTransferResource(Resource):
                     'message': 'insufficient funds'
                 }), 400
 
-            # @TODO: integrate with payverve local bank transfer api here
+            # The money is reserved BEFORE the bank is asked to move it, and
+            # every balance change happens on a locked, freshly read wallet.
+            #
+            # This used to read the balance, call BellBank, and then write
+            # back (balance read earlier - amount): a deposit credited during
+            # the call was wiped out, and two sends at once could both pass the
+            # balance check. After the bank accepted, it read
+            # wallet.account_number -- a column wallets no longer have -- so
+            # every successful transfer raised a 500 with the money already
+            # gone and nothing recorded, inviting the customer to send again.
+            sender_name = f"{user_check.first_name} {user_check.last_name}"
+            amount_value = round(float(amount), 2)
 
-            # withdraw from sender Virtual Account and credit to receiver bank account
-            # verify transaction status
+            if amount_value <= 0:
+                return jsonify({
+                    'code': 400,
+                    'status_message': 'bad request',
+                    'message': 'amount must be greater than zero'
+                }), 400
 
-            access_token = BellbankHelper.bellbank_authentication('6')
             reference_number = RandomGenerator.local_transfer_reference_number()
+            sender_account = BellbankHelper.virtual_account_for_wallet(
+                wallet_check)
 
-            transfer_response = BellbankHelper.transfer_outbound(
-                bank_code=bank_code,
-                amount=amount,
-                narration=narration,
-                account_number=account_number,
-                reference=reference_number,
-                sender_name=f"{user_check.first_name} {user_check.last_name}",
-                recipient_name=recipient_name,
-                access_token=access_token
-            )
+            wallet = WalletModel.query.filter_by(
+                id=wallet_id).with_for_update().one()
 
-            if transfer_response is None:
+            if float(Cryptographer.decrypt(wallet.fund)) < amount_value:
+                db.session.rollback()
                 return jsonify({
-                    'code': 502,
-                    'status_message': 'bad gateway',
-                    'message': 'could not reach the bank to make that transfer; no money has left your wallet'
-                }), 502
+                    'code': 400,
+                    'status_message': 'bad request',
+                    'message': 'insufficient funds'
+                }), 400
 
-            if not compare_digest(str(transfer_response.status_code), '200'):
-                return jsonify({
-                    'code': transfer_response.status_code,
-                    'status_message': 'failed to resolve bank account',
-                    'message': transfer_response.json().get('message', 'an error occurred while resolving bank account')
-                }), transfer_response.status_code
-
-            transaction_data = transfer_response.json().get('data', {})
-
-            wallet_balance = float(decrypt_fund) - float(amount)
-            wallet_check.fund = Cryptographer.encrypt(wallet_balance)
-            wallet_check.save()
-
-            final_charge = float(transaction_data.get('charge'))
-
-            amount = Cryptographer.encrypt(amount)
+            wallet.fund = Cryptographer.encrypt(
+                float(Cryptographer.decrypt(wallet.fund)) - amount_value)
 
             # noinspection PyArgumentList
-            new_local_transfer = LocalTransferModel(
-                amount=amount,
-                charge_amount=transaction_data.get('charge'),
-                sender_name=f"{user_check.first_name} {user_check.last_name}",
-                sender_account_number=wallet_check.account_number,
+            local_transfer = LocalTransferModel(
+                amount=Cryptographer.encrypt(f'{amount_value:.2f}'),
+                charge_amount=0.0,
+                sender_name=sender_name,
+                sender_account_number=int(sender_account or 0),
                 narration=narration,
                 recipient_name=recipient_name,
                 recipient_bank=recipient_bank,
                 recipient_account_number=account_number,
                 reference_number=reference_number,
-                session_id=transaction_data.get('sessionId'),
+                # Unique and required, but BellBank only assigns a session id
+                # once it accepts the transfer. The reference stands in until
+                # then.
+                session_id=reference_number,
                 stamp_duty=0.0,
                 sender_bank="bellbank microfinance bank",
                 user_id=user_id,
                 wallet_id=wallet_id,
-                # @TODO: change according to api response
-                transaction_status=transaction_data.get('status')
+                transaction_status='pending',
             )
-            new_local_transfer.save()
-
-            add_charge = float(Cryptographer.decrypt(amount)
-                               ) + float(final_charge)
-            amount = Cryptographer.encrypt(add_charge)
+            db.session.add(local_transfer)
 
             # noinspection PyArgumentList
-            new_transaction = TransactionModel(
-                amount=amount,
+            history = TransactionModel(
+                amount=Cryptographer.encrypt(f'{amount_value:.2f}'),
                 transaction_type='domestic_transfer',
                 user_id=user_id,
-                currency_id=wallet_check.currency_id,
+                currency_id=wallet.currency_id,
                 note=narration,
-                status=transaction_data.get('status'),
+                status='pending',
                 name=recipient_name,
                 transaction_flow='debit',
                 transaction_title='Money Sent',
                 currency_ticker='ngn'
             )
-
-            new_transaction.save()
-
-            note_amount = Cryptographer.decrypt(amount)
-
-            NotificationResource.store_and_push(
-                title="Local Transfer",
-                body=f"{wallet_check.currency_ticker}{float(note_amount): ,.2f} was sent to  {recipient_name}",
-                user_id=user_id,
-                data={"type": "wallet_debit", "amount": note_amount},
-            )
-
-            # Spend and Save Transactions
-
-            spend_save = SpendSaveModel.query.filter_by(
-                user_id=user_id).first()
-
-            if spend_save:
-                if spend_save.is_active:
-                    sender = WalletModel.query.filter_by(id=wallet_id).first()
-                    currency_ticker = sender.currency_ticker.lower()
-
-                    amount = Cryptographer.decrypt(amount)
-
-                    percentage_cal = (
-                        float(spend_save.percentage_to_save) / float(100))
-                    amount_to_save = float(amount) * float(percentage_cal)
-
-                    if float(Cryptographer.decrypt(sender.fund)) > float(amount_to_save):
-                        init_balance = Cryptographer.decrypt(
-                            spend_save.balance)
-                        final_balance = float(
-                            init_balance) + float(amount_to_save)
-
-                        spend_save.balance = Cryptographer.encrypt(
-                            final_balance)
-                        spend_save.save()
-
-                        currency_id = CurrencyModel.query.filter_by(
-                            short_code=currency_ticker).first().id
-
-                        # noinspection PyArgumentList
-                        new_transaction = TransactionModel(
-                            amount=Cryptographer.encrypt(amount_to_save),
-                            transaction_type='spend_and_save',
-                            user_id=user_id,
-                            currency_id=currency_id,
-                            note=f"{spend_save.percentage_to_save}% of this transaction was saved under Spend & Save plan",
-                            status='successful',
-                            name=f"{user_check.first_name} {user_check.last_name}",
-                            transaction_flow='debit',
-                            transaction_title='Money Saved',
-                            currency_ticker=currency_ticker
-                        )
-
-                        new_transaction.save()
-
-                        NotificationResource.store_nofication(
-                            title="Spend Save",
-                            body=f"₦{float(final_balance): ,.2f} was saved under Spend & Save plan",
-                            user_id=user_id,
-                        )
+            db.session.add(history)
+            db.session.commit()
 
             access_token = BellbankHelper.bellbank_authentication('6')
-            requery_respone = BellbankHelper.transfer_requery(
-                reference_number, access_token)
+            transfer_response = None
 
-            if requery_respone is None:
+            if access_token:
+                transfer_response = BellbankHelper.transfer_outbound(
+                    bank_code=bank_code,
+                    amount=f'{amount_value:.2f}',
+                    narration=narration,
+                    account_number=account_number,
+                    reference=reference_number,
+                    sender_name=sender_name,
+                    recipient_name=recipient_name,
+                    access_token=access_token
+                )
+
+            outcome = _transfer_outcome(transfer_response, reference_number,
+                                        access_token)
+
+            if outcome['status'] == 'failed':
+                _refund(local_transfer.id, history.id, wallet_id, amount_value)
+                print(f'[transfer] {reference_number} refused by the bank, '
+                      f'refunded: {outcome["message"]}')
                 return jsonify({
-                    'code': 502,
-                    'status_message': 'bad gateway',
-                    'message': 'could not reach the bank to check that transaction'
-                }), 502
+                    'code': 400,
+                    'status_message': 'transfer failed',
+                    'message': f'{outcome["message"]}; no money has left '
+                               f'your wallet'
+                }), 400
 
-            if not compare_digest(str(requery_respone.status_code), '200'):
-                return jsonify({
-                    'code': requery_respone.status_code,
-                    'status_message': 'failed to fetch transaction status',
-                    'message': requery_respone.json().get('message',
-                                                          'an error occurred while fetching transaction status')
-                }), requery_respone.status_code
+            local_transfer = db.session.get(LocalTransferModel,
+                                            local_transfer.id)
+            history = db.session.get(TransactionModel, history.id)
+            data = outcome['data']
+            local_transfer.transaction_status = outcome['status']
+            history.status = outcome['status']
+            local_transfer.charge_amount = float(data.get('charge') or 0)
 
-            transaction_data = requery_respone.json().get('data', {})
-            status = float(transaction_data.get('charge'))
+            if data.get('sessionId'):
+                local_transfer.session_id = str(data['sessionId'])
 
-            if compare_digest(str(status), 'successful'):
-                new_local_transfer.transaction_status = 'successful'
-                new_local_transfer.save()
+            db.session.commit()
+            print(f'[transfer] {reference_number}: {outcome["status"]} '
+                  f'(₦{amount_value:,.2f} to {account_number})')
 
-                new_transaction.status = 'successful'
-                new_transaction.save()
+            try:
+                NotificationResource.store_and_push(
+                    title="Local Transfer",
+                    body=f"₦{amount_value:,.2f} was sent to {recipient_name}",
+                    user_id=user_id,
+                    data={"type": "wallet_debit",
+                          "amount": f'{amount_value:.2f}'},
+                )
+            except Exception as e:  # noqa: BLE001 - the transfer stands
+                print(f'[transfer] notification failed for '
+                      f'{reference_number}: {type(e).__name__}: {e}')
+
+            _spend_and_save(user_id, wallet_id, amount_value, sender_name)
+
+            processing = outcome['status'] != 'successful'
 
             return jsonify({
                 'code': 201,
                 'status_message': 'created',
-                'message': 'transfer was done successfully' if not compare_digest(str(transaction_data.get('status')),
-                                                                                  'pending') else 'transfer is still processing',
-                # @ TODO change according to api response
+                'message': 'transfer is still processing' if processing
+                else 'transfer was done successfully',
+                'data': {'reference': reference_number,
+                         'status': outcome['status']},
             }), 201
 
         except IntegrityError:
