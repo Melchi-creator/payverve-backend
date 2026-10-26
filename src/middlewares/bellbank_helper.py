@@ -10,11 +10,11 @@ from hmac import compare_digest
 import requests
 from flask import jsonify, request
 from psycopg2 import DataError, InternalError, OperationalError, ProgrammingError
-from sqlalchemy.exc import DBAPIError, DisconnectionError
+from sqlalchemy.exc import DBAPIError, DisconnectionError, IntegrityError
 
 import config
-from ..models import (InboundTransferModel, TransactionModel,
-                      VirtualAccountNumberModel, WalletModel)
+from ..models import (InboundTransferModel, TransactionModel, UserModel,
+                      VirtualAccountNumberModel, WalletModel, db)
 from src.resources.notification import NotificationResource
 from ..utilities import Cryptographer
 
@@ -678,12 +678,21 @@ class BellbankHelper:
                         source_account_number)
 
                     if sender_wallet:
-                        BellbankHelper.payverve_to_payverve_transfer(
+                        result = BellbankHelper.payverve_to_payverve_transfer(
+                            webhook_data, recipient_wallet)
+                    else:
+                        result = BellbankHelper.others_to_payverve_transfer(
                             webhook_data, recipient_wallet)
 
-                    if not sender_wallet:
-                        BellbankHelper.others_to_payverve_transfer(
-                            webhook_data, recipient_wallet)
+                    # The result used to be discarded and 200 sent whatever
+                    # happened, so a credit that failed was never retried. A
+                    # 5xx means nothing was written: pass it on so BellBank
+                    # sends the notification again. A 4xx is bad data that a
+                    # retry would not fix, so it is acknowledged (and logged).
+                    status = result[1] if isinstance(result, tuple) else 200
+
+                    if status >= 500:
+                        return result
 
             return 'webhook received', 200
 
@@ -717,316 +726,212 @@ class BellbankHelper:
 
     @staticmethod
     def payverve_to_payverve_transfer(data, payverve_wallet):
-        """  """
-
-        try:
-
-            recipient_account_number = data.get('virtualAccount')
-
-            # Resolved through virtual_account_numbers; the wallet no longer
-            # carries the account number.
-            wallet_account_number = BellbankHelper.virtual_account_for_wallet(
-                payverve_wallet)
-
-            if not compare_digest(str(recipient_account_number), str(wallet_account_number)):
-                return jsonify({
-                    "code": 400,
-                    'code_message': 'bad request',
-                    "data": "Recipient account number does not match Payverve wallet account number",
-                }), 400
-
-            amount_received = data.get('amountReceived')
-            charge_amount = data.get('transactionFee')
-            sender_name = data.get('sourceAccountName')
-            sender_account_number = data.get('sourceAccountNumber')
-            sender_bank = data.get('sourceBankName')
-            narration = data.get('remarks')
-            reference_number = data.get('externalReference')
-            session_id = data.get('sessionId')
-            stamp_duty = data.get('stampDuty')
-
-            # Idempotency. Providers retry webhooks on timeout or a non-2xx,
-            # so the same sessionId can arrive more than once. This previously
-            # detected the duplicate and then renamed it
-            # (f"{session_id}-unique-...") so it was no longer a duplicate --
-            # and credited the wallet a second time. Stop instead.
-            find_session = InboundTransferModel.query.filter_by(
-                session_id=session_id).first()
-
-            if find_session:
-                print(f'[bellbank] duplicate webhook for session {session_id}; '
-                      'already credited, ignoring')
-                return jsonify({
-                    'code': 200,
-                    'code_message': 'ok',
-                    'data': 'transaction already processed'
-                }), 200
-
-            balance = Cryptographer.decrypt(payverve_wallet.fund)
-            new_balance = float(balance) + float(amount_received)
-            payverve_wallet.fund = Cryptographer.encrypt(str(new_balance))
-            payverve_wallet.save()
-
-            encrypted_amount = Cryptographer.encrypt(amount_received)
-
-            # noinspection PyArgumentList
-            new_local_transfer = InboundTransferModel(
-                amount=encrypted_amount,
-                charge_amount=charge_amount,
-                sender_name=sender_name,
-                sender_account_number=sender_account_number,
-                narration=narration,
-                recipient_name=f'{payverve_wallet.user.first_name} {payverve_wallet.user.last_name}',
-                recipient_bank="Payverve Bank",
-                recipient_account_number=f'{wallet_account_number}',
-                reference_number=reference_number,
-                session_id=session_id,
-                stamp_duty=stamp_duty,
-                sender_bank=sender_bank,
-                user_id=payverve_wallet.user_id,
-                wallet_id=payverve_wallet.id,
-                transaction_status="successful",
-            )
-            new_local_transfer.save()
-
-            # noinspection PyArgumentList
-            new_transaction = TransactionModel(
-                amount=encrypted_amount,
-                transaction_type='payverve_transfer',
-                user_id=payverve_wallet.user_id,
-                currency_id=payverve_wallet.currency_id,
-                note=narration,
-                status="successful",
-                name=f'{payverve_wallet.user.first_name} {payverve_wallet.user.last_name}',
-                transaction_flow='credit',
-                transaction_title='Money Received',
-                currency_ticker='ngn'
-            )
-
-            new_transaction.save()
-
-            NotificationResource.store_and_push(
-                title="Payverve Transfer",
-                body=f"{payverve_wallet.currency_ticker}{float(amount_received): ,.2f} was received from {sender_name} | {sender_account_number}",
-                user_id=payverve_wallet.user_id,
-                data={"type": "wallet_credit", "amount": amount_received},
-            )
-
-            # Debit Charges
-
-            balance = Cryptographer.decrypt(payverve_wallet.fund)
-            new_balance = float(balance) - float(charge_amount)
-            payverve_wallet.fund = Cryptographer.encrypt(str(new_balance))
-            payverve_wallet.save()
-
-            encrypted_amount = Cryptographer.encrypt(charge_amount)
-
-            # noinspection PyArgumentList
-            new_transaction = TransactionModel(
-                amount=encrypted_amount,
-                transaction_type='transaction_charges',
-                user_id=payverve_wallet.user_id,
-                currency_id=payverve_wallet.currency_id,
-                note=f"₦{float(charge_amount): ,.2f} charged for inbound transfer on ₦{float(amount_received): ,.2f} received from {sender_name} | {sender_account_number}",
-                status="successful",
-                name=f'{payverve_wallet.user.first_name} {payverve_wallet.user.last_name}',
-                transaction_flow='debit',
-                transaction_title='Bank Charge',
-                currency_ticker='ngn'
-            )
-
-            new_transaction.save()
-
-            NotificationResource.store_nofication(
-                title="Bank Charge",
-                body=f"₦{float(charge_amount): ,.2f}  bank charge for inbound transfer on ₦{float(amount_received): ,.2f} received from {sender_name} | {sender_account_number}",
-                user_id=payverve_wallet.user_id,
-            )
-
-            return 'transfer recorded', 201
-
-        except json.JSONDecodeError:
-            return jsonify({
-                'code': 400,
-                'code_message': 'bad request',
-                'data': 'Invalid JSON payload'
-            }), 400
-
-        except DataError:
-            return jsonify({
-                "code": 400,
-                'code_message': 'bad request',
-                "data": "Invalid data format",
-            }), 400
-
-        except (ProgrammingError, DBAPIError, DisconnectionError, InternalError, OperationalError):
-            return jsonify({
-                "code": 500,
-                'code_message': 'database error',
-                "data": "A database error occurred",
-            }), 500
-
-        except Exception as e:
-            return jsonify({
-                "code": 500,
-                'code_message': 'server error',
-                "data": f"An unexpected error occurred {str(e)}",
-            }), 500
+        """Credit a deposit sent from another Payverve customer's account."""
+        return BellbankHelper.credit_inbound_transfer(
+            data, payverve_wallet,
+            transaction_type='payverve_transfer',
+            notification_title='Payverve Transfer')
 
     @staticmethod
     def others_to_payverve_transfer(data, payverve_wallet):
-        """  """
+        """Credit a deposit sent from an account at another bank."""
+        return BellbankHelper.credit_inbound_transfer(
+            data, payverve_wallet,
+            transaction_type='local_transfer',
+            notification_title='Local Transfer')
+
+    @staticmethod
+    def credit_inbound_transfer(data, payverve_wallet, transaction_type,
+                                notification_title):
+        """Credit one BellBank collection to a wallet, exactly once.
+
+        Returns (body, status). A 5xx means nothing was written and BellBank
+        should retry; the webhook passes it on for that reason.
+
+        This replaces two copies of the same steps, each of which saved the
+        new balance first and then read payverve_wallet.user -- a relationship
+        that does not exist (it is .users). Every deposit therefore raised
+        after the balance was committed: no inbound record, no history, no
+        notification, the fee never taken, and the webhook still answered 200.
+        The inbound record is what marks a sessionId as processed, so each
+        retry of the same notification credited the wallet again.
+
+        Now the balance, the inbound record and both history rows are written
+        in one commit, with the wallet row locked, and a sessionId that is
+        already recorded -- or that a concurrent delivery records first -- is
+        acknowledged without crediting.
+        """
+        session_id = data.get('sessionId')
+
+        if not session_id:
+            print('[bellbank] collection without a sessionId; not credited')
+            return jsonify({
+                'code': 400,
+                'code_message': 'bad request',
+                'data': 'missing sessionId',
+            }), 400
 
         try:
-
-            recipient_account_number = data.get('virtualAccount')
-
-            # Resolved through virtual_account_numbers; the wallet no longer
-            # carries the account number.
             wallet_account_number = BellbankHelper.virtual_account_for_wallet(
                 payverve_wallet)
 
-            if not compare_digest(str(recipient_account_number), str(wallet_account_number)):
+            if not compare_digest(str(data.get('virtualAccount')),
+                                  str(wallet_account_number)):
                 return jsonify({
-                    "code": 400,
+                    'code': 400,
                     'code_message': 'bad request',
-                    "data": "Recipient account number does not match Payverve wallet account number",
+                    'data': 'Recipient account number does not match Payverve '
+                            'wallet account number',
                 }), 400
 
-            amount_received = data.get('amountReceived')
-            charge_amount = data.get('transactionFee')
-            sender_name = data.get('sourceAccountName')
-            sender_account_number = data.get('sourceAccountNumber')
-            sender_bank = data.get('sourceBankName')
-            narration = data.get('remarks')
-            reference_number = data.get('externalReference')
-            session_id = data.get('sessionId')
-            stamp_duty = data.get('stampDuty')
-
-            # Idempotency. Providers retry webhooks on timeout or a non-2xx,
-            # so the same sessionId can arrive more than once. This previously
-            # detected the duplicate and then renamed it
-            # (f"{session_id}-unique-...") so it was no longer a duplicate --
-            # and credited the wallet a second time. Stop instead.
-            find_session = InboundTransferModel.query.filter_by(
-                session_id=session_id).first()
-
-            if find_session:
+            if InboundTransferModel.query.filter_by(
+                    session_id=session_id).first():
                 print(f'[bellbank] duplicate webhook for session {session_id}; '
                       'already credited, ignoring')
                 return jsonify({
                     'code': 200,
                     'code_message': 'ok',
-                    'data': 'transaction already processed'
+                    'data': 'transaction already processed',
                 }), 200
 
-            balance = Cryptographer.decrypt(payverve_wallet.fund)
-            new_balance = float(balance) + float(amount_received)
-            payverve_wallet.fund = Cryptographer.encrypt(str(new_balance))
-            payverve_wallet.save()
+            amount_received = float(data.get('amountReceived') or 0)
+            charge_amount = float(data.get('transactionFee') or 0)
+            stamp_duty = float(data.get('stampDuty') or 0)
+            sender_name = data.get('sourceAccountName')
+            sender_account_number = data.get('sourceAccountNumber')
+            narration = data.get('remarks')
 
-            encrypted_amount = Cryptographer.encrypt(amount_received)
+            if amount_received <= 0:
+                print(f'[bellbank] collection {session_id} has no positive '
+                      'amount; not credited')
+                return jsonify({
+                    'code': 400,
+                    'code_message': 'bad request',
+                    'data': 'amountReceived must be positive',
+                }), 400
+
+            # Lock the wallet row so two deposits landing together cannot
+            # both read the old balance and lose one of the credits.
+            wallet = WalletModel.query.filter_by(
+                id=payverve_wallet.id).with_for_update().one()
+            owner = UserModel.query.get(wallet.user_id)
+            owner_name = f'{owner.first_name} {owner.last_name}'
+
+            balance = float(Cryptographer.decrypt(wallet.fund))
+            wallet.fund = Cryptographer.encrypt(
+                str(balance + amount_received - charge_amount))
+
+            amount_text = f'{amount_received:.2f}'
+            sender = f'{sender_name} | {sender_account_number}'
 
             # noinspection PyArgumentList
-            new_local_transfer = InboundTransferModel(
-                amount=encrypted_amount,
+            db.session.add(InboundTransferModel(
+                amount=Cryptographer.encrypt(amount_text),
                 charge_amount=charge_amount,
                 sender_name=sender_name,
                 sender_account_number=sender_account_number,
                 narration=narration,
-                recipient_name=f'{payverve_wallet.user.first_name} {payverve_wallet.user.last_name}',
-                recipient_bank="Payverve Bank",
+                recipient_name=owner_name,
+                recipient_bank='Payverve Bank',
                 recipient_account_number=f'{wallet_account_number}',
-                reference_number=reference_number,
+                reference_number=data.get('externalReference')
+                or data.get('reference') or session_id,
                 session_id=session_id,
                 stamp_duty=stamp_duty,
-                sender_bank=sender_bank,
-                user_id=payverve_wallet.user_id,
-                wallet_id=payverve_wallet.id,
-                transaction_status="successful",
-            )
-            new_local_transfer.save()
+                sender_bank=data.get('sourceBankName'),
+                user_id=wallet.user_id,
+                wallet_id=wallet.id,
+                transaction_status='successful',
+            ))
 
             # noinspection PyArgumentList
-            new_transaction = TransactionModel(
-                amount=encrypted_amount,
-                transaction_type='local_transfer',
-                user_id=payverve_wallet.user_id,
-                currency_id=payverve_wallet.currency_id,
+            db.session.add(TransactionModel(
+                amount=Cryptographer.encrypt(amount_text),
+                transaction_type=transaction_type,
+                user_id=wallet.user_id,
+                currency_id=wallet.currency_id,
                 note=narration,
-                status="successful",
-                name=f'{payverve_wallet.user.first_name} {payverve_wallet.user.last_name}',
+                status='successful',
+                name=owner_name,
                 transaction_flow='credit',
                 transaction_title='Money Received',
-                currency_ticker='ngn'
-            )
+                currency_ticker='ngn',
+            ))
 
-            new_transaction.save()
+            if charge_amount > 0:
+                # noinspection PyArgumentList
+                db.session.add(TransactionModel(
+                    amount=Cryptographer.encrypt(f'{charge_amount:.2f}'),
+                    transaction_type='transaction_charges',
+                    user_id=wallet.user_id,
+                    currency_id=wallet.currency_id,
+                    note=f'₦{charge_amount:,.2f} charged for inbound transfer '
+                         f'on ₦{amount_received:,.2f} received from {sender}',
+                    status='successful',
+                    name=owner_name,
+                    transaction_flow='debit',
+                    transaction_title='Bank Charge',
+                    currency_ticker='ngn',
+                ))
 
-            NotificationResource.store_and_push(
-                title="Local Transfer",
-                body=f"₦{float(amount_received): ,.2f} was received from {sender_name} | {sender_account_number}",
-                user_id=payverve_wallet.user_id,
-                data={"type": "wallet_credit", "amount": amount_received},
-            )
+            db.session.commit()
 
-            # Debit Charges
+        except IntegrityError:
+            # session_id is unique: a concurrent delivery of the same
+            # notification committed first. Nothing of this attempt was saved.
+            db.session.rollback()
+            print(f'[bellbank] session {session_id} was credited by a '
+                  'concurrent delivery; ignoring')
+            return jsonify({
+                'code': 200,
+                'code_message': 'ok',
+                'data': 'transaction already processed',
+            }), 200
 
-            balance = Cryptographer.decrypt(payverve_wallet.fund)
-            new_balance = float(balance) - float(charge_amount)
-            payverve_wallet.fund = Cryptographer.encrypt(str(new_balance))
-            payverve_wallet.save()
-
-            encrypted_amount = Cryptographer.encrypt(charge_amount)
-
-            # noinspection PyArgumentList
-            new_transaction = TransactionModel(
-                amount=encrypted_amount,
-                transaction_type='transaction_charges',
-                user_id=payverve_wallet.user_id,
-                currency_id=payverve_wallet.currency_id,
-                note=f"₦{float(charge_amount): ,.2f} charged for inbound transfer on ₦{float(amount_received): ,.2f} received from {sender_name} | {sender_account_number}",
-                status="successful",
-                name=f'{payverve_wallet.user.first_name} {payverve_wallet.user.last_name}',
-                transaction_flow='debit',
-                transaction_title='Bank Charge',
-                currency_ticker='ngn'
-            )
-
-            new_transaction.save()
-
-            NotificationResource.store_nofication(
-                title="Bank Charge",
-                body=f"₦{float(charge_amount): ,.2f}  bank charge for inbound transfer on ₦{float(amount_received): ,.2f} received from {sender_name} | {sender_account_number}",
-                user_id=payverve_wallet.user_id,
-            )
-
-            return 'transfer recorded', 201
-
-        except json.JSONDecodeError:
+        except (ValueError, TypeError, ArithmeticError) as e:
+            db.session.rollback()
+            print(f'[bellbank] collection {session_id} not credited, bad '
+                  f'data: {type(e).__name__}: {e}')
             return jsonify({
                 'code': 400,
                 'code_message': 'bad request',
-                'data': 'Invalid JSON payload'
+                'data': 'Invalid data format',
             }), 400
 
-        except DataError:
+        except Exception as e:  # noqa: BLE001 - must report, not swallow
+            db.session.rollback()
+            print(f'[bellbank] collection {session_id} NOT credited: '
+                  f'{type(e).__name__}: {e}')
             return jsonify({
-                "code": 400,
-                'code_message': 'bad request',
-                "data": "Invalid data format",
-            }), 400
-
-        except (ProgrammingError, DBAPIError, DisconnectionError, InternalError, OperationalError):
-            return jsonify({
-                "code": 500,
-                'code_message': 'database error',
-                "data": "A database error occurred",
-            }), 500
-
-        except Exception as e:
-            return jsonify({
-                "code": 500,
+                'code': 500,
                 'code_message': 'server error',
-                "data": f"An unexpected error occurred {str(e)}",
+                'data': 'the deposit could not be credited',
             }), 500
+
+        print(f'[bellbank] credited ₦{amount_received:,.2f} '
+              f'(fee ₦{charge_amount:,.2f}) to wallet {wallet.id}, '
+              f'session {session_id}')
+
+        # Notifications are side effects of a credit that is already
+        # committed; a push failure must not undo or repeat it.
+        try:
+            NotificationResource.store_and_push(
+                title=notification_title,
+                body=f'₦{amount_received:,.2f} was received from {sender}',
+                user_id=wallet.user_id,
+                data={'type': 'wallet_credit', 'amount': amount_text},
+            )
+
+            if charge_amount > 0:
+                NotificationResource.store_nofication(
+                    title='Bank Charge',
+                    body=f'₦{charge_amount:,.2f} bank charge for inbound '
+                         f'transfer on ₦{amount_received:,.2f} received '
+                         f'from {sender}',
+                    user_id=wallet.user_id,
+                )
+        except Exception as e:  # noqa: BLE001
+            print(f'[bellbank] credit notification failed for session '
+                  f'{session_id}: {type(e).__name__}: {e}')
+
+        return 'transfer recorded', 201
