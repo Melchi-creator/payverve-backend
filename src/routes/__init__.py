@@ -35,3 +35,4 @@ from .bank import BankBlueprint
 # blueprint but nothing imported it, so /bellbank/webhook did not exist on any
 # deployment -- BellBank's collection notifications had nowhere to land.
 from .bellbank_helper import BellbankBlueprint
+from .transfer_settlement import TransferSettlementBlueprint

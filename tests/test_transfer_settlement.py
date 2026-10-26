@@ -218,6 +218,49 @@ def main():
               body['data']['refunded']), (200, 'failed', True))
         check('  and the money is back', balance(wid), 900.0)
 
+        # The scheduled endpoint: secret required, fails closed.
+        import config
+        from src.resources.transfer_settlement import (
+            SECRET_HEADER, TransferSettlementResource)
+
+        def scheduled(secret_set, header):
+            config.settle_transfers_secret = secret_set
+            headers = {SECRET_HEADER: header} if header is not None else {}
+            with app.test_request_context(method='POST', headers=headers):
+                response, status = TransferSettlementResource.settle_pending()
+                return status, response.get_json()
+
+        tid2, ref2 = pending_transfer(user, wallet)
+        tid3, ref3 = pending_transfer(user, wallet)
+        from datetime import datetime, timedelta
+        for t in (tid2, tid3):
+            db.session.get(LocalTransferModel, t).created_at = \
+                datetime.now() - timedelta(minutes=5)
+        db.session.commit()
+        bank_says('failed')
+
+        check('scheduled settle with no secret configured is refused',
+              scheduled('', 'anything')[0], 403)
+        check('  with a wrong secret is refused',
+              scheduled('s3cret', 'wrong')[0], 403)
+        check('  with no header is refused', scheduled('s3cret', None)[0], 403)
+        check('  and none of that touched the money', balance(wid), 700.0)
+
+        status, body = scheduled('s3cret', 's3cret')
+        check('right secret settles the batch',
+              (status, body['data']['refunded'], body['data']['checked']),
+              (200, 2, 2))
+        check('  both refunded', balance(wid), 900.0)
+
+        # The time budget stops a long batch before gunicorn's timeout.
+        tid4, _ = pending_transfer(user, wallet)
+        db.session.get(LocalTransferModel, tid4).created_at = \
+            datetime.now() - timedelta(minutes=5)
+        db.session.commit()
+        summary = transfer_status.settle_pending(budget_seconds=-1)
+        check('an exhausted budget leaves the rest for the next run',
+              (summary['checked'], summary['left_for_next_run']), (0, 1))
+
     if _failures:
         print(f'\n{len(_failures)} FAILURES: {_failures}')
         return 1

@@ -11,6 +11,7 @@ row is locked and re-checked before anything changes, so however many times
 this runs -- the app polling, the scheduled script, both at once -- a
 transfer is refunded at most once.
 """
+import time
 from datetime import datetime, timedelta
 
 from ..models import LocalTransferModel, TransactionModel, WalletModel, db
@@ -33,13 +34,19 @@ def normalise_status(value, reversed_flag=None):
     return 'successful' if status == 'successful' else 'pending'
 
 
-def _bank_status(reference):
-    """(status, data) from BellBank, or (None, {}) when it cannot be asked."""
+def _bank_token():
     # Imported here: src.middlewares imports src.resources, which imports
     # src.services, so a module-level import closes the cycle too early.
     from ..middlewares import BellbankHelper
 
-    access_token = BellbankHelper.bellbank_authentication('6')
+    return BellbankHelper.bellbank_authentication('6')
+
+
+def _bank_status(reference, access_token=None):
+    """(status, data) from BellBank, or (None, {}) when it cannot be asked."""
+    from ..middlewares import BellbankHelper
+
+    access_token = access_token or _bank_token()
 
     if not access_token:
         return None, {}
@@ -67,7 +74,7 @@ def _history_for(transfer):
         transaction_type='domestic_transfer').first()
 
 
-def settle_transfer(transfer_id, apply=True):
+def settle_transfer(transfer_id, apply=True, access_token=None):
     """Bring one transfer in line with BellBank. Returns a dict describing
     what was found and done: {'reference', 'was', 'bank', 'now', 'refunded'}.
 
@@ -85,7 +92,7 @@ def settle_transfer(transfer_id, apply=True):
     if transfer.transaction_status != 'pending':
         return result
 
-    bank_status, data = _bank_status(transfer.reference_number)
+    bank_status, data = _bank_status(transfer.reference_number, access_token)
     result['bank'] = bank_status
 
     if bank_status in (None, 'pending') or not apply:
@@ -166,3 +173,45 @@ def pending_transfer_ids(older_than_seconds=60, limit=200):
         LocalTransferModel.transaction_status == 'pending',
         LocalTransferModel.created_at <= cutoff,
     ).order_by(LocalTransferModel.created_at).limit(limit).all()]
+
+
+def settle_pending(older_than_seconds=60, limit=25, budget_seconds=20):
+    """Settle a batch of pending transfers within a time budget.
+
+    For the scheduled caller: gunicorn kills a request after 30 seconds, so
+    this stops starting new transfers once the budget is spent and leaves the
+    rest for the next run. One BellBank token serves the whole batch.
+    """
+    started = time.monotonic()
+    summary = {'checked': 0, 'successful': 0, 'failed': 0, 'refunded': 0,
+               'still_pending': 0, 'errors': 0, 'left_for_next_run': 0}
+    ids = pending_transfer_ids(older_than_seconds, limit)
+    access_token = _bank_token() if ids else None
+
+    for index, transfer_id in enumerate(ids):
+        if time.monotonic() - started > budget_seconds:
+            summary['left_for_next_run'] = len(ids) - index
+            break
+
+        try:
+            result = settle_transfer(transfer_id, access_token=access_token)
+        except Exception as e:  # noqa: BLE001 - one bad row must not stop the rest
+            db.session.rollback()
+            summary['errors'] += 1
+            print(f'[transfer] settle failed for {transfer_id}: '
+                  f'{type(e).__name__}: {e}')
+            continue
+
+        summary['checked'] += 1
+        now = result['now']
+
+        if result['refunded']:
+            summary['refunded'] += 1
+        if now == 'successful':
+            summary['successful'] += 1
+        elif now == 'failed':
+            summary['failed'] += 1
+        else:
+            summary['still_pending'] += 1
+
+    return summary

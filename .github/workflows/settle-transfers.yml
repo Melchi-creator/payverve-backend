@@ -1,0 +1,44 @@
+# Settles transfers out that BellBank reported as pending: marks completed
+# ones successful and refunds failed or reversed ones (exactly once).
+#
+# Needs one repository secret, Settings -> Secrets and variables -> Actions:
+#   SETTLE_TRANSFERS_SECRET  the same value as SETTLE_TRANSFERS_SECRET on Render
+#
+# GitHub only runs scheduled workflows from the default branch (main), so this
+# starts on its own once it is merged there. "Run workflow" on the Actions tab
+# runs it by hand.
+name: Settle pending transfers
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: settle-transfers
+  cancel-in-progress: false
+
+jobs:
+  settle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Settle pending transfers
+        env:
+          SETTLE_TRANSFERS_SECRET: ${{ secrets.SETTLE_TRANSFERS_SECRET }}
+        run: |
+          if [ -z "$SETTLE_TRANSFERS_SECRET" ]; then
+            echo "::error::SETTLE_TRANSFERS_SECRET is not set in the repository secrets"
+            exit 1
+          fi
+          status=$(curl -sS -o response.json -w '%{http_code}' --max-time 60 \
+            -X POST https://api.payverve.ng/internal/settle-transfers \
+            -H "X-Settle-Secret: $SETTLE_TRANSFERS_SECRET")
+          cat response.json
+          echo
+          if [ "$status" != "200" ]; then
+            echo "::error::settle-transfers answered HTTP $status"
+            exit 1
+          fi

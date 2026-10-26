@@ -184,6 +184,13 @@ bellbank_webhook_ips = get_config('BELLBANK_WEBHOOK_IPS', '')
 # instead. Empty sends BellBank calls directly.
 bellbank_proxy_url = get_config('BELLBANK_PROXY_URL', '')
 
+# Shared with the scheduled GitHub Action that settles pending transfers
+# (POST /internal/settle-transfers, header X-Settle-Secret). Its own secret
+# rather than INTERNAL_API_SECRET, which can also create referral bonuses:
+# if this one leaked, all it allows is asking BellBank about transfers we
+# already sent. Empty disables the endpoint.
+settle_transfers_secret = get_config('SETTLE_TRANSFERS_SECRET', '')
+
 # Set in .env.sandbox. Refuses to start unless BellBank calls really go to the
 # sandbox, so a test session can never move live money because one line in a
 # profile was missing and .env's live base url filled the gap.
