@@ -13,6 +13,7 @@ from src.db_defaults import DBDefaults
 from src.models import CurrencyModel, db
 from src import routes
 import config
+from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.pool import NullPool
 from flask_talisman import Talisman
 from flask_migrate import Migrate
@@ -69,7 +70,15 @@ for blueprint in vars(routes).values():
             blueprint, url_prefix=config.app_root)
 
 with server.app_context():
-    DBDefaults.currency_defaults()
+    # On an empty database the tables do not exist until `flask db upgrade`
+    # runs, and that command imports this module first -- so a hard failure
+    # here made it impossible to create a fresh database at all.
+    try:
+        DBDefaults.currency_defaults()
+    except ProgrammingError as e:
+        db.session.rollback()
+        print('[startup] currency defaults skipped, the tables are not there '
+              f'yet (run `flask db upgrade`): {type(e.orig).__name__}')
 
 
 if __name__ == "__main__":

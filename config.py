@@ -54,6 +54,17 @@ Fetch all variables from .env
 import os
 from dotenv import load_dotenv
 
+# ENV_FILE picks an extra profile, e.g. .env.sandbox for testing against
+# BellBank's sandbox. Its settings override everything -- the flask CLI loads
+# .env on its own before this module runs, so without override .env's live
+# values would win -- and .env then fills in whatever the profile leaves out.
+_env_file = os.getenv('ENV_FILE')
+
+if _env_file:
+    if not os.path.exists(_env_file):
+        raise RuntimeError(f'ENV_FILE={_env_file} does not exist')
+    load_dotenv(_env_file, override=True)
+
 load_dotenv()
 
 
@@ -172,6 +183,22 @@ bellbank_webhook_ips = get_config('BELLBANK_WEBHOOK_IPS', '')
 # whitelisted addresses and Render's are shared, so whitelist the proxy's IPs
 # instead. Empty sends BellBank calls directly.
 bellbank_proxy_url = get_config('BELLBANK_PROXY_URL', '')
+
+# Set in .env.sandbox. Refuses to start unless BellBank calls really go to the
+# sandbox, so a test session can never move live money because one line in a
+# profile was missing and .env's live base url filled the gap.
+bellbank_sandbox = (get_config('BELLBANK_SANDBOX', '') or '').strip().lower() \
+    in ('1', 'true', 'yes')
+
+if bellbank_sandbox and 'sandbox' not in (get_config('BELLBANK_BASEURL') or ''):
+    raise RuntimeError(
+        'BELLBANK_SANDBOX is on but BELLBANK_BASEURL is not a sandbox url; '
+        'refusing to start so no live BellBank call can be made')
+
+if bellbank_sandbox:
+    print('[config] BELLBANK SANDBOX: BellBank calls go to '
+          f"{get_config('BELLBANK_BASEURL')}; database "
+          f"{(get_config('DATABASE_URL') or '').rsplit('@', 1)[-1]}")
 
 # Identity provider used to check a customer's name, date of birth and
 # gender against their BVN at the KYC step. With these unset the lookup is

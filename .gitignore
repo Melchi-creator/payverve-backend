@@ -196,3 +196,6 @@ firebase-service-account.json
 # anything put there vanishes without a word from git status.
 !scripts/
 !scripts/**
+
+# Local env profiles hold keys (e.g. .env.sandbox)
+.env.*
