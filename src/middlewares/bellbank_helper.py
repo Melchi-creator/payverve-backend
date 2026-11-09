@@ -908,8 +908,14 @@ class BellbankHelper:
                 'data': 'the deposit could not be credited',
             }), 500
 
-        print(f'[bellbank] credited ₦{amount_received:,.2f} '
-              f'(fee ₦{charge_amount:,.2f}) to wallet {wallet.id}, '
+        # 'NGN', not the naira sign: this runs after the credit is committed,
+        # and on a console that is not UTF-8 -- a Windows cp1252 terminal, for
+        # one -- print() raises UnicodeEncodeError on the glyph. The handler
+        # then answers 500 for a deposit it had already credited, and BellBank
+        # retries it. Customer-facing text keeps the sign; log lines do not
+        # need it.
+        print(f'[bellbank] credited NGN {amount_received:,.2f} '
+              f'(fee NGN {charge_amount:,.2f}) to wallet {wallet.id}, '
               f'session {session_id}')
 
         # Notifications are side effects of a credit that is already

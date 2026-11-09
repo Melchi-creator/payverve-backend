@@ -5,9 +5,24 @@ It also configures CORS, database migrations, and security features.
 It serves as the entry point for the application, allowing it to run in development mode.
 """
 
+import os
+import sys
+
 from flask import Flask
 from flask.blueprints import Blueprint
-import os
+
+# Log output must never be able to kill a request. Amounts are logged with the
+# naira sign, and on a console that is not UTF-8 -- a Windows cp1252 terminal,
+# for one -- writing it raises UnicodeEncodeError from inside print(). That
+# lands in the middle of the money path: the deposit is already credited and
+# the transfer already debited when the line is written, so the handler then
+# answers 500 for work that in fact succeeded, and the caller retries.
+# errors='replace' degrades an unprintable character to '?' instead.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding='utf-8', errors='replace')
+    except (AttributeError, ValueError):
+        pass
 
 from src.db_defaults import DBDefaults
 from src.models import CurrencyModel, db

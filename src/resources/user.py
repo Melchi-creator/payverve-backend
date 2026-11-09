@@ -29,7 +29,7 @@ from ..middlewares import MailtrapHelper
 from ..models import CurrencyModel, UserModel, WalletModel, db
 from ..services import registration, virtual_account
 from ..models.token_verification import TokenVerificationModel
-from ..utilities import Cryptographer, parse_params
+from ..utilities import Cryptographer, parse_params, run_detached
 from ..value_object import EmailCheck, MinimumBalance, MobileNumberCheck, PasswordValidation, UsernameCheck
 
 
@@ -209,8 +209,16 @@ class UserResource(Resource):
             # had in fact succeeded -- and the caller could not retry, because
             # the email address was taken. The user can request a new code from
             # the resend endpoint, so log and carry on.
+            #
+            # The two sends also used to run inline. Each is bounded at
+            # MAILTRAP_TIMEOUT = (10, 20), so a slow upstream could hold the
+            # response for up to 60s: exactly the mobile client's receive
+            # timeout, which reported "Something went wrong" for a signup that
+            # had worked. The verification row is still written here, because
+            # the code must exist before the caller is told to go and enter it,
+            # and both templates are rendered here, because that needs the app
+            # context. Only the network calls are handed off.
             try:
-                # Send verification email
                 verification_code = str(secrets.randbelow(1000000)).zfill(6)
                 # Local-dev convenience only. Must stay behind is_dev: in
                 # production this puts a live verification code in the logs, where
@@ -231,43 +239,49 @@ class UserResource(Resource):
 
                 new_verification_code.save()
 
-                expiry_time = new_verification_code.timestamp + \
-                    timedelta(seconds=new_verification_code.expiration_time)
+                expiry_time = new_verification_code.timestamp +                     timedelta(seconds=new_verification_code.expiration_time)
                 current_year = datetime.now().year
 
-                MailtrapHelper.mailtrap_email_sender(
+                full_name = f"{new_user.first_name} {new_user.last_name}"
+                recipient = [{"email": new_user.email_address,
+                              "name": full_name}]
+
+                verification_html = render_template(
+                    'customer/email_verification.html',
+                    first_name=new_user.first_name,
+                    last_name=new_user.last_name,
+                    verification_code=verification_code,
+                    user_email_address=new_user.email_address,
+                    current_year=current_year,
+                    expiry_time=expiry_time.strftime("%I:%M %p"),
+                )
+                welcome_html = render_template(
+                    'customer/email_welcome.html',
+                    first_name=new_user.first_name,
+                    last_name=new_user.last_name,
+                    user_email_address=new_user.email_address,
+                    current_year=current_year,
+                )
+
+                run_detached(
+                    'signup-verification-email',
+                    MailtrapHelper.mailtrap_email_sender,
                     config.mailtrap_payverve_security_name,
                     config.mailtrap_payverve_security_email,
                     '/send',
-                    [{"email": new_user.email_address,
-                        "name": f"{new_user.first_name} {new_user.last_name}"}],
+                    recipient,
                     f"{new_user.first_name} Confirm your Account",
-                    render_template(
-                        'customer/email_verification.html',
-                        first_name=new_user.first_name,
-                        last_name=new_user.last_name,
-                        verification_code=verification_code,
-                        user_email_address=new_user.email_address,
-                        current_year=current_year,
-                        expiry_time=expiry_time.strftime("%I:%M %p"),
-                    )
+                    verification_html,
                 )
-
-                # Send welcome email
-                MailtrapHelper.mailtrap_email_sender(
+                run_detached(
+                    'signup-welcome-email',
+                    MailtrapHelper.mailtrap_email_sender,
                     config.mailtrap_payverve_eva_name,
                     config.mailtrap_payverve_eva_email,
                     '/send',
-                    [{"email": new_user.email_address,
-                        "name": f"{new_user.first_name} {new_user.last_name}"}],
+                    recipient,
                     f"Welcome to Payverve, {new_user.first_name} – Your Boardless Journey Starts Here 🌱",
-                    render_template(
-                        'customer/email_welcome.html',
-                        first_name=new_user.first_name,
-                        last_name=new_user.last_name,
-                        user_email_address=new_user.email_address,
-                        current_year=current_year,
-                    )
+                    welcome_html,
                 )
             except Exception as e:
                 db.session.rollback()

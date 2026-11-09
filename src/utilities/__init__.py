@@ -3,6 +3,7 @@ utilities
 Hold all utilities import
 """
 
+from .background import run_detached
 from .bearer_token import decode_token, encode_token
 from .cryptographer import Cryptographer
 from .kyc_tier_check import KYCTierCheck

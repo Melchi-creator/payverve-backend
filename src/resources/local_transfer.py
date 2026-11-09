@@ -466,8 +466,13 @@ class LocalTransferResource(Resource):
                 local_transfer.session_id = str(data['sessionId'])
 
             db.session.commit()
+            # 'NGN', not the naira sign: this runs after the debit is
+            # committed, and on a console that is not UTF-8 print() raises
+            # UnicodeEncodeError on the glyph, so the handler answered 500 for
+            # a transfer it had already made. Customer-facing text below keeps
+            # the sign; log lines do not need it.
             print(f'[transfer] {reference_number}: {outcome["status"]} '
-                  f'(₦{amount_value:,.2f} to {account_number})')
+                  f'(NGN {amount_value:,.2f} to {account_number})')
 
             try:
                 NotificationResource.store_and_push(
