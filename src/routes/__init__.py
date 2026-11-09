@@ -7,6 +7,7 @@ from .admin_role import AdminRoleBlueprint
 from .authentication_authorisation import LoginBlueprint
 # from .bankaccount import BankaccountBlueprint
 from .beneficiary import BeneficiaryBlueprint
+from .charge import ChargeBlueprint
 from .currency import CurrencyBlueprint
 from .exchange_rate import ExchangeRateBlueprint
 from .fixed_deposit import FixedDepositBlueprint
@@ -14,6 +15,7 @@ from .flutterwave_helper import FlutterwaveBlueprint
 from .foreign_transfer import ForeignTransferBlueprint
 from .kyc import KYCBlueprint
 from .local_transfer import LocalTransferBlueprint
+from .merchant import MerchantBlueprint
 from .misc import MiscellaneousBlueprint
 from .device import DeviceBlueprint
 from .notification import NotificationBlueprint

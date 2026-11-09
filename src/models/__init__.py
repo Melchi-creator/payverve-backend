@@ -12,6 +12,7 @@ from .admin import AdminModel
 from .admin_roles import AdminRoleModel
 from .bank_account import BankAccountModel
 from .beneficiary import BeneficiaryModel
+from .charge import ChargeModel
 from .currency import CurrencyModel
 from .exchange_rate import ExchangeRateModel
 from .fixed_deposit import FixedDepositModel
@@ -19,6 +20,7 @@ from .foreign_transfer import ForeignTransferModel
 from .inbound_transfer import InboundTransferModel
 from .kyc import KYCModel
 from .local_transfer import LocalTransferModel
+from .merchant import MerchantModel
 from .notification import NotificationModel
 from .payverve_transfer import PayverveTransferModel
 from .payverve_wallet import PayverveWalletModel
