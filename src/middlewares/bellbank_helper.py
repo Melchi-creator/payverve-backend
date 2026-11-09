@@ -874,6 +874,19 @@ class BellbankHelper:
                     currency_ticker='ngn',
                 ))
 
+            # If this wallet belongs to a shop, the transfer may be a buyer
+            # settling a charge. Staged in this same transaction on purpose:
+            # a deposit must never be credited while the charge it paid is
+            # left pending, which would have the shop chasing a buyer who has
+            # already paid. Matching is on the amount sent, before BellBank's
+            # fee, since that is the figure the shop quoted.
+            #
+            # Imported here rather than at module scope: src.services imports
+            # src.middlewares, and a top-level import closes that loop.
+            from ..services.checkout import match_inbound_payment
+
+            match_inbound_payment(wallet, amount_received, session_id)
+
             db.session.commit()
 
         except IntegrityError:

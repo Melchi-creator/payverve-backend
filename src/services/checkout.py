@@ -296,3 +296,88 @@ def expire_if_due(charge):
         db.session.add(charge)
 
     return charge
+
+
+def match_inbound_payment(wallet, amount_received, session_id):
+    """Settle a merchant's pending charge from a bank transfer that just landed.
+
+    Called from the BellBank collection handler once the credit has been
+    staged, and stages the charge in the same transaction, so a deposit is
+    never credited while the charge it paid stays pending.
+
+    Matching is on the amount the buyer SENT, not the amount the wallet
+    received: BellBank deducts its fee on the way in, so the credited figure
+    is smaller than the price the shop quoted.
+
+    Returns the charge it settled, or None.
+
+    The shop is paid into one shared account, so the amount is the only signal
+    the sender carries -- there is no reference to read. That has two
+    consequences worth being honest about:
+
+      * two unpaid charges for the same amount are indistinguishable. The
+        oldest is settled first, which is right when both buyers eventually
+        pay and wrong, for one of them, if only one does. It is logged.
+      * a transfer matching no charge is left as an ordinary deposit. It is
+        the customer's money either way; it simply settles nothing.
+
+    A per-charge virtual account removes the ambiguity entirely and is the
+    proper fix. VirtualAccountNumberModel.account_type already anticipates it:
+    'static' is the shared account, and a dynamic one would be issued per
+    charge.
+    """
+    from ..models.charge import PAID_BY_TRANSFER
+
+    if wallet is None or not amount_received:
+        return None
+
+    merchant = MerchantModel.query.filter_by(
+        user_id=wallet.user_id, is_active=True).first()
+
+    if not merchant:
+        return None
+
+    try:
+        sent = Decimal(str(amount_received)).quantize(Decimal('0.01'))
+    except Exception:
+        return None
+
+    # One transfer settles one charge. The webhook already rejects a repeated
+    # sessionId before reaching here, but this must not depend on an upstream
+    # caller to be safe: without the check, a replayed notification would
+    # settle a second charge and the shop would ship two orders for one
+    # payment.
+    if session_id and ChargeModel.query.filter_by(
+            settlement_reference=session_id).first():
+        print(f'[checkout] session {session_id} already settled a charge; '
+              f'ignoring')
+        return None
+
+    now = datetime.now()
+    candidates = ChargeModel.query.filter(
+        ChargeModel.merchant_id == merchant.id,
+        ChargeModel.status == PENDING,
+        ChargeModel.amount == sent,
+        ChargeModel.expires_at > now,
+    ).order_by(ChargeModel.created_at.asc()).all()
+
+    if not candidates:
+        return None
+
+    if len(candidates) > 1:
+        print(f'[checkout] {len(candidates)} open charges on merchant '
+              f'{merchant.id} for {sent}; settling the oldest '
+              f'({candidates[0].reference}) against session {session_id}. '
+              f'A per-charge account would remove this ambiguity.')
+
+    charge = candidates[0]
+    charge.status = PAID
+    charge.method = PAID_BY_TRANSFER
+    charge.paid_at = now
+    charge.settlement_reference = session_id
+    db.session.add(charge)
+
+    print(f'[checkout] charge {charge.reference} for merchant '
+          f'{merchant.business_name} settled by transfer, session '
+          f'{session_id}')
+    return charge
