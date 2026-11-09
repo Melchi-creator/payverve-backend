@@ -38,3 +38,4 @@ from .bank import BankBlueprint
 # deployment -- BellBank's collection notifications had nowhere to land.
 from .bellbank_helper import BellbankBlueprint
 from .transfer_settlement import TransferSettlementBlueprint
+from .webhook_retry import WebhookRetryBlueprint

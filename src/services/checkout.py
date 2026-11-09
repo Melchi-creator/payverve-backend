@@ -26,7 +26,8 @@ from ..models import (ChargeModel, MerchantModel, PayverveTransferModel,
                       db)
 from ..models.charge import (CHARGE_TTL_SECONDS, PAID, PAID_BY_WALLET,
                              PENDING)
-from ..utilities import Cryptographer, hash_identifier
+from ..utilities import (Cryptographer, encrypt_identifier,
+                         hash_identifier)
 from .registration import RegistrationError
 
 PUBLIC_KEY_PREFIX = 'pk'
@@ -70,10 +71,11 @@ def merchant_for_secret(secret_key):
         is_active=True).first()
 
 
-def stage_merchant(user, business_name):
+def stage_merchant(user, business_name, webhook_url=None):
     """Register a shop for `user`. Does not commit.
 
-    Returns (merchant, secret_key) -- the only moment the secret exists.
+    Returns (merchant, secret_key, webhook_secret) -- the only moment either
+    secret exists in plaintext.
     """
     name = (business_name or '').strip()
 
@@ -87,16 +89,23 @@ def stage_merchant(user, business_name):
 
     public_key, secret_key, secret_hash, preview = issue_keys()
 
+    # Signs outgoing webhooks. Encrypted rather than hashed: we must recover
+    # the plaintext to compute a signature, unlike the secret key, which we
+    # only ever compare.
+    webhook_secret = f'whsec_{secrets.token_hex(24)}'
+
     # noinspection PyArgumentList
     merchant = MerchantModel(
         business_name=name,
         public_key=public_key,
         secret_key_hash=secret_hash,
         secret_key_preview=preview,
+        webhook_url=(webhook_url or '').strip() or None,
+        webhook_secret=encrypt_identifier(webhook_secret),
         user_id=user.id,
     )
     db.session.add(merchant)
-    return merchant, secret_key
+    return merchant, secret_key, webhook_secret
 
 
 def stage_charge(merchant, reference, amount, callback_url=None,
@@ -376,6 +385,12 @@ def match_inbound_payment(wallet, amount_received, session_id):
     charge.paid_at = now
     charge.settlement_reference = session_id
     db.session.add(charge)
+
+    # Queued in this same transaction, alongside the credit that settled the
+    # charge. Sending is the caller's job, after the commit: a shop's server
+    # must never be in the path of crediting a customer's deposit.
+    from .merchant_webhook import enqueue_charge_paid
+    enqueue_charge_paid(charge, merchant)
 
     print(f'[checkout] charge {charge.reference} for merchant '
           f'{merchant.business_name} settled by transfer, session '

@@ -30,3 +30,4 @@ from .user import UserResource
 from .virtual_account_numbers import VirtualAccountNumberResource
 from .wallet import WalletResource
 from .bank import BankResource
+from .webhook_retry import WebhookRetryResource

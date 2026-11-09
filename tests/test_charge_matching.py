@@ -85,7 +85,8 @@ def make_merchant(ngn, tag='shop'):
         account_type='static', status='active', customer_code=f'cust_{tag}',
         currency_ticker='NGN', is_active=True, user_id=user.id,
         currency_id=ngn.id))
-    merchant, _secret = checkout.stage_merchant(user, f'{tag.title()} Stores')
+    merchant, _secret, _whsec = checkout.stage_merchant(
+        user, f'{tag.title()} Stores')
     db.session.commit()
     return user, wallet, merchant
 

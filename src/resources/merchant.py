@@ -32,8 +32,9 @@ class MerchantResource(Resource):
                 }), 404
 
             payload = request.get_json(silent=True) or {}
-            merchant, secret_key = checkout.stage_merchant(
-                user, payload.get('business_name'))
+            merchant, secret_key, webhook_secret = checkout.stage_merchant(
+                user, payload.get('business_name'),
+                webhook_url=payload.get('webhook_url'))
             db.session.commit()
 
             return jsonify({
@@ -48,8 +49,12 @@ class MerchantResource(Resource):
                     # keyed hash, so Payverve cannot show it again -- which is
                     # the point, and the merchant must be told so plainly.
                     'secret_key': secret_key,
-                    'notice': 'store the secret key now; it cannot be shown '
-                              'again'
+                    'webhook_url': merchant.webhook_url,
+                    # Used to verify the signature on webhooks we send. Like
+                    # the secret key, shown once.
+                    'webhook_secret': webhook_secret,
+                    'notice': 'store the secret key and webhook secret now; '
+                              'neither can be shown again'
                 }
             }), 201
 
@@ -107,6 +112,9 @@ class MerchantResource(Resource):
                     'business_name': merchant.business_name,
                     'public_key': merchant.public_key,
                     'secret_key_preview': f'...{merchant.secret_key_preview}',
+                    'webhook_url': merchant.webhook_url,
+                    'webhook_configured': bool(merchant.webhook_url
+                                               and merchant.webhook_secret),
                     'is_active': merchant.is_active,
                     # Null until the owner's KYC produces a BellBank account.
                     # Without it the shop cannot be paid by bank transfer, and

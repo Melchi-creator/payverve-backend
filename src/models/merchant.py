@@ -41,6 +41,15 @@ class MerchantModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     # dashboard without the key being recoverable.
     secret_key_preview = db.Column(db.String(), nullable=False)
 
+    # Where charge events are posted. Null means the shop polls instead,
+    # which is a legitimate choice, not a misconfiguration.
+    webhook_url = db.Column(db.String(), nullable=True)
+
+    # Signs outgoing webhooks so the shop can prove the request is ours.
+    # Encrypted rather than hashed: unlike the secret key, we have to recover
+    # the plaintext to compute the signature.
+    webhook_secret = db.Column(db.String(), nullable=True)
+
     is_active = db.Column(db.Boolean(), nullable=False, default=True)
 
     created_at = db.Column(db.DateTime(), default=datetime.now, nullable=False)

@@ -14,18 +14,30 @@ from a shop has no Payverve session yet. It therefore returns only what is
 needed to pay -- amount, shop name, where to send money, how long is left --
 and nothing about the shop's other charges or the buyer.
 """
-from flask import jsonify, request
+from flask import current_app, jsonify, request
 from flask_restful import Resource
 from sqlalchemy.exc import (DataError, DisconnectionError, IntegrityError,
                             InternalError, OperationalError, ProgrammingError,
                             SQLAlchemyError)
 
 from ..models import ChargeModel, MerchantModel, UserModel, db
-from ..services import checkout
+from ..services import checkout, merchant_webhook
 from ..services.registration import RegistrationError
+from ..utilities import run_detached
 
 DATABASE_ERRORS = (InternalError, OperationalError, DisconnectionError,
                    ProgrammingError, SQLAlchemyError)
+
+
+def _deliver_in_app_context(app, delivery_id):
+    """Send a queued webhook from a background thread.
+
+    The app is passed in, not read from `current_app`: the thread outlives the
+    request, so by the time this runs there is no request context to read it
+    from. It makes its own app context, and therefore its own session.
+    """
+    with app.app_context():
+        merchant_webhook.attempt(delivery_id)
 
 
 def _charge_view(charge, merchant, include_payment_details):
@@ -221,10 +233,19 @@ class CheckoutResource(Resource):
             # paid land together or not at all.
             checkout.pay_charge_from_wallet(
                 charge, buyer, payload.get('transaction_pin'))
-            db.session.commit()
 
             merchant = MerchantModel.query.filter_by(
                 id=charge.merchant_id).first()
+
+            # Queued inside the payment transaction so a paid charge always
+            # has its notification on record; sent after the commit, off the
+            # request, so a slow shop server never holds the buyer's response.
+            delivery = merchant_webhook.enqueue_charge_paid(charge, merchant)
+            db.session.commit()
+
+            if delivery:
+                run_detached('charge-paid-webhook', _deliver_in_app_context,
+                             current_app._get_current_object(), delivery.id)
 
             return jsonify({
                 'code': 200,

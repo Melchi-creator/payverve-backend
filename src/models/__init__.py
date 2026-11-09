@@ -31,4 +31,5 @@ from .target_save import TargetSaveModel
 from .transaction import TransactionModel
 from .user import UserModel
 from .virtual_account_numbers import VirtualAccountNumberModel
+from .webhook_delivery import WebhookDeliveryModel
 from .wallet import WalletModel

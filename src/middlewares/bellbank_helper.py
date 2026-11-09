@@ -8,7 +8,7 @@ import secrets
 from hmac import compare_digest
 
 import requests
-from flask import jsonify, request
+from flask import current_app, jsonify, request
 from psycopg2 import DataError, InternalError, OperationalError, ProgrammingError
 from sqlalchemy.exc import DBAPIError, DisconnectionError, IntegrityError
 
@@ -103,6 +103,19 @@ def bellbank_url(path):
         base = f'{base}/{BELLBANK_API_VERSION}'
 
     return f"{base}/{path.lstrip('/')}"
+
+
+def _deliver_pending_webhooks(app):
+    """Send whatever merchant webhooks are now due.
+
+    Runs on a background thread after a deposit has been credited, so it makes
+    its own app context: the request that credited the deposit has ended and
+    taken its session with it.
+    """
+    from .. services.merchant_webhook import retry_due
+
+    with app.app_context():
+        retry_due(limit=10)
 
 
 class BellbankHelper:
@@ -888,6 +901,16 @@ class BellbankHelper:
             match_inbound_payment(wallet, amount_received, session_id)
 
             db.session.commit()
+
+            # Any webhook the match queued is sent after the commit and off
+            # this request. BellBank is waiting on this response, and a shop's
+            # server being slow must not delay our acknowledgement to the bank
+            # -- an unacknowledged notification is one BellBank will redeliver.
+            from ..services.merchant_webhook import retry_due
+            from ..utilities import run_detached
+            run_detached('charge-paid-webhook-from-transfer',
+                         _deliver_pending_webhooks,
+                         current_app._get_current_object())
 
         except IntegrityError:
             # session_id is unique: a concurrent delivery of the same

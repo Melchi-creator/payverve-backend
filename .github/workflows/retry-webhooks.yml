@@ -1,0 +1,38 @@
+# Resends merchant webhooks a shop's server did not accept. A shop should
+# learn that a charge was paid without polling, and a shop that was down for a
+# minute should still be told.
+#
+# Needs one repository secret, Settings -> Secrets and variables -> Actions:
+#   WEBHOOK_RETRY_SECRET  the same value as WEBHOOK_RETRY_SECRET on Render
+#
+# GitHub only runs scheduled workflows from the default branch (main), so this
+# starts on its own once it is merged there. "Run workflow" on the Actions tab
+# runs it by hand.
+name: Retry merchant webhooks
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: retry-webhooks
+  cancel-in-progress: false
+
+jobs:
+  retry:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send due webhooks
+        run: |
+          code=$(curl -sS -o /tmp/body -w '%{http_code}' \
+            -X POST https://payverve-backend-1.onrender.com/internal/retry-webhooks \
+            -H "X-Webhook-Retry-Secret: ${{ secrets.WEBHOOK_RETRY_SECRET }}")
+          cat /tmp/body
+          echo
+          if [ "$code" != "200" ]; then
+            echo "retry run failed with HTTP $code"
+            exit 1
+          fi

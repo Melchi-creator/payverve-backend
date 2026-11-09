@@ -101,6 +101,8 @@ app_path = get_config('APP_PATH')
 # 'created_by_payverve' boolean supplied in the request body, which any
 # unauthenticated caller could simply assert.
 internal_api_secret = get_config('INTERNAL_API_SECRET')
+# Authenticates the scheduled job that resends merchant webhooks.
+webhook_retry_secret = get_config('WEBHOOK_RETRY_SECRET')
 internal_api_secret_header = get_config(
     'INTERNAL_API_SECRET_HEADER', 'X-Payverve-Internal')
 
