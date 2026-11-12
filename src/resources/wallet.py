@@ -139,9 +139,16 @@ class WalletResource(Resource):
         own_wallet = WalletModel.query.filter_by(
             user_id=user_id, currency_id=currency_id).first()
 
+        if not own_wallet:
+            return jsonify({
+                'code': 404,
+                'status_message': 'not found',
+                'message': 'wallet record not found - ensure ngn_create ran at signup'
+            }), 404
+
         try:
 
-            if own_wallet and own_wallet.is_active:
+            if own_wallet.is_active:
                 return jsonify({
                     'code': 409,
                     'status_message': 'conflict',
