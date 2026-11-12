@@ -115,7 +115,13 @@ database_port = get_config('DB_PORT')
 database_name = get_config('DB_NAME')
 
 # database_uri = f"postgresql://{database_username}:{database_paswword}@{database_host}:{database_port}/{database_name}"
-database_uri = get_config('DATABASE_URL')
+# DATABASE_URL_OVERRIDE is how the maintenance scripts' --prod flag points
+# them at production. Without a sandbox profile .env is loaded with
+# override=True, which replaced a DATABASE_URL a script had set with .env's
+# own (localhost): the script printed the production host and quietly worked
+# on the local database. .env never defines this name, so nothing can
+# overwrite it.
+database_uri = get_config('DATABASE_URL_OVERRIDE') or get_config('DATABASE_URL')
 
 if database_uri and database_uri.startswith('postgres://'):
     database_uri = database_uri.replace('postgres://', 'postgresql://', 1)

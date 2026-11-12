@@ -70,7 +70,9 @@ def _select_production_database():
     if not remote:
         raise SystemExit('no non-local DATABASE_URL found in .env')
 
-    os.environ['DATABASE_URL'] = remote[0]
+    # Not DATABASE_URL: config loads .env with override=True, which would
+    # replace it with .env's localhost entry.
+    os.environ['DATABASE_URL_OVERRIDE'] = remote[0]
     return re.sub(r'://[^@]*@', '://***@', remote[0])
 
 
