@@ -95,7 +95,6 @@ with server.app_context():
         print('[startup] currency defaults skipped, the tables are not there '
               f'yet (run `flask db upgrade`): {type(e.orig).__name__}')
 
-
 if __name__ == "__main__":
     server.debug = config.debug if config.env == "dev" else False
     if config.env == "dev":

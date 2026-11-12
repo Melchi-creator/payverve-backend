@@ -23,16 +23,26 @@ class WalletModel(db.Model, BaseModel, metaclass=MetaBaseModel):
     currency_ticker = db.Column(db.String(), nullable=False, default='ngn')
     is_active = db.Column(db.Boolean(), default=False, nullable=False)
 
+    account_number = db.Column(db.String(), nullable=True)
+    bank_name = db.Column(db.String(), nullable=True)
+    external_reference = db.Column(db.String(), nullable=True)
+    flutterwave_account_id = db.Column(db.String(), nullable=True)
+
     created_at = db.Column(db.DateTime(), default=datetime.now, nullable=False)
     updated_at = db.Column(db.DateTime(), onupdate=datetime.now, nullable=True)
 
     # foreign keys
 
-    user_id = db.Column(UUID(as_uuid=True), db.ForeignKey('users.id'), nullable=False)
-    currency_id = db.Column(UUID(as_uuid=True), db.ForeignKey('currencies.id'), nullable=False)
+    user_id = db.Column(UUID(as_uuid=True), db.ForeignKey(
+        'users.id'), nullable=False)
+    currency_id = db.Column(UUID(as_uuid=True), db.ForeignKey(
+        'currencies.id'), nullable=False)
 
     # relationships
 
-    foreign_transfers = db.relationship('ForeignTransferModel', backref='wallets', lazy=True, cascade="all")
-    local_transfers = db.relationship('LocalTransferModel', backref='wallets', lazy=True, cascade="all")
-    payverve_transfers = db.relationship('PayverveTransferModel', backref='wallets', lazy=True, cascade="all")
+    foreign_transfers = db.relationship(
+        'ForeignTransferModel', backref='wallets', lazy=True, cascade="all")
+    local_transfers = db.relationship(
+        'LocalTransferModel', backref='wallets', lazy=True, cascade="all")
+    payverve_transfers = db.relationship(
+        'PayverveTransferModel', backref='wallets', lazy=True, cascade="all")
