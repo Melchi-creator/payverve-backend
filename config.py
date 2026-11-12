@@ -58,14 +58,16 @@ from dotenv import load_dotenv
 # BellBank's sandbox. Its settings override everything -- the flask CLI loads
 # .env on its own before this module runs, so without override .env's live
 # values would win -- and .env then fills in whatever the profile leaves out.
+# Without a profile, .env overrides stale shell variables (as on main).
 _env_file = os.getenv('ENV_FILE')
 
 if _env_file:
     if not os.path.exists(_env_file):
         raise RuntimeError(f'ENV_FILE={_env_file} does not exist')
     load_dotenv(_env_file, override=True)
-
-load_dotenv()
+    load_dotenv()
+else:
+    load_dotenv(override=True)
 
 
 def get_config(key: str, default=None):
