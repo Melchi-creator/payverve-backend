@@ -186,6 +186,12 @@ bellbank_webhook_ips = get_config('BELLBANK_WEBHOOK_IPS', '')
 # instead. Empty sends BellBank calls directly.
 bellbank_proxy_url = get_config('BELLBANK_PROXY_URL', '')
 
+# Public address of this API, e.g. https://api.payverve.ng. The checkout link
+# handed to shops is built on it. Empty falls back to the address the request
+# arrived on, upgraded to https outside development (Render terminates TLS in
+# front of us, so the request itself looks like plain http).
+public_base_url = (get_config('PUBLIC_BASE_URL', '') or '').rstrip('/')
+
 # Shared with the scheduled GitHub Action that settles pending transfers
 # (POST /internal/settle-transfers, header X-Settle-Secret). Its own secret
 # rather than INTERNAL_API_SECRET, which can also create referral bonuses:

@@ -20,6 +20,7 @@ services/registration.py: the caller owns the transaction.
 import secrets
 from datetime import datetime, timedelta
 from decimal import Decimal
+from urllib.parse import urlencode, urlsplit, urlunsplit
 
 from ..models import (ChargeModel, MerchantModel, PayverveTransferModel,
                       TransactionModel, VirtualAccountNumberModel, WalletModel,
@@ -132,6 +133,8 @@ def stage_charge(merchant, reference, amount, callback_url=None,
         raise RegistrationError(400, 'bad request',
                                 'amount must be greater than zero')
 
+    callback_url = clean_callback_url(callback_url)
+
     existing = ChargeModel.query.filter_by(
         merchant_id=merchant.id, reference=reference).first()
 
@@ -151,6 +154,45 @@ def stage_charge(merchant, reference, amount, callback_url=None,
     )
     db.session.add(charge)
     return charge
+
+
+def clean_callback_url(callback_url):
+    """An http(s) URL, or None. Refuses anything else.
+
+    The checkout page sends the buyer's browser here once the charge is paid.
+    Anything but http(s) -- javascript:, data:, a bare path -- would run in, or
+    be resolved against, Payverve's own page, so it is refused at creation
+    rather than trusted at redirect.
+    """
+    callback_url = (callback_url or '').strip()
+
+    if not callback_url:
+        return None
+
+    parts = urlsplit(callback_url)
+
+    if parts.scheme not in ('http', 'https') or not parts.netloc             or len(callback_url) > 2000:
+        raise RegistrationError(400, 'bad request',
+                                'callback_url must be an http(s) url')
+    return callback_url
+
+
+def return_url(charge):
+    """Where the buyer goes after paying: the shop's callback_url, carrying
+    the shop's own reference so it knows which order to look up.
+
+    Informational only. The shop must still verify with GET /charges/<ref>:
+    a buyer can type this URL without paying.
+    """
+    if not charge.callback_url:
+        return None
+
+    parts = urlsplit(charge.callback_url)
+    extra = urlencode({'reference': charge.reference,
+                       'charge_code': charge.charge_code})
+    query = f'{parts.query}&{extra}' if parts.query else extra
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, query,
+                       parts.fragment))
 
 
 def merchant_bank_account(merchant):

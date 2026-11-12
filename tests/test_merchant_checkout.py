@@ -51,6 +51,9 @@ app = Flask(__name__, template_folder=os.path.join(_ROOT, 'templates'))
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
+# The charge routes build the checkout page URL with url_for.
+from src.routes.charge import ChargeBlueprint  # noqa: E402
+app.register_blueprint(ChargeBlueprint)
 
 PIN = '123456'
 _failures = []
@@ -168,6 +171,39 @@ def main():
         check('  to the merchant BellBank account',
               view['bank_transfer']['account_number'], '1000999111')
         check('  and counts down', view['seconds_remaining'] > 0, True)
+        check('  return url carries the shop reference',
+              view['return_url'],
+              f'https://shop.example/thanks?reference=ORDER-1&charge_code={code}')
+
+        # --- the checkout page a shop sends its buyer to ---------------
+        check('checkout_url is the absolute page url',
+              again['data']['checkout_url'],
+              f'http://localhost/pay/{code}')
+
+        def page(c):
+            with app.test_request_context():
+                r = CheckoutResource.page(charge_code=c)
+                return r.status_code, r.get_data(as_text=True), r.headers
+
+        status, html, headers = page(code)
+        check('checkout page opens without a session', status, 200)
+        check('  shows the shop and amount',
+              ('Kebi Stores' in html, '1,500.00' in html), (True, True))
+        check('  shows the account to transfer to', '1000999111' in html, True)
+        check('  polls the json route',
+              f'data-status-url="/checkout/{code}"' in html, True)
+        check('  is never cached', headers['Cache-Control'], 'no-store')
+        check('  has no inline script (CSP blocks it)',
+              '<script>' in html, False)
+        check('an unknown code is a 404 page', page('nope')[0], 404)
+
+        with app.test_request_context(
+                json={'reference': 'ORDER-JS', 'amount': '10',
+                      'callback_url': 'javascript:alert(1)'},
+                headers={'Authorization': f'Bearer {secret}'}):
+            from src.auth.merchant_auth import merchant_required
+            _, status = body_of(merchant_required(ChargeResource.create)())
+        check('a non-http callback_url is refused', status, 400)
 
         # --- the buyer pays from their Payverve balance ----------------
         ctx = as_user(buyer.id, transaction_pin='000000')

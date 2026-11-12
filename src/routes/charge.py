@@ -30,6 +30,11 @@ ChargeBlueprint.route("/charges/<string:reference>", methods=['GET'])(
 ChargeBlueprint.route("/checkout/<string:charge_code>", methods=['GET'])(
     CheckoutResource.read)
 
+# The checkout page itself: the same charge_code credential, as HTML for a
+# buyer's browser. It polls the JSON route above until the charge is paid.
+ChargeBlueprint.route("/pay/<string:charge_code>", methods=['GET'])(
+    CheckoutResource.page)
+
 # Buyer paying from their Payverve balance, signed in.
 ChargeBlueprint.route("/checkout/<string:charge_code>/pay-with-wallet",
                       methods=['POST'])(

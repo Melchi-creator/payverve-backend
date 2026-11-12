@@ -14,7 +14,9 @@ from a shop has no Payverve session yet. It therefore returns only what is
 needed to pay -- amount, shop name, where to send money, how long is left --
 and nothing about the shop's other charges or the buyer.
 """
-from flask import current_app, jsonify, request
+import config
+from flask import (current_app, jsonify, make_response, render_template,
+                   request, url_for)
 from flask_restful import Resource
 from sqlalchemy.exc import (DataError, DisconnectionError, IntegrityError,
                             InternalError, OperationalError, ProgrammingError,
@@ -38,6 +40,16 @@ def _deliver_in_app_context(app, delivery_id):
     """
     with app.app_context():
         merchant_webhook.attempt(delivery_id)
+
+
+def checkout_page_url(charge_code):
+    """The absolute URL of the buyer's checkout page, for the shop to send
+    its buyer to."""
+    base = config.public_base_url or request.url_root.rstrip('/')
+
+    if not config.is_dev and base.startswith('http://'):
+        base = 'https://' + base[len('http://'):]
+    return base + url_for('charge.page', charge_code=charge_code)
 
 
 def _charge_view(charge, merchant, include_payment_details):
@@ -70,6 +82,7 @@ def _charge_view(charge, merchant, include_payment_details):
             'unavailable_reason': None if bank_account else
                 'this shop cannot accept bank transfers yet',
         }
+        view['return_url'] = checkout.return_url(charge)
         view['wallet'] = {
             'available': True,
             'description': 'pay instantly from your Payverve balance',
@@ -100,7 +113,9 @@ class ChargeResource(Resource):
                 'status_message': 'created',
                 'data': {
                     **_charge_view(charge, merchant, False),
-                    'checkout_url': f'/checkout/{charge.charge_code}',
+                    # Send the buyer here. The JSON behind it stays at
+                    # /checkout/<charge_code>.
+                    'checkout_url': checkout_page_url(charge.charge_code),
                 }
             }), 201
 
@@ -202,6 +217,43 @@ class CheckoutResource(Resource):
                 'status_message': 'database error',
                 'message': 'could not load the checkout'
             }), 500
+
+    @staticmethod
+    def page(charge_code=None):
+        """The checkout page a shop sends its buyer to.
+
+        Rendered with everything the buyer needs already in it, so it works
+        before any script runs; the script only counts down and polls the JSON
+        route for the moment the transfer lands.
+        """
+        try:
+            charge = ChargeModel.query.filter_by(
+                charge_code=charge_code).first()
+            merchant = MerchantModel.query.filter_by(
+                id=charge.merchant_id).first() if charge else None
+
+            if charge:
+                checkout.expire_if_due(charge)
+                db.session.commit()
+
+            view = _charge_view(charge, merchant, True) if charge else None
+            html = render_template(
+                'checkout/pay.html', charge=view, failed=False,
+                status_url=url_for('charge.read', charge_code=charge_code)
+                if charge else None)
+            response = make_response(html, 200 if charge else 404)
+
+        except DATABASE_ERRORS:
+            db.session.rollback()
+            response = make_response(render_template(
+                'checkout/pay.html', charge=None, status_url=None,
+                failed=True), 500)
+
+        # The page carries a live account number and a countdown: never
+        # serve a cached copy, and never leak the code in a Referer.
+        response.headers['Cache-Control'] = 'no-store'
+        response.headers['Referrer-Policy'] = 'no-referrer'
+        return response
 
     @staticmethod
     def pay_with_wallet(charge_code=None):
