@@ -199,3 +199,15 @@ firebase-service-account.json
 
 # Local env profiles hold keys (e.g. .env.sandbox)
 .env.*
+
+# One-off local scripts and stray files. These were committed to this public
+# repository; check_customer.py carried live secrets. Keep scratch scripts out.
+*.exe
+settings.local.json
+check_customer*.py
+list_users.py
+redo_short_code.py
+set_kyc.py
+reset_wallet.py
+test_push.py
+test_webhook_manual.py
