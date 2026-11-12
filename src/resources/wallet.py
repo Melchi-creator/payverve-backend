@@ -18,8 +18,12 @@ from sqlalchemy.exc import (DataError, DisconnectionError, IntegrityError,
 import config
 from .notification import NotificationResource
 from ..middlewares import BellbankHelper, FlutterwaveHelper
-from ..models import CurrencyModel, KYCModel, UserModel, VirtualAccountNumberModel, WalletModel
-from ..utilities import Cryptographer, RandomGenerator, decode_token, parse_params
+from ..models import (CurrencyModel, KYCModel, UserModel,
+                      VirtualAccountNumberModel, WalletModel, db)
+from ..services import registration, virtual_account
+from ..auth import caller_id, caller_is_admin, not_found, owns
+from ..utilities import (Cryptographer, RandomGenerator, decode_token,
+                         decrypt_identifier, parse_params)
 from ..value_object import MinimumBalance
 
 
@@ -135,23 +139,30 @@ class WalletResource(Resource):
         own_wallet = WalletModel.query.filter_by(
             user_id=user_id, currency_id=currency_id).first()
 
-        if not own_wallet:
-            return jsonify({
-                'code': 404,
-                'status_message': 'not found',
-                'message': 'wallet record not found - ensure ngn_create ran at signup'
-            }), 404
-
         try:
 
-            if own_wallet.is_active:
+            if own_wallet and own_wallet.is_active:
                 return jsonify({
                     'code': 409,
                     'status_message': 'conflict',
                     'message': 'you already own a wallet with this currency'
                 }), 409
 
+            if not own_wallet:
+                return jsonify({
+                    'code': 404,
+                    'status_message': 'not found',
+                    'message': 'no wallet with this currency to activate'
+                }), 404
+
             kyc_check = KYCModel.query.filter_by(user_id=user_id).first()
+
+            if not kyc_check:
+                return jsonify({
+                    'code': 409,
+                    'status_message': 'unauthorise',
+                    'message': 'complete your kyc before proceeding'
+                }), 409
 
             if not compare_digest(str(kyc_check.tier), '3'):
                 return jsonify({
@@ -160,10 +171,19 @@ class WalletResource(Resource):
                     'message': 'complete your kyc before proceeding'
                 }), 409
 
-            currency_ticker = CurrencyModel.query.filter_by(
-                id=currency_id).first().short_code
-            currency_ticker = currency_ticker.lower()
+            currency = CurrencyModel.query.filter_by(id=currency_id).first()
 
+            if not currency:
+                return jsonify({
+                    'code': 404,
+                    'status_message': 'not found',
+                    'message': 'currency not found'
+                }), 404
+
+            currency_ticker = currency.short_code.lower()
+
+            # @TODO: integrate foreign virtual account creation with third
+            # party here.
             if not compare_digest(currency_ticker, 'ngn'):
                 return jsonify({
                     'code': 403,
@@ -171,72 +191,30 @@ class WalletResource(Resource):
                     'message': 'only NGN wallet creation is allowed at the moment'
                 }), 403
 
-            access_token = FlutterwaveHelper.flutterwave_authentication()
+            # This used to assign own_wallet.account_number, .external_reference
+            # and .bank_name, none of which exist any more -- migration
+            # 2129b3c36f79 moved them onto virtual_account_numbers. They became
+            # throwaway Python attributes, so BellBank issued a real account and
+            # Payverve recorded nothing. Same provisioning registration uses.
+            try:
+                virtual_account.provision_ngn_virtual_account(
+                    customer_confirmation, own_wallet,
+                    decrypt_identifier(kyc_check.bvn),
+                    kyc_check.address, currency_id,
+                    nin=decrypt_identifier(kyc_check.nin))
+                db.session.commit()
+            except registration.RegistrationError as e:
+                db.session.rollback()
+                return jsonify(e.as_payload()), e.code
 
-            # find or create the Flutterwave customer
-            search_response = FlutterwaveHelper.search_for_customer(
-                access_token, customer_confirmation.email_address
-            )
-            search_data = search_response.json()
-
-            customer_id = None
-            results = search_data.get('data') or []
-            if results:
-                customer_id = results[0].get('id')
-
-            if not customer_id:
-                create_response = FlutterwaveHelper.create_flutterwave_account(
-                    access_token=access_token,
-                    email_address=customer_confirmation.email_address,
-                    mobile_number=customer_confirmation.mobile_number,
-                    first_name=customer_confirmation.first_name,
-                    last_name=customer_confirmation.last_name,
-                )
-
-                if not compare_digest(str(create_response.status_code), '200') and \
-                        not compare_digest(str(create_response.status_code), '201'):
-                    return jsonify({
-                        'code': create_response.status_code,
-                        'status_message': 'failed to create customer',
-                        'message': create_response.json().get('message', 'an error occurred while creating customer')
-                    }), create_response.status_code
-
-                customer_id = create_response.json().get('data', {}).get('id')
-
-            reference_number = secrets.token_urlsafe(16)
-
-            va_response = FlutterwaveHelper.virtual_account(
-                access_token=access_token,
-                reference_number=reference_number,
-                customer_id=customer_id,
-                email_address=customer_confirmation.email_address,
-                short_code=currency_ticker,
-                user_datails=customer_confirmation,
-                kyc_check=kyc_check,
-            )
-
-            if not compare_digest(str(va_response.status_code), '200') and \
-                    not compare_digest(str(va_response.status_code), '201'):
-                return jsonify({
-                    'code': va_response.status_code,
-                    'status_message': 'failed to resolve bank account',
-                    'message': va_response.json().get('message', 'an error occurred while resolving bank account')
-                }), va_response.status_code
-
-            va_data = va_response.json().get('data')
-
-            own_wallet.account_number = va_data.get('account_number')
-            own_wallet.bank_name = va_data.get(
-                'account_bank_name')   # was: va_data.get('bank_name')
-            own_wallet.external_reference = va_data.get(
-                'reference') or reference_number
-            own_wallet.flutterwave_account_id = va_data.get('id')
-            own_wallet.is_active = True
-            own_wallet.save()
+            issued = VirtualAccountNumberModel.query.filter_by(
+                user_id=user_id, currency_id=currency_id).first()
 
             NotificationResource.store_nofication(
                 title="Wallet Creation",
-                body=f"Your {currency_ticker.upper()} wallet has been successfully created with account number {own_wallet.account_number}.",
+                body=f"Your {currency_ticker.upper()} wallet is now active. "
+                     f"Your account number is "
+                     f"{issued.account_number if issued else 'being created'}.",
                 user_id=user_id,
             )
 
@@ -283,9 +261,20 @@ class WalletResource(Resource):
 
     @staticmethod
     def read_all():
-        """ Retrieve all wallets """
+        """ Every wallet for an admin; your own if you are a customer.
 
-        wallets = WalletModel.query.order_by(WalletModel.user_id.desc()).all()
+        This returned every wallet id, user_id and decrypted balance to any
+        signed-in customer, ordered so the largest balances were easy to
+        find -- and those are precisely the two ids POST /local-transfers
+        used to authorise a payout.
+        """
+
+        if caller_is_admin():
+            wallets = WalletModel.query.order_by(
+                WalletModel.user_id.desc()).all()
+        else:
+            wallets = WalletModel.query.filter_by(
+                user_id=caller_id()).all()
 
         try:
             if not wallets:
@@ -308,9 +297,6 @@ class WalletResource(Resource):
                         'currency_shortcode': wallet.currencies.short_code,
                         'currency_full_name': wallet.currencies.name,
                     },
-                    'account_number': wallet.account_number,
-                    'bank_name': wallet.bank_name,
-                    'flutterwave_account_id': wallet.flutterwave_account_id,
                     'is_active': wallet.is_active,
                     'created_at': wallet.created_at.strftime("%d %b %Y, %I:%M %p"),
                     'updated_at': wallet.updated_at.strftime("%d %b %Y, %I:%M %p") if wallet.updated_at else None,
@@ -349,6 +335,12 @@ class WalletResource(Resource):
 
         wallet = WalletModel.query.filter_by(id=id).first()
 
+        # No ownership check, so any customer could read any wallet by id,
+        # balance included. 404 rather than 403 so it does not confirm the
+        # wallet exists.
+        if wallet is not None and not owns(wallet.user_id):
+            return not_found('no wallet was found')
+
         try:
             if not wallet:
                 return jsonify({
@@ -367,8 +359,6 @@ class WalletResource(Resource):
                     'currency_shortcode': wallet.currencies.short_code,
                     'currency_full_name': wallet.currencies.name,
                 },
-                'account_number': wallet.account_number,
-                'bank_name': wallet.bank_name,
                 'is_active': wallet.is_active,
                 'created_at': wallet.created_at.strftime("%d %b %Y, %I:%M %p"),
                 'updated_at': wallet.updated_at.strftime("%d %b %Y, %I:%M %p") if wallet.updated_at else None,
@@ -403,7 +393,10 @@ class WalletResource(Resource):
 
     @staticmethod
     def read_all_user(id=None):
-        """ Retrieve all wallets """
+        """ Retrieve one customer wallets. """
+
+        if not owns(id):
+            return not_found('no wallet was found')
 
         wallets = WalletModel.query.filter_by(user_id=id).all()
 
@@ -428,8 +421,6 @@ class WalletResource(Resource):
                         'currency_shortcode': wallet.currencies.short_code,
                         'currency_full_name': wallet.currencies.name,
                     },
-                    'account_number': wallet.account_number,
-                    'bank_name': wallet.bank_name,
                     'is_active': wallet.is_active,
                     'created_at': wallet.created_at.strftime("%d %b %Y, %I:%M %p"),
                     'updated_at': wallet.updated_at.strftime("%d %b %Y, %I:%M %p") if wallet.updated_at else None,

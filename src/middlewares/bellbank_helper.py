@@ -8,14 +8,114 @@ import secrets
 from hmac import compare_digest
 
 import requests
-from flask import jsonify, request
+from flask import current_app, jsonify, request
 from psycopg2 import DataError, InternalError, OperationalError, ProgrammingError
-from sqlalchemy.exc import DBAPIError, DisconnectionError
+from sqlalchemy.exc import DBAPIError, DisconnectionError, IntegrityError
 
 import config
-from ..models import InboundTransferModel, TransactionModel, WalletModel
+from ..models import (InboundTransferModel, TransactionModel, UserModel,
+                      VirtualAccountNumberModel, WalletModel, db)
 from src.resources.notification import NotificationResource
 from ..utilities import Cryptographer
+
+
+BELLBANK_API_VERSION = 'v1'
+
+# No call had a timeout, so a hung connection to BellBank pinned a worker
+# indefinitely. Connect and read, in seconds.
+BELLBANK_TIMEOUT = (10, 45)
+
+
+def bellbank_proxies():
+    """The proxy BellBank calls go out through, or None to go direct.
+
+    BellBank only answers API calls from whitelisted addresses ('IP Address Not
+    Whitlisted' otherwise), and Render's outbound addresses are ranges shared
+    with every other Render customer in the region. BELLBANK_PROXY_URL points
+    at a static-IP proxy (Fixie, QuotaGuard Static, or our own VPS), so BellBank
+    only has to whitelist that proxy's addresses. Only BellBank traffic uses it.
+
+    The URL usually carries the proxy's username and password, so it is never
+    logged.
+    """
+    proxy_url = (getattr(config, 'bellbank_proxy_url', '') or '').strip()
+
+    if not proxy_url:
+        return None
+
+    # HTTPS requests are tunnelled through the proxy with CONNECT, so the
+    # proxy sees only the host name, never the request or the bank's response.
+    return {'http': proxy_url, 'https': proxy_url}
+
+
+# Returned by a client listing that BellBank could not serve at all, as
+# opposed to one that worked and simply had no match.
+_LOOKUP_FAILED = object()
+
+
+def _keys(value):
+    """Sorted keys of a dict, for logging a response's shape without values."""
+    return sorted(value.keys()) if isinstance(value, dict) else None
+
+
+def _client_list(body):
+    """The client records in a GET /v1/account/clients response, or None.
+
+    The docs show them as a list under 'data'. Paginated APIs often nest the
+    list one level deeper instead, so the usual wrappers are accepted too.
+    """
+    if not isinstance(body, dict):
+        return None
+
+    data = body.get('data')
+
+    if isinstance(data, list):
+        return data
+
+    if isinstance(data, dict):
+        for key in ('data', 'items', 'clients', 'docs', 'rows', 'results',
+                    'records'):
+            if isinstance(data.get(key), list):
+                return data[key]
+
+    return None
+
+
+def bellbank_request(method, url, **kwargs):
+    """Every BellBank call goes through here, so each one is bounded by
+    BELLBANK_TIMEOUT and leaves through the proxy when one is configured."""
+    return requests.request(method, url, timeout=BELLBANK_TIMEOUT,
+                            proxies=bellbank_proxies(), **kwargs)
+
+
+def bellbank_url(path):
+    """Build a BellBank endpoint URL.
+
+    Every call used to be built as f'{bellbank_baseurl}{path}', and
+    BELLBANK_BASEURL is the bare host, so all of them hit nginx and came back
+    404: the documented paths are /v1/generate-token,
+    /v1/account/clients/individual and so on. Tolerates a base url that already
+    carries the prefix, so setting it either way works.
+    """
+    base = (config.bellbank_baseurl or '').rstrip('/')
+
+    if not base.endswith('/' + BELLBANK_API_VERSION):
+        base = f'{base}/{BELLBANK_API_VERSION}'
+
+    return f"{base}/{path.lstrip('/')}"
+
+
+def _deliver_pending_webhooks(app):
+    """Send whatever merchant webhooks are now due.
+
+    Runs on a background thread after a deposit has been credited, so it makes
+    its own app context: the request that credited the deposit has ended and
+    taken its session with it.
+    """
+    from .. services.merchant_webhook import retry_due
+
+    with app.app_context():
+        retry_due(limit=10)
 
 
 class BellbankHelper:
@@ -27,7 +127,7 @@ class BellbankHelper:
 
         try:
 
-            url = f'{config.bellbank_baseurl}/generate-token'
+            url = bellbank_url('generate-token')
 
             headers = {
                 "Content-Type": "application/json",
@@ -36,27 +136,35 @@ class BellbankHelper:
                 "validityTime": minutes
             }
 
-            response = requests.request('POST', url, headers=headers)
+            response = bellbank_request('POST', url, headers=headers)
 
             access_token = response.json().get('token')
 
             return access_token
 
         except Exception as e:
-            return jsonify({
-                'code': 500,
-                'status_message': 'server error',
-                'message': f'an error occurred: {str(e)}'
-            }), 500
+            # None rather than a jsonify tuple: callers read .status_code off
+            # this, or interpolate it into an Authorization header, so a tuple
+            # turned a bank outage into an AttributeError or a request sent as
+            # 'Bearer (<Response ...>, 500)'.
+            print(f'[bellbank] request failed: {type(e).__name__}: {e}')
+            return None
 
     @staticmethod
     def bellbank_virtual_account(access_token, mobile_number, first_name, last_name, address, bvn, gender,
-                                 date_of_birth, meta_data=None, middle_name=None):
-        """ """
+                                 date_of_birth, meta_data=None, middle_name=None,
+                                 email_address=None, nin=None):
+        """Create the customer at BellBank, which issues their account number.
+
+        Field names and formats follow /v1/account/clients/individual in
+        BellBank's docs. emailAddress was missing, and BellBank does not
+        validate its input: it ran a lookup on the absent field and answered
+        500 'WHERE parameter "emailAddress" has invalid "undefined" value'.
+        """
 
         try:
 
-            url = f'{config.bellbank_baseurl}/account/clients/individual'
+            url = bellbank_url('account/clients/individual')
 
             message = f'{gender}{mobile_number}{first_name}{last_name}'
             idempotency_key = hmac.new(config.secret_key.encode(), message.encode(), hashlib.sha256).hexdigest()
@@ -74,23 +182,36 @@ class BellbankHelper:
                 "lastname": last_name,
                 "middlename": middle_name,
                 "phoneNumber": mobile_number,
+                "emailAddress": email_address,
                 "address": address,
                 "bvn": bvn,
-                "gender": gender,
-                "dateOfBirth": date_of_birth,
+                # Without this BellBank holds the client with nin null and
+                # accountTier null, and answers a name enquiry on the
+                # account with "Recipient's KYC verification incomplete" --
+                # so no other bank will send the customer money. We had the
+                # nin on file the whole time and never passed it.
+                "nin": nin,
+                # Documented as 'male' or 'female'.
+                "gender": str(gender or '').strip().lower(),
+                # Documented as 1993/12/29.
+                "dateOfBirth": (date_of_birth.strftime('%Y/%m/%d')
+                                if hasattr(date_of_birth, 'strftime')
+                                else str(date_of_birth).replace('-', '/')),
                 "metadata": meta_data,
             }
 
-            response = requests.request('POST', url, headers=headers, json=payload)
+            response = bellbank_request('POST', url, headers=headers,
+                                        json=payload)
 
             return response
 
         except Exception as e:
-            return jsonify({
-                'code': 500,
-                'status_message': 'server error',
-                'message': f'an error occurred: {str(e)}'
-            }), 500
+            # None rather than a jsonify tuple: callers read .status_code off
+            # this, or interpolate it into an Authorization header, so a tuple
+            # turned a bank outage into an AttributeError or a request sent as
+            # 'Bearer (<Response ...>, 500)'.
+            print(f'[bellbank] request failed: {type(e).__name__}: {e}')
+            return None
 
     @staticmethod
     def list_bell_ngn_banks():
@@ -98,7 +219,7 @@ class BellbankHelper:
 
         try:
 
-            url = f'{config.bellbank_baseurl}/transfer/banks'
+            url = bellbank_url('transfer/banks')
             access_token = BellbankHelper.bellbank_authentication('2')
 
             headers = {
@@ -107,16 +228,17 @@ class BellbankHelper:
                 'Authorization': f'Bearer {access_token}',
             }
 
-            response = requests.request('GET', url, headers=headers)
+            response = bellbank_request('GET', url, headers=headers)
 
             return response
 
         except Exception as e:
-            return jsonify({
-                'code': 500,
-                'status_message': 'server error',
-                'message': f'an error occurred: {str(e)}'
-            }), 500
+            # None rather than a jsonify tuple: callers read .status_code off
+            # this, or interpolate it into an Authorization header, so a tuple
+            # turned a bank outage into an AttributeError or a request sent as
+            # 'Bearer (<Response ...>, 500)'.
+            print(f'[bellbank] request failed: {type(e).__name__}: {e}')
+            return None
 
     @staticmethod
     def bell_resolve_account_number(account: int, bank_code: str, access_token):
@@ -124,7 +246,7 @@ class BellbankHelper:
 
         try:
 
-            url = f'{config.bellbank_baseurl}/transfer/name-enquiry'
+            url = bellbank_url('transfer/name-enquiry')
 
             headers = {
                 'content-type': 'application/json',
@@ -137,16 +259,18 @@ class BellbankHelper:
                 "bankCode": bank_code
             }
 
-            response = requests.request('POST', url, headers=headers, json=payload)
+            response = bellbank_request('POST', url, headers=headers,
+                                        json=payload)
 
             return response
 
         except Exception as e:
-            return jsonify({
-                'code': 500,
-                'status_message': 'server error',
-                'message': f'an error occurred: {str(e)}'
-            }), 500
+            # None rather than a jsonify tuple: callers read .status_code off
+            # this, or interpolate it into an Authorization header, so a tuple
+            # turned a bank outage into an AttributeError or a request sent as
+            # 'Bearer (<Response ...>, 500)'.
+            print(f'[bellbank] request failed: {type(e).__name__}: {e}')
+            return None
 
     @staticmethod
     def transfer_outbound(bank_code, amount, narration, account_number, reference, sender_name, recipient_name,
@@ -155,10 +279,17 @@ class BellbankHelper:
 
         try:
 
-            url = f'{config.bellbank_baseurl}/transfer'
+            url = bellbank_url('transfer')
 
-            message = f'{sender_name}{amount}{bank_code}{account_number}{recipient_name}'
-            idempotency_key = hmac.new(config.secret_key.encode(), message.encode(), hashlib.sha256).hexdigest()
+            # Keyed on the reference, which is unique per transfer. It used to
+            # be built from sender, amount, bank, account and recipient, so two
+            # genuine transfers of the same amount to the same person produced
+            # the same key: BellBank collapses the second into the first, while
+            # the caller reads the 200 as success and debits the wallet again.
+            # A retry of one transfer reuses its reference and still dedupes.
+            idempotency_key = hmac.new(
+                config.secret_key.encode(), str(reference).encode(),
+                hashlib.sha256).hexdigest()
 
             headers = {
                 'content-type': 'application/json',
@@ -177,16 +308,141 @@ class BellbankHelper:
                 "senderName": sender_name,
             }
 
-            response = requests.request('POST', url, headers=headers, json=payload)
+            response = bellbank_request('POST', url, headers=headers,
+                                        json=payload)
 
             return response
 
         except Exception as e:
-            return jsonify({
-                'code': 500,
-                'status_message': 'server error',
-                'message': f'an error occurred: {str(e)}'
-            }), 500
+            # None rather than a jsonify tuple: callers read .status_code off
+            # this, or interpolate it into an Authorization header, so a tuple
+            # turned a bank outage into an AttributeError or a request sent as
+            # 'Bearer (<Response ...>, 500)'.
+            print(f'[bellbank] request failed: {type(e).__name__}: {e}')
+            return None
+
+    @staticmethod
+    def find_individual_client(access_token, bvn, email_address,
+                               page_limit=100, max_pages=20):
+        """The BellBank client already created for this customer, or None.
+
+        BellBank can issue an account and we can still fail to save it (a
+        database error after their 200). Every retry is then refused, because
+        the customer already exists at BellBank, and the account number we were
+        given is lost. This finds it again through GET /v1/account/clients.
+
+        BellBank allows one client per email ('Email address already exists'),
+        so the email identifies the client. The BVN must also agree whenever
+        BellBank returns one that can be compared, so a reused email can never
+        attach someone else's account.
+        """
+        if not bvn or not email_address:
+            return None
+
+        wanted_bvn = str(bvn).strip()
+        wanted_email = str(email_address).strip().lower()
+
+        headers = {
+            'content-type': 'application/json',
+            'accept': 'application/json',
+            'Authorization': f'Bearer {access_token}',
+        }
+
+        # BellBank answered the documented, filtered query with a 500 in
+        # production, so on a failure the same lookup is retried with fewer
+        # parameters before giving up.
+        queries = (
+            f'?accountType=individual&page={{page}}&limit={page_limit}',
+            f'?page={{page}}&limit={page_limit}',
+            '',
+        )
+
+        for query in queries:
+            result = BellbankHelper._search_clients(
+                headers, query, wanted_bvn, wanted_email, page_limit,
+                max_pages)
+
+            if result is not _LOOKUP_FAILED:
+                return result
+
+        return None
+
+    @staticmethod
+    def _search_clients(headers, query, wanted_bvn, wanted_email, page_limit,
+                        max_pages):
+        """One way of paging through GET /v1/account/clients.
+
+        Returns the matching client, None when the listing worked and nobody
+        matched, or _LOOKUP_FAILED when BellBank could not list clients this
+        way at all.
+        """
+        pages = range(1, max_pages + 1) if '{page}' in query else (1,)
+
+        for page in pages:
+            url = bellbank_url('account/clients' + query.format(page=page))
+
+            try:
+                response = bellbank_request('GET', url, headers=headers)
+                body = response.json()
+            except Exception as e:
+                print(f'[bellbank] client lookup failed: '
+                      f'{type(e).__name__}: {e}')
+                return _LOOKUP_FAILED
+
+            clients = _client_list(body)
+
+            # Shapes only, never values: these records hold BVNs and emails.
+            # BellBank's own error text is safe to log, and is the one thing
+            # that says why a listing failed.
+            if clients is None:
+                data = body.get('data') if isinstance(body, dict) else None
+                error = ''
+
+                if isinstance(body, dict):
+                    error = (f', errorCode {body.get("errorCode")!r}, '
+                             f'message {body.get("message")!r}')
+
+                print(f'[bellbank] client lookup '
+                      f'(account/clients{query.format(page=page)}): '
+                      f'unexpected response '
+                      f'(HTTP {getattr(response, "status_code", None)}), '
+                      f'top-level keys {_keys(body)}, '
+                      f'data is {type(data).__name__} with keys {_keys(data)}'
+                      f'{error}')
+                return _LOOKUP_FAILED
+
+            print(f'[bellbank] client lookup page {page}: '
+                  f'HTTP {getattr(response, "status_code", None)}, '
+                  f'{len(clients)} clients'
+                  + (f', record keys {_keys(clients[0])}' if clients else ''))
+
+            for client in clients:
+                if not isinstance(client, dict):
+                    continue
+
+                email = str(client.get('emailAddress') or '').strip().lower()
+
+                if email != wanted_email or not client.get('accountNumber'):
+                    continue
+
+                # BellBank allows one client per email, so the email is what
+                # identifies them. The BVN must still agree whenever it is
+                # comparable; a masked one (222****221) cannot be compared.
+                their_bvn = str(client.get('bvn') or '').strip()
+
+                if their_bvn.isdigit() and their_bvn != wanted_bvn:
+                    print('[bellbank] client lookup: email matched but the '
+                          'BVN differs, so it is not attached')
+                    return None
+
+                return client
+
+            if len(clients) < page_limit or '{page}' not in query:
+                print('[bellbank] client lookup: no client with that email')
+                return None
+
+        print(f'[bellbank] client lookup stopped after {max_pages} pages')
+        return None
 
     @staticmethod
     def transfer_requery(reference, access_token):
@@ -194,7 +450,7 @@ class BellbankHelper:
 
         try:
 
-            url = f'{config.bellbank_baseurl}/transactions/reference/{reference}'
+            url = bellbank_url(f'transactions/reference/{reference}')
 
             headers = {
                 'content-type': 'application/json',
@@ -202,16 +458,180 @@ class BellbankHelper:
                 'Authorization': f'Bearer {access_token}',
             }
 
-            response = requests.request('GET', url, headers=headers)
+            response = bellbank_request('GET', url, headers=headers)
 
             return response
 
         except Exception as e:
-            return jsonify({
-                'code': 500,
-                'status_message': 'server error',
-                'message': f'an error occurred: {str(e)}'
-            }), 500
+            # None rather than a jsonify tuple: callers read .status_code off
+            # this, or interpolate it into an Authorization header, so a tuple
+            # turned a bank outage into an AttributeError or a request sent as
+            # 'Bearer (<Response ...>, 500)'.
+            print(f'[bellbank] request failed: {type(e).__name__}: {e}')
+            return None
+
+    @staticmethod
+    def client_ip():
+        """The address the webhook actually came from.
+
+        Order matters, and X-Forwarded-For is deliberately last of the headers.
+        Cloudflare sits in front of this service and *appends* to
+        X-Forwarded-For rather than replacing it, so its leftmost entry is
+        whatever the caller sent -- anyone can put an allowlisted address there
+        and walk through the IP check. CF-Connecting-IP is written by Cloudflare
+        and overwrites any client value, so it is the one that cannot be forged
+        from outside.
+
+        If this ever runs somewhere without Cloudflare in front, the
+        X-Forwarded-For fallback becomes spoofable again and the allowlist stops
+        being a real control.
+        """
+        for header in ('CF-Connecting-IP', 'True-Client-IP'):
+            value = request.headers.get(header)
+
+            if value:
+                return value.strip()
+
+        forwarded = request.headers.get('X-Forwarded-For', '')
+
+        if forwarded:
+            return forwarded.split(',')[0].strip()
+
+        return request.remote_addr
+
+    @staticmethod
+    def verify_bellbank_signature(raw_payload):
+        """Check the signature, if BellBank sends one.
+
+        Returns True/False when a secret is configured and a signature header
+        is present, and None when signature checking is not configured -- which
+        lets the caller fall back rather than treat "not configured" as "forged".
+        """
+        secret = getattr(config, 'bellbank_webhook_secret', None)
+
+        if not secret:
+            return None
+
+        header_name = getattr(
+            config, 'bellbank_webhook_signature_header', 'X-Signature')
+        sent_signature = request.headers.get(header_name)
+
+        if not sent_signature:
+            print(f'[bellbank] no {header_name} header on webhook')
+            return None
+
+        expected = hmac.new(
+            secret.encode(), raw_payload, hashlib.sha256
+        ).hexdigest()
+
+        # compare_digest avoids leaking the signature through timing.
+        if not hmac.compare_digest(expected, sent_signature.strip()):
+            print('[bellbank] webhook rejected: signature mismatch')
+            return False
+
+        return True
+
+    @staticmethod
+    def verify_bellbank_request(raw_payload):
+        """Confirm the request really came from BellBank.
+
+        This endpoint credits customer wallets, so it cannot be authenticated
+        with jwt_required -- BellBank has no Payverve JWT to send, which is why
+        every collection notification was rejected with 401.
+
+        BellBank does not sign webhooks. Confirmed in the business portal
+        (Settings -> API Configuration): the whole webhook configuration, for
+        both live and test mode, is a single 'Webhook URL' field. There is no
+        signing secret, no signature setting and no IP allowlist there, and
+        their public documentation describes no signature either.
+
+        So in practice the IP branch below is the one that runs, and
+        BELLBANK_WEBHOOK_IPS has to be set from the addresses BellBank gives
+        you. The signature branch is kept because it costs nothing and is the
+        better proof if they ever add one. Either is accepted, strongest
+        first:
+
+          1. a valid signature, when BELLBANK_WEBHOOK_SECRET is set and they do
+             in fact sign -- confirm the header name and scheme with them, and
+             prefer this;
+          2. otherwise a source address in BELLBANK_WEBHOOK_IPS.
+
+        Fails closed when neither is configured, and a signature that is present
+        but wrong is always rejected, never downgraded to the IP check. Without
+        this, anyone who learns the URL could POST a forged 'collection' event
+        and credit any account number.
+        """
+        signature_result = BellbankHelper.verify_bellbank_signature(raw_payload)
+
+        if signature_result is True:
+            return True
+
+        if signature_result is False:
+            # A bad signature is a forgery, not a reason to try something else.
+            return False
+
+        allowed = [ip.strip() for ip
+                   in (getattr(config, 'bellbank_webhook_ips', '') or '').split(',')
+                   if ip.strip()]
+
+        source = BellbankHelper.client_ip()
+
+        if not allowed:
+            # The address is logged because it is the only way to learn it.
+            # BellBank does not publish the addresses they send from and their
+            # portal has no allowlist page, so the first genuine notification to
+            # arrive is what tells you what to put in BELLBANK_WEBHOOK_IPS.
+            # Rejected either way -- this reports, it does not admit.
+            print('[bellbank] webhook rejected: neither '
+                  'BELLBANK_WEBHOOK_SECRET (with a signature header) nor '
+                  'BELLBANK_WEBHOOK_IPS is configured, so the request cannot '
+                  'be shown to be from BellBank. Deposits cannot be credited '
+                  'until one is set.')
+            print(f'[bellbank] this request came from {source}. If you are '
+                  'expecting a deposit right now, that is likely BellBank: '
+                  'verify it with them, then set BELLBANK_WEBHOOK_IPS to it.')
+            print(f'[bellbank] headers seen: '
+                  f'{sorted(request.headers.keys())}')
+            return False
+
+        if source not in allowed:
+            print(f'[bellbank] webhook rejected: {source} is not in '
+                  'BELLBANK_WEBHOOK_IPS')
+            return False
+
+        return True
+
+    @staticmethod
+    def virtual_account_for_wallet(wallet):
+        """The BellBank account number a wallet receives into, or None."""
+        if wallet is None:
+            return None
+
+        virtual_account = VirtualAccountNumberModel.query.filter_by(
+            user_id=wallet.user_id, currency_id=wallet.currency_id).first()
+
+        return virtual_account.account_number if virtual_account else None
+
+    @staticmethod
+    def wallet_for_virtual_account(account_number):
+        """Find the NGN wallet that owns a BellBank virtual account.
+
+        The account number lives on virtual_account_numbers; wallets lost that
+        column in migration 2129b3c36f79. Stored as a string there, while the
+        webhook may send it as either, so both are tried.
+        """
+        if account_number in (None, ''):
+            return None
+
+        virtual_account = VirtualAccountNumberModel.query.filter_by(
+            account_number=str(account_number)).first()
+
+        if not virtual_account:
+            return None
+
+        return WalletModel.query.filter_by(
+            user_id=virtual_account.user_id,
+            currency_id=virtual_account.currency_id).first()
 
     @staticmethod
     def bellbank_webhook():
@@ -221,6 +641,18 @@ class BellbankHelper:
 
             # Get the request body as raw data
             payload = request.data
+
+            # Verify before parsing or touching any balance.
+            if not BellbankHelper.verify_bellbank_request(payload):
+                return jsonify({
+                    'code': 401,
+                    'code_message': 'unauthorised',
+                    # Not necessarily a signature: BellBank does not sign,
+                    # so this is usually an unrecognised source address. The
+                    # server log says which check refused and why.
+                    'data': 'request could not be verified as coming from '
+                            'BellBank'
+                }), 401
 
             # Parse the payload
             webhook_data = json.loads(payload)
@@ -235,13 +667,45 @@ class BellbankHelper:
 
                 if compare_digest(str(transaction_status), 'successful'):
 
-                    payverve_wallet = WalletModel.query.filter_by(account_number=source_account_number).first()
+                    # The wallet to CREDIT is the one that owns the virtual
+                    # account the money landed in. Both handlers below expect a
+                    # wallet object -- they were being passed the recipient
+                    # account number as a string, so every credit raised
+                    # AttributeError and returned 500.
+                    #
+                    # Account details live on virtual_account_numbers, not on
+                    # the wallet: migration 2129b3c36f79 dropped
+                    # wallets.account_number, so filtering wallets on it raised
+                    # InvalidRequestError on every notification.
+                    recipient_wallet = BellbankHelper.wallet_for_virtual_account(
+                        recipient_account_number)
 
-                    if payverve_wallet:
-                        BellbankHelper.payverve_to_payverve_transfer(webhook_data, recipient_account_number)
+                    if not recipient_wallet:
+                        print('[bellbank] no wallet for virtual account '
+                              f'{recipient_account_number}; ignoring')
+                        return 'webhook received', 200
 
-                    if not payverve_wallet:
-                        BellbankHelper.others_to_payverve_transfer(webhook_data, recipient_account_number)
+                    # The sender lookup only classifies the transfer as
+                    # internal (Payverve to Payverve) or external.
+                    sender_wallet = BellbankHelper.wallet_for_virtual_account(
+                        source_account_number)
+
+                    if sender_wallet:
+                        result = BellbankHelper.payverve_to_payverve_transfer(
+                            webhook_data, recipient_wallet)
+                    else:
+                        result = BellbankHelper.others_to_payverve_transfer(
+                            webhook_data, recipient_wallet)
+
+                    # The result used to be discarded and 200 sent whatever
+                    # happened, so a credit that failed was never retried. A
+                    # 5xx means nothing was written: pass it on so BellBank
+                    # sends the notification again. A 4xx is bad data that a
+                    # retry would not fix, so it is acknowledged (and logged).
+                    status = result[1] if isinstance(result, tuple) else 200
+
+                    if status >= 500:
+                        return result
 
             return 'webhook received', 200
 
@@ -275,280 +739,241 @@ class BellbankHelper:
 
     @staticmethod
     def payverve_to_payverve_transfer(data, payverve_wallet):
-        """  """
-
-        try:
-
-            recipient_account_number = data.get('virtualAccount')
-
-            if not compare_digest(str(recipient_account_number), str(payverve_wallet.account_number)):
-                return jsonify({
-                    "code": 400,
-                    'code_message': 'bad request',
-                    "data": "Recipient account number does not match Payverve wallet account number",
-                }), 400
-
-            amount_received = data.get('amountReceived')
-            charge_amount = data.get('transactionFee')
-            sender_name = data.get('sourceAccountName')
-            sender_account_number = data.get('sourceAccountNumber')
-            sender_bank = data.get('sourceBankName')
-            narration = data.get('remarks')
-            reference_number = data.get('externalReference')
-            session_id = data.get('sessionId')
-            stamp_duty = data.get('stampDuty')
-
-            find_session = InboundTransferModel.query.filter_by(session_id=session_id).first()
-
-            if find_session:
-                session_id = f"{session_id}-unique-{secrets.token_hex(4)}"
-
-            balance = Cryptographer.decrypt(payverve_wallet.fund)
-            new_balance = float(balance) + float(amount_received)
-            payverve_wallet.fund = Cryptographer.encrypt(str(new_balance))
-            payverve_wallet.save()
-
-            encrypted_amount = Cryptographer.encrypt(amount_received)
-
-            # noinspection PyArgumentList
-            new_local_transfer = InboundTransferModel(
-                amount=encrypted_amount,
-                charge_amount=charge_amount,
-                sender_name=sender_name,
-                sender_account_number=sender_account_number,
-                narration=narration,
-                recipient_name=f'{payverve_wallet.user.first_name} {payverve_wallet.user.last_name}',
-                recipient_bank="Payverve Bank",
-                recipient_account_number=f'{payverve_wallet.account_number}',
-                reference_number=reference_number,
-                session_id=session_id,
-                stamp_duty=stamp_duty,
-                sender_bank=sender_bank,
-                user_id=payverve_wallet.user_id,
-                wallet_id=payverve_wallet.id,
-                transaction_status="successful",
-            )
-            new_local_transfer.save()
-
-            # noinspection PyArgumentList
-            new_transaction = TransactionModel(
-                amount=encrypted_amount,
-                transaction_type='payverve_transfer',
-                user_id=payverve_wallet.user_id,
-                currency_id=payverve_wallet.currency_id,
-                note=narration,
-                status="successful",
-                name=f'{payverve_wallet.user.first_name} {payverve_wallet.user.last_name}',
-                transaction_flow='credit',
-                transaction_title='Money Received',
-                currency_ticker='ngn'
-            )
-
-            new_transaction.save()
-
-            NotificationResource.store_nofication(
-                title="Payverve Transfer",
-                body=f"{payverve_wallet.currency_ticker}{float(amount_received): ,.2f} was received from {sender_name} | {sender_account_number}",
-                user_id=payverve_wallet.user_id,
-            )
-
-            # Debit Charges
-
-            balance = Cryptographer.decrypt(payverve_wallet.fund)
-            new_balance = float(balance) - float(charge_amount)
-            payverve_wallet.fund = Cryptographer.encrypt(str(new_balance))
-            payverve_wallet.save()
-
-            encrypted_amount = Cryptographer.encrypt(charge_amount)
-
-            # noinspection PyArgumentList
-            new_transaction = TransactionModel(
-                amount=encrypted_amount,
-                transaction_type='transaction_charges',
-                user_id=payverve_wallet.user_id,
-                currency_id=payverve_wallet.currency_id,
-                note=f"₦{float(charge_amount): ,.2f} charged for inbound transfer on ₦{float(amount_received): ,.2f} received from {sender_name} | {sender_account_number}",
-                status="successful",
-                name=f'{payverve_wallet.user.first_name} {payverve_wallet.user.last_name}',
-                transaction_flow='debit',
-                transaction_title='Bank Charge',
-                currency_ticker='ngn'
-            )
-
-            new_transaction.save()
-
-            NotificationResource.store_nofication(
-                title="Bank Charge",
-                body=f"₦{float(charge_amount): ,.2f}  bank charge for inbound transfer on ₦{float(amount_received): ,.2f} received from {sender_name} | {sender_account_number}",
-                user_id=payverve_wallet.user_id,
-            )
-
-            return 'transfer recorded', 201
-
-        except json.JSONDecodeError:
-            return jsonify({
-                'code': 400,
-                'code_message': 'bad request',
-                'data': 'Invalid JSON payload'
-            }), 400
-
-        except DataError:
-            return jsonify({
-                "code": 400,
-                'code_message': 'bad request',
-                "data": "Invalid data format",
-            }), 400
-
-        except (ProgrammingError, DBAPIError, DisconnectionError, InternalError, OperationalError):
-            return jsonify({
-                "code": 500,
-                'code_message': 'database error',
-                "data": "A database error occurred",
-            }), 500
-
-        except Exception as e:
-            return jsonify({
-                "code": 500,
-                'code_message': 'server error',
-                "data": f"An unexpected error occurred {str(e)}",
-            }), 500
+        """Credit a deposit sent from another Payverve customer's account."""
+        return BellbankHelper.credit_inbound_transfer(
+            data, payverve_wallet,
+            transaction_type='payverve_transfer',
+            notification_title='Payverve Transfer')
 
     @staticmethod
     def others_to_payverve_transfer(data, payverve_wallet):
-        """  """
+        """Credit a deposit sent from an account at another bank."""
+        return BellbankHelper.credit_inbound_transfer(
+            data, payverve_wallet,
+            transaction_type='local_transfer',
+            notification_title='Local Transfer')
+
+    @staticmethod
+    def credit_inbound_transfer(data, payverve_wallet, transaction_type,
+                                notification_title):
+        """Credit one BellBank collection to a wallet, exactly once.
+
+        Returns (body, status). A 5xx means nothing was written and BellBank
+        should retry; the webhook passes it on for that reason.
+
+        This replaces two copies of the same steps, each of which saved the
+        new balance first and then read payverve_wallet.user -- a relationship
+        that does not exist (it is .users). Every deposit therefore raised
+        after the balance was committed: no inbound record, no history, no
+        notification, the fee never taken, and the webhook still answered 200.
+        The inbound record is what marks a sessionId as processed, so each
+        retry of the same notification credited the wallet again.
+
+        Now the balance, the inbound record and both history rows are written
+        in one commit, with the wallet row locked, and a sessionId that is
+        already recorded -- or that a concurrent delivery records first -- is
+        acknowledged without crediting.
+        """
+        session_id = data.get('sessionId')
+
+        if not session_id:
+            print('[bellbank] collection without a sessionId; not credited')
+            return jsonify({
+                'code': 400,
+                'code_message': 'bad request',
+                'data': 'missing sessionId',
+            }), 400
 
         try:
+            wallet_account_number = BellbankHelper.virtual_account_for_wallet(
+                payverve_wallet)
 
-            recipient_account_number = data.get('virtualAccount')
-
-            if not compare_digest(str(recipient_account_number), str(payverve_wallet.account_number)):
+            if not compare_digest(str(data.get('virtualAccount')),
+                                  str(wallet_account_number)):
                 return jsonify({
-                    "code": 400,
+                    'code': 400,
                     'code_message': 'bad request',
-                    "data": "Recipient account number does not match Payverve wallet account number",
+                    'data': 'Recipient account number does not match Payverve '
+                            'wallet account number',
                 }), 400
 
-            amount_received = data.get('amountReceived')
-            charge_amount = data.get('transactionFee')
+            if InboundTransferModel.query.filter_by(
+                    session_id=session_id).first():
+                print(f'[bellbank] duplicate webhook for session {session_id}; '
+                      'already credited, ignoring')
+                return jsonify({
+                    'code': 200,
+                    'code_message': 'ok',
+                    'data': 'transaction already processed',
+                }), 200
+
+            amount_received = float(data.get('amountReceived') or 0)
+            charge_amount = float(data.get('transactionFee') or 0)
+            stamp_duty = float(data.get('stampDuty') or 0)
             sender_name = data.get('sourceAccountName')
             sender_account_number = data.get('sourceAccountNumber')
-            sender_bank = data.get('sourceBankName')
             narration = data.get('remarks')
-            reference_number = data.get('externalReference')
-            session_id = data.get('sessionId')
-            stamp_duty = data.get('stampDuty')
 
-            find_session = InboundTransferModel.query.filter_by(session_id=session_id).first()
+            if amount_received <= 0:
+                print(f'[bellbank] collection {session_id} has no positive '
+                      'amount; not credited')
+                return jsonify({
+                    'code': 400,
+                    'code_message': 'bad request',
+                    'data': 'amountReceived must be positive',
+                }), 400
 
-            if find_session:
-                session_id = f"{session_id}-unique-{secrets.token_hex(4)}"
+            # Lock the wallet row so two deposits landing together cannot
+            # both read the old balance and lose one of the credits.
+            wallet = WalletModel.query.filter_by(
+                id=payverve_wallet.id).with_for_update().one()
+            owner = UserModel.query.get(wallet.user_id)
+            owner_name = f'{owner.first_name} {owner.last_name}'
 
-            balance = Cryptographer.decrypt(payverve_wallet.fund)
-            new_balance = float(balance) + float(amount_received)
-            payverve_wallet.fund = Cryptographer.encrypt(str(new_balance))
-            payverve_wallet.save()
+            balance = float(Cryptographer.decrypt(wallet.fund))
+            wallet.fund = Cryptographer.encrypt(
+                str(balance + amount_received - charge_amount))
 
-            encrypted_amount = Cryptographer.encrypt(amount_received)
+            amount_text = f'{amount_received:.2f}'
+            sender = f'{sender_name} | {sender_account_number}'
 
             # noinspection PyArgumentList
-            new_local_transfer = InboundTransferModel(
-                amount=encrypted_amount,
+            db.session.add(InboundTransferModel(
+                amount=Cryptographer.encrypt(amount_text),
                 charge_amount=charge_amount,
                 sender_name=sender_name,
                 sender_account_number=sender_account_number,
                 narration=narration,
-                recipient_name=f'{payverve_wallet.user.first_name} {payverve_wallet.user.last_name}',
-                recipient_bank="Payverve Bank",
-                recipient_account_number=f'{payverve_wallet.account_number}',
-                reference_number=reference_number,
+                recipient_name=owner_name,
+                recipient_bank='Payverve Bank',
+                recipient_account_number=f'{wallet_account_number}',
+                reference_number=data.get('externalReference')
+                or data.get('reference') or session_id,
                 session_id=session_id,
                 stamp_duty=stamp_duty,
-                sender_bank=sender_bank,
-                user_id=payverve_wallet.user_id,
-                wallet_id=payverve_wallet.id,
-                transaction_status="successful",
-            )
-            new_local_transfer.save()
+                sender_bank=data.get('sourceBankName'),
+                user_id=wallet.user_id,
+                wallet_id=wallet.id,
+                transaction_status='successful',
+            ))
 
             # noinspection PyArgumentList
-            new_transaction = TransactionModel(
-                amount=encrypted_amount,
-                transaction_type='local_transfer',
-                user_id=payverve_wallet.user_id,
-                currency_id=payverve_wallet.currency_id,
+            db.session.add(TransactionModel(
+                amount=Cryptographer.encrypt(amount_text),
+                transaction_type=transaction_type,
+                user_id=wallet.user_id,
+                currency_id=wallet.currency_id,
                 note=narration,
-                status="successful",
-                name=f'{payverve_wallet.user.first_name} {payverve_wallet.user.last_name}',
+                status='successful',
+                name=owner_name,
                 transaction_flow='credit',
                 transaction_title='Money Received',
-                currency_ticker='ngn'
-            )
+                currency_ticker='ngn',
+            ))
 
-            new_transaction.save()
+            if charge_amount > 0:
+                # noinspection PyArgumentList
+                db.session.add(TransactionModel(
+                    amount=Cryptographer.encrypt(f'{charge_amount:.2f}'),
+                    transaction_type='transaction_charges',
+                    user_id=wallet.user_id,
+                    currency_id=wallet.currency_id,
+                    note=f'₦{charge_amount:,.2f} charged for inbound transfer '
+                         f'on ₦{amount_received:,.2f} received from {sender}',
+                    status='successful',
+                    name=owner_name,
+                    transaction_flow='debit',
+                    transaction_title='Bank Charge',
+                    currency_ticker='ngn',
+                ))
 
-            NotificationResource.store_nofication(
-                title="Local Transfer",
-                body=f"₦{float(amount_received): ,.2f} was received from {sender_name} | {sender_account_number}",
-                user_id=payverve_wallet.user_id,
-            )
+            # If this wallet belongs to a shop, the transfer may be a buyer
+            # settling a charge. Staged in this same transaction on purpose:
+            # a deposit must never be credited while the charge it paid is
+            # left pending, which would have the shop chasing a buyer who has
+            # already paid. Matching is on the amount sent, before BellBank's
+            # fee, since that is the figure the shop quoted.
+            #
+            # Imported here rather than at module scope: src.services imports
+            # src.middlewares, and a top-level import closes that loop.
+            from ..services.checkout import match_inbound_payment
 
-            # Debit Charges
+            match_inbound_payment(wallet, amount_received, session_id)
 
-            balance = Cryptographer.decrypt(payverve_wallet.fund)
-            new_balance = float(balance) - float(charge_amount)
-            payverve_wallet.fund = Cryptographer.encrypt(str(new_balance))
-            payverve_wallet.save()
+            db.session.commit()
 
-            encrypted_amount = Cryptographer.encrypt(charge_amount)
+            # Any webhook the match queued is sent after the commit and off
+            # this request. BellBank is waiting on this response, and a shop's
+            # server being slow must not delay our acknowledgement to the bank
+            # -- an unacknowledged notification is one BellBank will redeliver.
+            from ..services.merchant_webhook import retry_due
+            from ..utilities import run_detached
+            run_detached('charge-paid-webhook-from-transfer',
+                         _deliver_pending_webhooks,
+                         current_app._get_current_object())
 
-            # noinspection PyArgumentList
-            new_transaction = TransactionModel(
-                amount=encrypted_amount,
-                transaction_type='transaction_charges',
-                user_id=payverve_wallet.user_id,
-                currency_id=payverve_wallet.currency_id,
-                note=f"₦{float(charge_amount): ,.2f} charged for inbound transfer on ₦{float(amount_received): ,.2f} received from {sender_name} | {sender_account_number}",
-                status="successful",
-                name=f'{payverve_wallet.user.first_name} {payverve_wallet.user.last_name}',
-                transaction_flow='debit',
-                transaction_title='Bank Charge',
-                currency_ticker='ngn'
-            )
+        except IntegrityError:
+            # session_id is unique: a concurrent delivery of the same
+            # notification committed first. Nothing of this attempt was saved.
+            db.session.rollback()
+            print(f'[bellbank] session {session_id} was credited by a '
+                  'concurrent delivery; ignoring')
+            return jsonify({
+                'code': 200,
+                'code_message': 'ok',
+                'data': 'transaction already processed',
+            }), 200
 
-            new_transaction.save()
-
-            NotificationResource.store_nofication(
-                title="Bank Charge",
-                body=f"₦{float(charge_amount): ,.2f}  bank charge for inbound transfer on ₦{float(amount_received): ,.2f} received from {sender_name} | {sender_account_number}",
-                user_id=payverve_wallet.user_id,
-            )
-
-            return 'transfer recorded', 201
-
-        except json.JSONDecodeError:
+        except (ValueError, TypeError, ArithmeticError) as e:
+            db.session.rollback()
+            print(f'[bellbank] collection {session_id} not credited, bad '
+                  f'data: {type(e).__name__}: {e}')
             return jsonify({
                 'code': 400,
                 'code_message': 'bad request',
-                'data': 'Invalid JSON payload'
+                'data': 'Invalid data format',
             }), 400
 
-        except DataError:
+        except Exception as e:  # noqa: BLE001 - must report, not swallow
+            db.session.rollback()
+            print(f'[bellbank] collection {session_id} NOT credited: '
+                  f'{type(e).__name__}: {e}')
             return jsonify({
-                "code": 400,
-                'code_message': 'bad request',
-                "data": "Invalid data format",
-            }), 400
-
-        except (ProgrammingError, DBAPIError, DisconnectionError, InternalError, OperationalError):
-            return jsonify({
-                "code": 500,
-                'code_message': 'database error',
-                "data": "A database error occurred",
-            }), 500
-
-        except Exception as e:
-            return jsonify({
-                "code": 500,
+                'code': 500,
                 'code_message': 'server error',
-                "data": f"An unexpected error occurred {str(e)}",
+                'data': 'the deposit could not be credited',
             }), 500
+
+        # 'NGN', not the naira sign: this runs after the credit is committed,
+        # and on a console that is not UTF-8 -- a Windows cp1252 terminal, for
+        # one -- print() raises UnicodeEncodeError on the glyph. The handler
+        # then answers 500 for a deposit it had already credited, and BellBank
+        # retries it. Customer-facing text keeps the sign; log lines do not
+        # need it.
+        print(f'[bellbank] credited NGN {amount_received:,.2f} '
+              f'(fee NGN {charge_amount:,.2f}) to wallet {wallet.id}, '
+              f'session {session_id}')
+
+        # Notifications are side effects of a credit that is already
+        # committed; a push failure must not undo or repeat it.
+        try:
+            NotificationResource.store_and_push(
+                title=notification_title,
+                body=f'₦{amount_received:,.2f} was received from {sender}',
+                user_id=wallet.user_id,
+                data={'type': 'wallet_credit', 'amount': amount_text},
+            )
+
+            if charge_amount > 0:
+                NotificationResource.store_nofication(
+                    title='Bank Charge',
+                    body=f'₦{charge_amount:,.2f} bank charge for inbound '
+                         f'transfer on ₦{amount_received:,.2f} received '
+                         f'from {sender}',
+                    user_id=wallet.user_id,
+                )
+        except Exception as e:  # noqa: BLE001
+            print(f'[bellbank] credit notification failed for session '
+                  f'{session_id}: {type(e).__name__}: {e}')
+
+        return 'transfer recorded', 201

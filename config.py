@@ -54,7 +54,20 @@ Fetch all variables from .env
 import os
 from dotenv import load_dotenv
 
-load_dotenv(override=True)
+# ENV_FILE picks an extra profile, e.g. .env.sandbox for testing against
+# BellBank's sandbox. Its settings override everything -- the flask CLI loads
+# .env on its own before this module runs, so without override .env's live
+# values would win -- and .env then fills in whatever the profile leaves out.
+# Without a profile, .env overrides stale shell variables (as on main).
+_env_file = os.getenv('ENV_FILE')
+
+if _env_file:
+    if not os.path.exists(_env_file):
+        raise RuntimeError(f'ENV_FILE={_env_file} does not exist')
+    load_dotenv(_env_file, override=True)
+    load_dotenv()
+else:
+    load_dotenv(override=True)
 
 
 def get_config(key: str, default=None):
@@ -62,7 +75,22 @@ def get_config(key: str, default=None):
     return os.getenv(key, default)
 
 
+def _is_dev_value(value):
+    """True when an ENV string names a local/development environment.
+
+    Comparisons against exact strings kept taking the wrong branch because .env
+    sets ENV=development while the code tested for 'dev'. Everything that
+    branches on the environment normalises through here instead.
+    """
+    return (value or '').strip().lower() in ('dev', 'development', 'local')
+
+
 env = get_config('ENV')
+
+# Normalised environment flags. Both are False for an unrecognised value, which
+# is the safe default -- security middleware stays on and nothing auto-starts.
+is_dev = _is_dev_value(env)
+is_prod = (env or '').strip().lower() in ('prod', 'production')
 secret_key = get_config('SECRET_KEY')
 debug = get_config('DEBUG')
 
@@ -70,6 +98,15 @@ app_host = get_config('APP_HOST')
 app_port = get_config('APP_PORT')
 app_root = get_config('APP_ROOT')
 app_path = get_config('APP_PATH')
+# Shared secret for endpoints Payverve calls on itself over HTTP.
+# POST /referrals credits two wallets and was gated only by a
+# 'created_by_payverve' boolean supplied in the request body, which any
+# unauthenticated caller could simply assert.
+internal_api_secret = get_config('INTERNAL_API_SECRET')
+# Authenticates the scheduled job that resends merchant webhooks.
+webhook_retry_secret = get_config('WEBHOOK_RETRY_SECRET')
+internal_api_secret_header = get_config(
+    'INTERNAL_API_SECRET_HEADER', 'X-Payverve-Internal')
 
 database_username = get_config('DB_USERNAME')
 database_paswword = get_config('DB_PASSWORD')
@@ -128,7 +165,70 @@ flutterwave_secret_hash = get_config('FLUTTERWAVE_SECRET_HASH')
 flutterwave_client_id = get_config('FLUTTERWAVE_CLIENT_ID')
 flutterwave_file_encryption = get_config('FLUTTERWAVE_FILE_ENCRYPTION')
 flutterwave_auth_url = get_config('FLUTTERWAVE_AUTH_URL')
+skip_flw_verification_for_testing = get_config('SKIP_FLW_VERIFICATION_FOR_TESTING', 'false').lower() == 'true'
+
+firebase_service_account_path = "firebase-service-account.json"
 
 bellbank_baseurl = get_config('BELLBANK_BASEURL')
 bellbank_consumer_key = get_config('BELLBANK_CONSUMER_KEY')
 bellbank_consumer_secret = get_config('BELLBANK_CONSUMER_SECRET')
+# Shared secret BellBank signs webhook payloads with. The webhook credits
+# customer wallets and rejects every request until this is set.
+bellbank_webhook_secret = get_config('BELLBANK_WEBHOOK_SECRET')
+bellbank_webhook_signature_header = get_config(
+    'BELLBANK_WEBHOOK_SIGNATURE_HEADER', 'X-Signature')
+# Comma-separated addresses BellBank sends webhooks from. Their documentation
+# describes no webhook signature, and their API security is IP allowlisting, so
+# this is the fallback when signature checking is not configured. Ask BellBank
+# for the list.
+bellbank_webhook_ips = get_config('BELLBANK_WEBHOOK_IPS', '')
+# Static-IP proxy that outbound BellBank API calls go through, e.g.
+# http://user:password@proxy-host:80. BellBank only accepts calls from
+# whitelisted addresses and Render's are shared, so whitelist the proxy's IPs
+# instead. Empty sends BellBank calls directly.
+bellbank_proxy_url = get_config('BELLBANK_PROXY_URL', '')
+
+# Public address of this API, e.g. https://api.payverve.ng. The checkout link
+# handed to shops is built on it. Empty falls back to the address the request
+# arrived on, upgraded to https outside development (Render terminates TLS in
+# front of us, so the request itself looks like plain http).
+public_base_url = (get_config('PUBLIC_BASE_URL', '') or '').rstrip('/')
+
+# Shared with the scheduled GitHub Action that settles pending transfers
+# (POST /internal/settle-transfers, header X-Settle-Secret). Its own secret
+# rather than INTERNAL_API_SECRET, which can also create referral bonuses:
+# if this one leaked, all it allows is asking BellBank about transfers we
+# already sent. Empty disables the endpoint.
+settle_transfers_secret = get_config('SETTLE_TRANSFERS_SECRET', '')
+
+# Customers pay BellBank's transfer charge, but BellBank only reports the
+# exact amount once it accepts the transfer. This much is held with the
+# amount when sending, then corrected to the real charge (excess returned,
+# shortfall taken). Set it to BellBank's usual charge; 20 is what the sandbox
+# charged on N100.
+bellbank_transfer_fee = float(get_config('BELLBANK_TRANSFER_FEE', '20') or 0)
+
+# Set in .env.sandbox. Refuses to start unless BellBank calls really go to the
+# sandbox, so a test session can never move live money because one line in a
+# profile was missing and .env's live base url filled the gap.
+bellbank_sandbox = (get_config('BELLBANK_SANDBOX', '') or '').strip().lower() \
+    in ('1', 'true', 'yes')
+
+if bellbank_sandbox and 'sandbox' not in (get_config('BELLBANK_BASEURL') or ''):
+    raise RuntimeError(
+        'BELLBANK_SANDBOX is on but BELLBANK_BASEURL is not a sandbox url; '
+        'refusing to start so no live BellBank call can be made')
+
+if bellbank_sandbox:
+    print('[config] BELLBANK SANDBOX: BellBank calls go to '
+          f"{get_config('BELLBANK_BASEURL')}; database "
+          f"{(get_config('DATABASE_URL') or '').rsplit('@', 1)[-1]}")
+
+# Identity provider used to check a customer's name, date of birth and
+# gender against their BVN at the KYC step. With these unset the lookup is
+# skipped and KYC accepts whatever was typed, which is how one account
+# reached BellBank with a wrong gender and a date of birth sixteen years
+# out. Set them before onboarding real customers.
+dojah_app_id = get_config('DOJAH_APP_ID', '')
+dojah_secret_key = get_config('DOJAH_SECRET_KEY', '')
+dojah_base_url = get_config('DOJAH_BASE_URL', 'https://api.dojah.io')

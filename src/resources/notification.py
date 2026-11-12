@@ -6,7 +6,9 @@ from typing import Optional
 from flask import jsonify
 from flask_restful import Resource
 
-from ..models import NotificationModel
+from ..auth import not_found, owns
+from ..models import NotificationModel, UserModel
+from ..utilities.push_notifications import send_push_notification
 
 
 class NotificationResource(Resource):
@@ -35,10 +37,60 @@ class NotificationResource(Resource):
             return {"message": str(e)}, 500
 
     @staticmethod
+    def store_and_push(title: str, body: str, user_id=None, data: Optional[dict] = None):
+        """ Store a message AND push it to the user's device.
+
+        Money movement has to reach the user when the app is closed, so these
+        events need both halves: the row backs the in-app notification list,
+        the push is what actually alerts them. store_nofication only ever wrote
+        the row, which is why deposits and withdrawals were silent on device
+        while the in-app list filled up correctly.
+
+        A push failure never propagates -- by the time this runs the money has
+        already moved, and a Firebase outage must not roll that back.
+        """
+
+        response = NotificationResource.store_nofication(
+            title=title, body=body, user_id=user_id)
+
+        try:
+            user = UserModel.query.filter_by(id=user_id).first()
+
+            if not user:
+                print(f'[notification] no user {user_id}, push skipped')
+                return response
+
+            if not user.fcm_token:
+                # Expected for a user who has not signed in since the app
+                # started registering tokens, or who denied notifications.
+                print(f'[notification] user {user_id} has no fcm token, push skipped')
+                return response
+
+            # FCM rejects a data payload whose values are not all strings.
+            payload = {k: str(v) for k, v in (data or {}).items()}
+
+            send_push_notification(
+                fcm_token=user.fcm_token,
+                title=title,
+                body=body,
+                data=payload,
+            )
+
+        except Exception as e:
+            print(f'[notification] push failed for user {user_id}: {e}')
+
+        return response
+
+    @staticmethod
     def read_user_message(id=None):
         """ this function will read all messages for a specific user"""
 
         try:
+            # the id in the path was trusted outright, with no check that it belongs to the caller.
+            if not owns(id):
+                return not_found(
+                    'no messages found for this user')
+
 
             messages = NotificationModel.query.filter_by(user_id=id).order_by(NotificationModel.created_at.desc()).all()
 
@@ -81,6 +133,12 @@ class NotificationResource(Resource):
         """ """
 
         try:
+            # the id in the path was trusted outright, with no check that it belongs to the caller.
+            _owner = NotificationModel.query.filter_by(id=id).first()
+            if _owner is not None and not owns(_owner.user_id):
+                return not_found(
+                    'no message was found')
+
 
             notification = NotificationModel.query.filter_by(id=id).first()
 
@@ -112,6 +170,11 @@ class NotificationResource(Resource):
         """ """
 
         try:
+            # the id in the path was trusted outright, with no check that it belongs to the caller.
+            if not owns(id):
+                return not_found(
+                    'no message was found')
+
 
             notification = NotificationModel.query.filter_by(user_id=id, is_read=False).all()
 
@@ -144,6 +207,11 @@ class NotificationResource(Resource):
         """ this function will count all read messages for a specific user"""
 
         try:
+            # the id in the path was trusted outright, with no check that it belongs to the caller.
+            if not owns(id):
+                return not_found(
+                    'no message was found')
+
             count = NotificationModel.query.filter_by(user_id=id, is_read=True).count() or 0
 
             return jsonify({
@@ -164,6 +232,11 @@ class NotificationResource(Resource):
         """ the function will count all unread messages for a specific user"""
 
         try:
+            # the id in the path was trusted outright, with no check that it belongs to the caller.
+            if not owns(id):
+                return not_found(
+                    'no message was found')
+
             count = NotificationModel.query.filter_by(user_id=id, is_read=False).count() or 0
 
             return jsonify({

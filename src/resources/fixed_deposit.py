@@ -12,6 +12,8 @@ from psycopg2 import DataError, IntegrityError, InternalError, OperationalError,
 from sqlalchemy.exc import DisconnectionError, SQLAlchemyError
 
 from .notification import NotificationResource
+from ..auth import forbidden, owns
+from ..auth import caller_id, caller_is_admin, not_found
 from ..models import CurrencyModel, FixedDepositModel, TransactionModel, WalletModel
 from ..utilities import Cryptographer, parse_params
 from ..value_object import MinimumBalance
@@ -30,6 +32,11 @@ class FixedDepositResource(Resource):
         """ """
 
         try:
+            # the owner came from the request, with no check that it is the caller.
+            if not owns(user_id):
+                return forbidden(
+                    'you cannot create a deposit for another customer')
+
 
             title = secrets.token_urlsafe(16)
 
@@ -171,6 +178,12 @@ class FixedDepositResource(Resource):
 
             fixed_deposits = FixedDepositModel.query.all()
 
+            # Was an unscoped dump of every row to any signed-in customer.
+            if not caller_is_admin():
+                _me = caller_id()
+                fixed_deposits = [r for r in fixed_deposits
+                          if str(getattr(r, 'user_id', None)) == _me]
+
             if not fixed_deposits:
                 return jsonify({
                     'code': 404,
@@ -230,6 +243,12 @@ class FixedDepositResource(Resource):
         """ """
 
         try:
+            # the owner came from the request, with no check that it is the caller.
+            _owner = FixedDepositModel.query.filter_by(id=id).first()
+            if _owner is not None and not owns(_owner.user_id):
+                return not_found(
+                    'no fixed deposit was found')
+
 
             fixed_deposit = FixedDepositModel.query.filter_by(id=id).first()
 
@@ -289,6 +308,11 @@ class FixedDepositResource(Resource):
         """ """
 
         try:
+            # the owner id came from the URL and was trusted outright.
+            if not owns(id):
+                return forbidden(
+                    'you cannot read another customer deposits')
+
 
             fixed_deposits = FixedDepositModel.query.filter_by(user_id=id).all()
 
@@ -351,6 +375,12 @@ class FixedDepositResource(Resource):
         """ """
 
         try:
+            # the owner id came from the URL and was trusted outright, so this
+            # moved another customer fixed deposit.
+            if not owns(user_id):
+                return forbidden(
+                    'you cannot withdraw from another customer deposit')
+
 
             fixed_deposits = FixedDepositModel.query.filter_by(user_id=user_id, id=id, is_active=False).first()
 

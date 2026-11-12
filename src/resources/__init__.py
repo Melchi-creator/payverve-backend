@@ -6,13 +6,16 @@ from .admin import AdminResource
 from .admin_role import AdminRoleResource
 from .bank_account import BankAccountResource
 from .beneficiary import BeneficiaryResource
+from .charge import ChargeResource, CheckoutResource
 from .currency import CurrencyResource
 from .exchange_rate import ExchangeRateResource
 from .fixed_deposit import FixedDepositResource
 from .foreign_transfer import ForeignTransferResource
 from .kyc import KYCResource
 from .local_transfer import LocalTransferResource
+from .merchant import MerchantResource, MerchantSettingsResource
 from .misc import MiscellaneousResources
+from .device import DeviceResource
 from .notification import NotificationResource
 from .payverve_transfer import PayverveTransferResource
 from .payverve_wallet import PayverveWalletResource
@@ -26,3 +29,5 @@ from .transaction import TransactionResource
 from .user import UserResource
 from .virtual_account_numbers import VirtualAccountNumberResource
 from .wallet import WalletResource
+from .bank import BankResource
+from .webhook_retry import WebhookRetryResource

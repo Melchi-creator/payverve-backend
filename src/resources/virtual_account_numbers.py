@@ -1,7 +1,6 @@
 """
 
 """
-import secrets
 from datetime import datetime
 from hmac import compare_digest
 
@@ -12,8 +11,21 @@ from sqlalchemy.exc import DisconnectionError, \
     OperationalError, \
     ProgrammingError
 
-from ..middlewares import FlutterwaveHelper
-from ..models import CurrencyModel, KYCModel, UserModel, VirtualAccountNumberModel
+from ..auth import (caller_id, caller_is_admin, not_found, owns)
+from ..models import CurrencyModel, VirtualAccountNumberModel
+from ..services import registration, virtual_account
+
+
+def _expiry_text(expires_at):
+    """The account's expiry for display, or None when it never expires.
+
+    BellBank accounts are static: they have no expiry, so the column is NULL
+    and calling strftime on it crashed every read of a provisioned account.
+    """
+    if expires_at is None:
+        return None
+
+    return expires_at.strftime("%d %b %Y, %I:%M %p")
 
 
 class VirtualAccountNumberResource(Resource):
@@ -24,6 +36,14 @@ class VirtualAccountNumberResource(Resource):
         """  """
 
         virtual_account_numbers = VirtualAccountNumberModel.query.all()
+        # Was an unscoped dump of every row to any signed-in customer.
+        # Filtered on the result rather than in the query so the existing
+        # ordering and shape are untouched; these tables are small.
+        if not caller_is_admin():
+            _me = caller_id()
+            virtual_account_numbers = [r for r in virtual_account_numbers
+                      if str(getattr(r, 'user_id', None)) == _me]
+
 
         try:
             if not virtual_account_numbers:
@@ -36,17 +56,14 @@ class VirtualAccountNumberResource(Resource):
             data = [
                 {
                     'id': virtual_account_number.id,
-                    'response_code': virtual_account_number.response_code,
-                    'response_message': virtual_account_number.response_message,
-                    'flw_ref': virtual_account_number.flw_ref,
-                    'order_ref': virtual_account_number.order_ref,
-                    'frequency': virtual_account_number.frequency,
-                    'created_at_by_flw': virtual_account_number.created_at_by_flw,
-                    'expiry_date': virtual_account_number.expiry_date,
+                    'virtual_account_id': virtual_account_number.virtual_account_id,
                     'account_number': virtual_account_number.account_number,
-                    'bank_name': virtual_account_number.bank_name,
-                    'note': virtual_account_number.note,
-                    'amount': virtual_account_number.amount,
+                    'reference': virtual_account_number.reference,
+                    'bank_name': virtual_account_number.account_bank_name,
+                    'account_type': virtual_account_number.account_type,
+                    'status': virtual_account_number.status,
+                    'expiry_date': _expiry_text(virtual_account_number.account_expiration_datetime),
+                    'customer_code': virtual_account_number.customer_code,
                     'currency_ticker': virtual_account_number.currency_ticker,
                     'is_active': virtual_account_number.is_active,
                     'user_id': virtual_account_number.user_id,
@@ -88,9 +105,16 @@ class VirtualAccountNumberResource(Resource):
     def read_one(id=None):
         """  """
 
-        virtual_account_number = VirtualAccountNumberModel.query.filter_by(id=id).first()
+        virtual_account_number = VirtualAccountNumberModel.query.filter_by(
+            id=id).first()
 
         try:
+            # the id in the path was trusted outright, with no check that it belongs to the caller.
+            _owner = VirtualAccountNumberModel.query.filter_by(id=id).first()
+            if _owner is not None and not owns(_owner.user_id):
+                return not_found(
+                    'no account number was found')
+
             if not virtual_account_number:
                 return jsonify({
                     'code': 404,
@@ -100,17 +124,14 @@ class VirtualAccountNumberResource(Resource):
 
             data = {
                 'id': virtual_account_number.id,
-                'response_code': virtual_account_number.response_code,
-                'response_message': virtual_account_number.response_message,
-                'flw_ref': virtual_account_number.flw_ref,
-                'order_ref': virtual_account_number.order_ref,
-                'frequency': virtual_account_number.frequency,
-                'created_at_by_flw': virtual_account_number.created_at_by_flw,
-                'expiry_date': virtual_account_number.expiry_date,
+                'virtual_account_id': virtual_account_number.virtual_account_id,
                 'account_number': virtual_account_number.account_number,
-                'bank_name': virtual_account_number.bank_name,
-                'note': virtual_account_number.note,
-                'amount': virtual_account_number.amount,
+                'reference': virtual_account_number.reference,
+                'bank_name': virtual_account_number.account_bank_name,
+                'account_type': virtual_account_number.account_type,
+                'status': virtual_account_number.status,
+                'expiry_date': _expiry_text(virtual_account_number.account_expiration_datetime),
+                'customer_code': virtual_account_number.customer_code,
                 'currency_ticker': virtual_account_number.currency_ticker,
                 'is_active': virtual_account_number.is_active,
                 'user_id': virtual_account_number.user_id,
@@ -150,9 +171,15 @@ class VirtualAccountNumberResource(Resource):
     def user_virtual_account(id=None):
         """  """
 
-        virtual_account_numbers = VirtualAccountNumberModel.query.filter_by(user_id=id).all()
+        virtual_account_numbers = VirtualAccountNumberModel.query.filter_by(
+            user_id=id).all()
 
         try:
+            # the id in the path was trusted outright, with no check that it belongs to the caller.
+            if not owns(id):
+                return not_found(
+                    'no account number was found')
+
             if not virtual_account_numbers:
                 return jsonify({
                     'code': 404,
@@ -163,17 +190,14 @@ class VirtualAccountNumberResource(Resource):
             data = [
                 {
                     'id': virtual_account_number.id,
-                    'response_code': virtual_account_number.response_code,
-                    'response_message': virtual_account_number.response_message,
-                    'flw_ref': virtual_account_number.flw_ref,
-                    'order_ref': virtual_account_number.order_ref,
-                    'frequency': virtual_account_number.frequency,
-                    'created_at_by_flw': virtual_account_number.created_at_by_flw,
-                    'expiry_date': virtual_account_number.expiry_date,
+                    'virtual_account_id': virtual_account_number.virtual_account_id,
                     'account_number': virtual_account_number.account_number,
-                    'bank_name': virtual_account_number.bank_name,
-                    'note': virtual_account_number.note,
-                    'amount': virtual_account_number.amount,
+                    'reference': virtual_account_number.reference,
+                    'bank_name': virtual_account_number.account_bank_name,
+                    'account_type': virtual_account_number.account_type,
+                    'status': virtual_account_number.status,
+                    'expiry_date': _expiry_text(virtual_account_number.account_expiration_datetime),
+                    'customer_code': virtual_account_number.customer_code,
                     'currency_ticker': virtual_account_number.currency_ticker,
                     'is_active': virtual_account_number.is_active,
                     'user_id': virtual_account_number.user_id,
@@ -233,122 +257,73 @@ class VirtualAccountNumberResource(Resource):
                 'message': 'currency ticker is required'
             }), 400
 
-        if currency_ticker not in ticker:
+        currency_ticker_lower = currency_ticker.lower()
+
+        if currency_ticker_lower not in ticker:
             return jsonify({
                 'code': 400,
                 'status_message': 'bad request',
                 'message': 'ticker not available'
             }), 400
 
-        virtual_account_number = VirtualAccountNumberModel.query.filter_by(user_id=id, currency_ticker=currency_ticker).first()
+        currency_ticker = currency_ticker_lower.upper()
+
+        virtual_account_number = VirtualAccountNumberModel.query.filter_by(
+            user_id=id, currency_ticker=currency_ticker).first()
 
         try:
+            # the id in the path was trusted outright, with no check that it belongs to the caller.
+            if not owns(id):
+                return not_found(
+                    'no account number was found')
+
             if not virtual_account_number:
 
-                user_datails = UserModel.query.filter_by(id=id).first()
-
-                if not user_datails:
+                # This branch used to create the account at Flutterwave, a
+                # different provider from the one that owns NGN deposits, and
+                # only ever ran because BellBank provisioning had not happened
+                # for this user. Issuing a Flutterwave number here handed the
+                # customer an account no BellBank webhook would ever credit.
+                # Provision the right provider instead.
+                if not compare_digest(currency_ticker, 'NGN'):
                     return jsonify({
-                        'code': 404,
-                        'status_message': 'not found',
-                        'message': 'user not found'
-                    }), 404
+                        'code': 403,
+                        'status_message': 'forbidden',
+                        'message': 'only ngn account numbers are available '
+                                   'at the moment'
+                    }), 403
 
+                try:
+                    virtual_account_number = (
+                        virtual_account.ensure_ngn_virtual_account(id))
+                except registration.RegistrationError as e:
+                    return jsonify(e.as_payload()), e.code
 
-                kyc_check = KYCModel.query.filter_by(user_id=id).first()
-
-                if not compare_digest(str(kyc_check.tier), '3'):
+                if not virtual_account_number:
                     return jsonify({
-                        'code': 409,
-                        'status_message': 'unauthorise',
-                        'message': 'complete your kyc before proceeding'
-                    }), 409
-
-                reference_number = secrets.token_urlsafe(16)
-                auth = FlutterwaveHelper.flutterwave_authentication()
-
-                ## Flutterwave Virtual Account
-
-                create_virtual_account = FlutterwaveHelper.virtual_account(auth,
-                                                                           reference_number,
-                                                                           user_datails.customer_code,
-                                                                           user_datails.email_address,
-                                                                           currency_ticker,
-                                                                           user_datails,
-                                                                           kyc_check)
-
-                create_virtual_account_json = create_virtual_account.json()
-
-                if compare_digest(str(create_virtual_account.status_code), '201'):
-                    # expiry = create_virtual_account_json["data"]["account_expiration_datetime"]
-                    expiry = create_virtual_account_json.get('data').get('account_expiration_datetime')
-
-                    # noinspection PyArgumentList
-                    create_bank_account = VirtualAccountNumberModel(
-                        virtual_account_id=create_virtual_account_json.get('data').get('id'),
-                        account_number=create_virtual_account_json.get('data').get('account_number'),
-                        reference=reference_number,
-                        account_bank_name=create_virtual_account_json.get('data').get('account_bank_name'),
-                        account_type=create_virtual_account_json.get('data').get('account_type'),
-                        account_expiration_datetime=datetime.fromisoformat(
-                            expiry.replace("Z", "+00:00")
-                        ),
-                        customer_code=user_datails.customer_code,
-                    )
-                    create_bank_account.save()
-
-                if not compare_digest(str(create_virtual_account.status_code),
-                                      '201') and not compare_digest(str(create_virtual_account.status_code), '409'):
-
-                    if compare_digest(str(create_virtual_account.status_code), '400') and 'CurrencyEnum' in create_virtual_account_json.get('error').get('message'):
-                        return jsonify({
-                            'code': create_virtual_account.status_code,
-                            'status_message': "bad request",
-                            'message': "currency not available"
-                        }), create_virtual_account.status_code
-
-                    return jsonify({
-                        'code': create_virtual_account.status_code,
-                        'status_message': create_virtual_account_json.get('status'),
-                        'message': create_virtual_account_json.get('error').get('message') if 'Failed to create virtual account' not in create_virtual_account_json.get('error').get('message') else 'Failed to retreive account, please try again'
-                    }), create_virtual_account.status_code
-
-                if compare_digest(str(create_virtual_account.status_code), '409'):
-                    search_virtual_account = FlutterwaveHelper.retreive_virtual_account(auth,
-                                                                                        create_virtual_account_json.get(
-                                                                                            'id'))
-
-                    search_virtual_account_json = search_virtual_account.json()
-
-                    if not compare_digest(str(search_virtual_account.status_code), '200'):
-                        return jsonify({
-                            'code': search_virtual_account.status_code,
-                            'status_message': search_virtual_account_json.get('status'),
-                            'message': search_virtual_account_json.get('error').get('message') if 'Failed to create virtual account' not in search_virtual_account_json.get('error').get('message') else 'Failed to retreive account, please try again'
-                        }), create_virtual_account.status_code
-
-                virtual_account_number = VirtualAccountNumberModel.query.filter_by(user_id=id, currency_ticker=currency_ticker).first()
+                        'code': 502,
+                        'status_message': 'bad gateway',
+                        'message': 'your account number could not be created, '
+                                   'please try again later'
+                    }), 502
 
             data = {
-                    'id': virtual_account_number.id,
-                    'response_code': virtual_account_number.response_code,
-                    'response_message': virtual_account_number.response_message,
-                    'flw_ref': virtual_account_number.flw_ref,
-                    'order_ref': virtual_account_number.order_ref,
-                    'frequency': virtual_account_number.frequency,
-                    'created_at_by_flw': virtual_account_number.created_at_by_flw,
-                    'expiry_date': virtual_account_number.expiry_date.strftime("%d %b %Y, %I:%M %p"),
-                    'account_number': virtual_account_number.account_number,
-                    'bank_name': virtual_account_number.bank_name,
-                    'note': virtual_account_number.note,
-                    'amount': virtual_account_number.amount,
-                    'currency_ticker': virtual_account_number.currency_ticker,
-                    'is_active': virtual_account_number.is_active,
-                    'user_id': virtual_account_number.user_id,
-                    'currency_id': virtual_account_number.currency_id,
-                    'created_at': virtual_account_number.created_at.strftime("%d %b %Y, %I:%M %p"),
-                    'updated_at': virtual_account_number.updated_at.strftime("%d %b %Y, %I:%M %p") if virtual_account_number.updated_at else None,
-                }
+                'id': virtual_account_number.id,
+                'virtual_account_id': virtual_account_number.virtual_account_id,
+                'account_number': virtual_account_number.account_number,
+                'reference': virtual_account_number.reference,
+                'bank_name': virtual_account_number.account_bank_name,
+                'account_type': virtual_account_number.account_type,
+                'status': virtual_account_number.status,
+                'expiry_date': _expiry_text(virtual_account_number.account_expiration_datetime),
+                'customer_code': virtual_account_number.customer_code,
+                'currency_ticker': virtual_account_number.currency_ticker,
+                'is_active': virtual_account_number.is_active,
+                'user_id': virtual_account_number.user_id,
+                'currency_id': virtual_account_number.currency_id,
+                'created_at': virtual_account_number.created_at.strftime("%d %b %Y, %I:%M %p"),
+                'updated_at': virtual_account_number.updated_at.strftime("%d %b %Y, %I:%M %p") if virtual_account_number.updated_at else None,
+            }
 
             return jsonify({
                 'code': 200,

@@ -1,7 +1,11 @@
 """
 
 """
+from hmac import compare_digest
+
 from flask import jsonify, request
+
+import config
 from flask_restful import Resource
 from sqlalchemy.exc import DataError, \
     DisconnectionError, \
@@ -11,9 +15,9 @@ from sqlalchemy.exc import DataError, \
     ProgrammingError, \
     SQLAlchemyError
 
-from ..models import CurrencyModel, ReferralModel, UserModel, WalletModel
-from ..utilities import Cryptographer
-from ..value_object import MinimumBalance
+from ..auth import caller_id, caller_is_admin, not_found
+from ..models import ReferralModel, UserModel, db
+from ..services import registration
 
 
 class ReferralResource(Resource):
@@ -26,20 +30,47 @@ class ReferralResource(Resource):
         try:
 
             referral_id = request.json.get('referral_id')
-            referral_code = request.json.get('referral_code')
             referred_id = request.json.get('referred_id')
-            referred_code = request.json.get('referred_code')
             email_address = request.json.get('email_address')
             created_by_payverve = request.json.get('created_by_payverve')
 
-            customer_confirmation = UserModel.query.filter_by(id=referred_id, email_address=email_address).first()
+            referred = UserModel.query.filter_by(
+                id=referred_id, email_address=email_address).first()
 
-            if not customer_confirmation:
+            if not referred:
                 return jsonify({
                     'code': 404,
                     'status_message': 'not found',
                     'message': 'user not found'
                 }), 404
+
+            # created_by_payverve is supplied by the caller, so on its own it
+            # authenticated nothing: this route has no jwt_required, and anyone
+            # who knew the URL could POST it with two user ids and mint 500 into
+            # each wallet, repeatedly. The shared secret is what actually
+            # establishes that Payverve itself is the caller. Fails closed.
+            expected_secret = getattr(config, 'internal_api_secret', None)
+            header_name = getattr(
+                config, 'internal_api_secret_header', 'X-Payverve-Internal')
+            sent_secret = request.headers.get(header_name)
+
+            if not expected_secret:
+                print('[referral] INTERNAL_API_SECRET is not set; rejecting. '
+                      'Referrals cannot be created until it is configured.')
+                return jsonify({
+                    'code': 403,
+                    'status_message': 'forbidden',
+                    'message': 'you are not allowed to create a referral'
+                }), 403
+
+            if not sent_secret or not compare_digest(sent_secret.strip(),
+                                                     expected_secret):
+                print('[referral] rejected: bad or missing internal secret')
+                return jsonify({
+                    'code': 403,
+                    'status_message': 'forbidden',
+                    'message': 'you are not allowed to create a referral'
+                }), 403
 
             if not created_by_payverve:
                 return jsonify({
@@ -48,42 +79,22 @@ class ReferralResource(Resource):
                     'message': 'you are not allowed to create a referral'
                 }), 403
 
-            # noinspection PyArgumentList
-            new_referred = ReferralModel(
-                referral_id=referral_id,
-                referral_code=referral_code,
-                referred_id=referred_id,
-                referred_code=referred_code
-            )
-            new_referred.save()
+            referrer = UserModel.query.filter_by(id=referral_id).first()
 
-            ngn_wallet = CurrencyModel.query.filter_by(short_code='ngn').first().id
+            if not referrer:
+                return jsonify({
+                    'code': 404,
+                    'status_message': 'not found',
+                    'message': 'referrer not found'
+                }), 404
 
-            referral_wallet = WalletModel.query.filter_by(user_id=referral_id, currency_id=ngn_wallet).first()
-            referred_wallet = WalletModel.query.filter_by(user_id=referred_id, currency_id=ngn_wallet).first()
-
-            decrypted_referral_fund = Cryptographer.decrypt(referral_wallet.fund)
-            decrypted_referred_fund = Cryptographer.decrypt(referred_wallet.fund)
-
-            current_decrypted_referral_fund = float(decrypted_referral_fund)
-            current_decrypted_referred_fund = float(decrypted_referred_fund)
-
-            MinimumBalance(current_decrypted_referral_fund)
-            MinimumBalance(current_decrypted_referred_fund)
-
-            bonus_fund = float(500.00)
-
-            referral_bonus = bonus_fund + current_decrypted_referral_fund
-            referred_bonus = bonus_fund + current_decrypted_referred_fund
-
-            encrypt_referral_fund = Cryptographer.encrypt(referral_bonus)
-            encrypt_referred_fund = Cryptographer.encrypt(referred_bonus)
-
-            referral_wallet.fund = encrypt_referral_fund
-            referral_wallet.save()
-
-            referred_wallet.fund = encrypt_referred_fund
-            referred_wallet.save()
+            # Same code path registration uses, so the two cannot drift.
+            try:
+                registration.stage_referral(referrer, referred)
+                db.session.commit()
+            except registration.RegistrationError as e:
+                db.session.rollback()
+                return jsonify(e.as_payload()), e.code
 
             return jsonify({
                 'code': 201,
@@ -92,6 +103,8 @@ class ReferralResource(Resource):
             }), 201
 
         except IntegrityError:
+            # Unwind the credits; the commit above is the only writer now.
+            db.session.rollback()
             return jsonify({
                 'code': 409,
                 'status_message': 'conflict - integrity error',
@@ -99,6 +112,8 @@ class ReferralResource(Resource):
             }), 409
 
         except DataError:
+            # Unwind the credits; the commit above is the only writer now.
+            db.session.rollback()
             return jsonify({
                 'code': 400,
                 'status_message': 'bad request - data error',
@@ -106,6 +121,8 @@ class ReferralResource(Resource):
             }), 400
 
         except InternalError:
+            # Unwind the credits; the commit above is the only writer now.
+            db.session.rollback()
             return jsonify({
                 'code': 500,
                 'status_message': 'internal server - internal server error',
@@ -113,6 +130,8 @@ class ReferralResource(Resource):
             }), 500
 
         except (OperationalError, DisconnectionError, SQLAlchemyError):
+            # Unwind the credits; the commit above is the only writer now.
+            db.session.rollback()
             return jsonify({
                 'code': 500,
                 'status_message': 'database error - operation, sqlalchemy and disconnection error',
@@ -120,6 +139,8 @@ class ReferralResource(Resource):
             }), 500
 
         except ProgrammingError:
+            # Unwind the credits; the commit above is the only writer now.
+            db.session.rollback()
             return jsonify({
                 'code': 500,
                 'status_message': 'database error - programming error',
@@ -127,6 +148,8 @@ class ReferralResource(Resource):
             }), 500
 
         except (ArithmeticError, ValueError, ZeroDivisionError):
+            # Unwind the credits; the commit above is the only writer now.
+            db.session.rollback()
             return jsonify({
                 'code': 500,
                 'status_message': 'calculation error - arithmetic, value, zerodivision error',
@@ -138,6 +161,13 @@ class ReferralResource(Resource):
         """  """
 
         referrals = ReferralModel.query.all()
+        # referrals carry no user_id: a row belongs to both parties, so
+        # ownership means the caller is one of them.
+        if not caller_is_admin():
+            _me = caller_id()
+            referrals = [r for r in referrals
+                      if _me in (str(r.referral_id), str(r.referred_id))]
+
 
         try:
             if not referrals:
@@ -194,6 +224,13 @@ class ReferralResource(Resource):
         referral = ReferralModel.query.filter_by(id=id).first()
 
         try:
+            # A referral belongs to both parties and carries no user_id, so
+            # ownership means the caller is one of them.
+            _row = ReferralModel.query.filter_by(id=id).first()
+            if _row is not None and not caller_is_admin() and caller_id() not in (
+                    str(_row.referral_id), str(_row.referred_id)):
+                return not_found('no referral was found')
+
             if not referral:
                 return jsonify({
                     'code': 404,

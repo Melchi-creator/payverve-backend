@@ -5,8 +5,10 @@ It imports the necessary Flask components and the PayverveWalletResource class t
 """
 from flask import Blueprint
 
+from src.auth import admin_required, jwt_required
 from src.resources import PayverveWalletResource
 
+# This is Payverve's own float, decrypted, and it was world-readable.
 PayverveWalletBlueprint = Blueprint("payverve_wallet", __name__)
 
-PayverveWalletBlueprint.route("/payverve-wallets", methods=['GET'])(PayverveWalletResource.read)
+PayverveWalletBlueprint.route("/payverve-wallets", methods=['GET'])(jwt_required(admin_required(PayverveWalletResource.read)))

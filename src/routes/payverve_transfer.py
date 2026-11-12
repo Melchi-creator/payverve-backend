@@ -11,7 +11,13 @@ from ..resources import PayverveTransferResource
 
 PayverveTransferBlueprint = Blueprint("payverve_transfer", __name__)
 
-PayverveTransferBlueprint.route("/payverve-transfers", methods=['POST'])(jwt_required(PayverveTransferResource.create))
-PayverveTransferBlueprint.route("/payverve-transfers", methods=['GET'])(jwt_required(PayverveTransferResource.read_all))
-PayverveTransferBlueprint.route("/payverve-transfers/<uuid:id>", methods=['GET'])(jwt_required(PayverveTransferResource.read_one))
-PayverveTransferBlueprint.route("/payverve-transfers/user/<uuid:id>", methods=['GET'])(jwt_required(PayverveTransferResource.user_ptf_all))
+PayverveTransferBlueprint.route(
+    "/payverve-transfers", methods=['POST'])(jwt_required(PayverveTransferResource.create))
+PayverveTransferBlueprint.route(
+    "/payverve-transfers", methods=['GET'])(jwt_required(PayverveTransferResource.read_all))
+PayverveTransferBlueprint.route("/payverve-transfers/<uuid:id>",
+                                methods=['GET'])(jwt_required(PayverveTransferResource.read_one))
+PayverveTransferBlueprint.route("/payverve-transfers/user/<uuid:id>", methods=[
+                                'GET'])(jwt_required(PayverveTransferResource.user_ptf_all))
+PayverveTransferBlueprint.route("/payverve-transfers/resolve-account", methods=['POST']
+                                )(jwt_required(PayverveTransferResource.resolve_account))

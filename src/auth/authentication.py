@@ -12,7 +12,6 @@ from sqlalchemy.exc import DBAPIError, DisconnectionError
 
 import config
 from src.models import AdminModel, UserModel
-from src.resources.notification import NotificationResource
 from src.utilities import Cryptographer, decode_token, encode_token, parse_params
 from src.value_object import EmailCheck
 
@@ -82,6 +81,13 @@ class Authentication(Resource):
 
             check_user.jti = Cryptographer.encrypt(jti)
             check_user.save()
+
+            # Imported here, not at module scope. src.auth is imported by
+            # the resources, so pulling a resource in at import time made
+            # src.resources.notification -> src.auth -> authentication ->
+            # src.resources.notification a cycle, and whichever side loaded
+            # first failed on a partially initialised module.
+            from src.resources.notification import NotificationResource
 
             NotificationResource.store_nofication(
                 title="New Login Detected",

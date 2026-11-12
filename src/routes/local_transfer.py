@@ -15,4 +15,5 @@ LocalTransferBlueprint.route("/local-transfers/find-account", methods=['POST'])(
 LocalTransferBlueprint.route("/local-transfers", methods=['POST'])(jwt_required(LocalTransferResource.create))
 LocalTransferBlueprint.route("/local-transfers", methods=['GET'])(jwt_required(LocalTransferResource.read_all))
 LocalTransferBlueprint.route("/local-transfers/<uuid:id>", methods=['GET'])(jwt_required(LocalTransferResource.read_one))
+LocalTransferBlueprint.route("/local-transfers/<uuid:id>/status", methods=['POST'])(jwt_required(LocalTransferResource.refresh_status))
 LocalTransferBlueprint.route("/local-transfers/user/<uuid:id>", methods=['GET'])(jwt_required(LocalTransferResource.user_ltf_all))

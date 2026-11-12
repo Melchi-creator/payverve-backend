@@ -7,13 +7,16 @@ utilizing the CurrencyResource class.
 
 from flask import Blueprint
 
-from ..auth import jwt_required
+from ..auth import admin_required, jwt_required
 from ..resources import CurrencyResource
 
+# Reading the currency list is shared reference data; creating, changing or
+# deleting one is platform administration, and any signed-in customer
+# could do it -- deleting a currency breaks every wallet holding it.
 CurrencyBlueprint = Blueprint("currency", __name__)
 
-CurrencyBlueprint.route("/currencies", methods=['POST'])(jwt_required(CurrencyResource.create))
+CurrencyBlueprint.route("/currencies", methods=['POST'])(jwt_required(admin_required(CurrencyResource.create)))
 CurrencyBlueprint.route("/currencies", methods=['GET'])(jwt_required(CurrencyResource.read_all))
 CurrencyBlueprint.route("/currencies/<uuid:id>", methods=['GET'])(jwt_required(CurrencyResource.read_one))
-CurrencyBlueprint.route("/currencies/<uuid:id>", methods=['PUT'])(jwt_required(CurrencyResource.update))
-CurrencyBlueprint.route("/currencies/<uuid:id>", methods=['DELETE'])(jwt_required(CurrencyResource.delete))
+CurrencyBlueprint.route("/currencies/<uuid:id>", methods=['PUT'])(jwt_required(admin_required(CurrencyResource.update)))
+CurrencyBlueprint.route("/currencies/<uuid:id>", methods=['DELETE'])(jwt_required(admin_required(CurrencyResource.delete)))

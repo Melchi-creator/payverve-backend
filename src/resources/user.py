@@ -23,10 +23,13 @@ from sqlalchemy.exc import DBAPIError, DataError, \
 import config
 from .notification import NotificationResource
 from ..dto import UserDTOCreate
-from ..middlewares import FlutterwaveHelper, MailtrapHelper
-from ..models import CurrencyModel, UserModel, WalletModel
+from ..auth import (caller_id, caller_is_admin, forbidden, not_found,
+                    owns)
+from ..middlewares import MailtrapHelper
+from ..models import CurrencyModel, UserModel, WalletModel, db
+from ..services import registration, virtual_account
 from ..models.token_verification import TokenVerificationModel
-from ..utilities import Cryptographer, parse_params
+from ..utilities import Cryptographer, parse_params, run_detached
 from ..value_object import EmailCheck, MinimumBalance, MobileNumberCheck, PasswordValidation, UsernameCheck
 
 
@@ -95,42 +98,26 @@ class UserResource(Resource):
             if len(user_data.mobile_number) > 10:
                 user_data.mobile_number = user_data.mobile_number[-10:]
 
-
-            ## START START START Flutterwave (Authentication, Customer Account Creation, Search for Existing, Create Virtual Account)
-
-            auth = FlutterwaveHelper.flutterwave_authentication()
-            flutter_account = FlutterwaveHelper.create_flutterwave_account(auth,
-                                                                           user_data.email_address,
-                                                                           user_data.mobile_number,
-                                                                           first_name, last_name)
-
-            flutter_account_json = flutter_account.json().get('data')
-
-            if not compare_digest(str(flutter_account.status_code),
-                                  '201') and not compare_digest(str(flutter_account.status_code), '409'):
-                return jsonify({
-                    'code': flutter_account.status_code,
-                    'status_message': flutter_account_json.get('status'),
-                    'message': flutter_account_json.get('error').get('message')
-                }), flutter_account.status_code
-
-            if compare_digest(str(flutter_account.status_code), '409'):
-                search_account = FlutterwaveHelper.search_for_customer(auth, user_data.email_address)
-
-                search_account_json = search_account.json()
-
-                if not compare_digest(str(search_account.status_code), '200'):
-                    return jsonify({
-                        'code': search_account.status_code,
-                        'status_message': search_account_json.get('status'),
-                        'message': search_account_json.get('error').get('message')
-                    }), flutter_account.status_code
-
-                flutter_account_json = search_account_json.get('data')[0]
-
-            customer_code = flutter_account_json.get('id')
-
-            ## END END END Flutterwave (Authentication, Customer Account Creation, Search for Existing, Create Virtual Account)
+            # Signup talks to no payment provider at all.
+            #
+            # This used to authenticate with Flutterwave and create a customer
+            # there purely to borrow its id as customer_code. Flutterwave does
+            # not issue virtual accounts -- which is the whole reason accounts
+            # are issued by BellBank -- and BellBank cannot issue one until a
+            # bvn and address have been verified, which happens at KYC, not
+            # here. So the provider call bought nothing at signup while giving
+            # every registration four unbounded HTTP calls to stall on: one
+            # slow upstream and the client gave up after 60s with no response.
+            #
+            # customer_code is now ours, generated like user_code above. It
+            # identifies the customer in our own records and on the virtual
+            # account row, and owes nothing to any provider.
+            #
+            # The Flutterwave implementation is deliberately kept intact in
+            # middlewares/flutterwave_helper.py, dormant but ready, in case a
+            # use is found for it. Nothing in the signup or account path calls
+            # it any more.
+            customer_code = ''.join(secrets.choice(alphabet) for _ in range(16))
 
             gender_check = ["male", "female"]
             if user_data.gender.lower() not in gender_check:
@@ -140,11 +127,12 @@ class UserResource(Resource):
                     'message': "gender must be either 'male' or 'female'"
                 }), 400
 
-            date_of_birth_parsed = datetime.strptime(
-                user_data.date_of_birth,
-                "%Y-%m-%d"
-            ).year
-            if datetime.now().year - int(date_of_birth_parsed) < 18:
+            # Parsed into a real date rather than handed to the column as a
+            # string: date_of_birth is a DATE, and relying on the driver to
+            # coerce it is a portability trap.
+            parsed_date_of_birth = datetime.strptime(
+                user_data.date_of_birth, "%Y-%m-%d").date()
+            if datetime.now().year - parsed_date_of_birth.year < 18:
                 return jsonify({
                     'code': 400,
                     'status_message': 'bad request',
@@ -161,159 +149,104 @@ class UserResource(Resource):
                 user_code=user_code,
                 customer_code=customer_code,
                 gender=user_data.gender.lower(),
-                date_of_birth=user_data.date_of_birth
+                date_of_birth=parsed_date_of_birth
             )
 
             new_user.set_password(user_data.password)
-            new_user.save()
 
-            # Create NGN wallet
-            payload = {
-                'user_id': str(new_user.id),
-                'currency_id': str(CurrencyModel.query.filter_by(short_code='ngn').first().id),
-                'created_by_payverve': True,
-                'email_address': new_user.email_address,
-                'bvn': '12345678901',
-            }
+            # One transaction for the whole signup. flush() assigns the user id
+            # the wallet, referral and kyc rows need without committing, so any
+            # failure below rolls the lot back. This replaced three HTTP calls
+            # the app made to its own /ngn-wallets, /referrals and /kycs
+            # endpoints, each of which committed on its own and left the earlier
+            # steps stranded when a later one failed -- unpicked by compensating
+            # deletes and a referral claw-back that debited the referrer even on
+            # paths where nothing had been credited.
+            db.session.add(new_user)
+            db.session.flush()
 
-            response = requests.request(
-                "POST", f'{config.app_path}/ngn-wallets', json=payload)
+            currency_id = registration.ngn_currency_id()
+            wallet = registration.stage_ngn_wallet(new_user.id, currency_id)
 
-            if response.status_code != 201:
-                new_user_account = UserModel.query.filter_by(id=str(new_user.id)).first()
-                new_user_account.delete()
-                return jsonify({
-                    'code': response.status_code,
-                    'status_message': response.json().get('code_status', 'error'),
-                    'message': response.json().get('data', 'an error occurred while creating wallet')
-                }), response.status_code
+            # BellBank issues an account against a verified identity, so a real
+            # number can only be handed out at signup when the client sends a
+            # bvn and address. Without them the wallet exists but stays
+            # unprovisioned until KYC supplies them -- it is never given a
+            # placeholder, because deposits are matched on that column.
+            # A nin is required as well, not just a bvn: BellBank holds a
+            # client created without one at accountTier null and refuses
+            # inbound transfers to it at name enquiry, and there is no
+            # endpoint to add it afterwards. Provisioning early without a
+            # nin therefore burns the account permanently -- better to wait
+            # for KYC, which collects it.
+            if user_data.bvn and user_data.address and user_data.nin:
+                virtual_account.provision_ngn_virtual_account(
+                    new_user, wallet, user_data.bvn, user_data.address,
+                    currency_id, nin=user_data.nin)
 
-            # Handle referral
-            referral_confirmation_id = None
             if user_data.referral_code:
-                referral_confirmation = UserModel.query.filter_by(
+                referrer = UserModel.query.filter_by(
                     user_code=user_data.referral_code).first()
 
-                if not referral_confirmation:
-                    # Rollback wallet + user
-                    WalletModel.query.filter_by(
-                        user_id=new_user.id).first().delete()
-                    UserModel.query.filter_by(id=new_user.id).first().delete()
-                    return jsonify({
-                        'code': 404,
-                        'status_message': 'not found',
-                        'message': 'there is no user with that referral code'
-                    }), 404
+                if not referrer:
+                    raise registration.RegistrationError(
+                        404, 'not found',
+                        'there is no user with that referral code')
 
-                referral_confirmation_id = referral_confirmation.id
+                registration.stage_referral(referrer, new_user, currency_id)
 
-                referral_payload = {
-                    'referral_id': str(referral_confirmation.id),
-                    'referral_code': referral_confirmation.user_code,
-                    'referred_id': str(new_user.id),
-                    'referred_code': new_user.user_code,
-                    'created_by_payverve': True,
-                    'email_address': new_user.email_address,
-                }
-
-                referral_response = requests.request(
-                    "POST", f'{config.app_path}/referrals', json=referral_payload)
-
-                if referral_response.status_code != 201:
-                    # Deduct referral bonus and rollback
-                    ngn_wallet_id = CurrencyModel.query.filter_by(
-                        short_code='ngn').first().id
-                    referral_wallet = WalletModel.query.filter_by(
-                        user_id=referral_confirmation.id,
-                        currency_id=ngn_wallet_id
-                    ).first()
-
-                    decrypted = float(
-                        Cryptographer.decrypt(referral_wallet.fund))
-                    MinimumBalance(decrypted)
-                    referral_bonus = decrypted - float(500.00)
-                    MinimumBalance(referral_bonus)
-                    referral_wallet.fund = Cryptographer.encrypt(
-                        referral_bonus)
-                    referral_wallet.save()
-
-                    WalletModel.query.filter_by(
-                        user_id=new_user.id).first().delete()
-                    UserModel.query.filter_by(id=new_user.id).first().delete()
-
-                    return jsonify({
-                        'code': referral_response.status_code,
-                        'status_message': referral_response.json().get('code_status', 'error'),
-                        'message': referral_response.json().get('data', 'an error occurred registering referrals')
-                    }), referral_response.status_code
-
-            # Create KYC
-            kyc_payload = {
-                'user_id': str(new_user.id),
-                'created_by_payverve': True,
-                'email_address': new_user.email_address,
-                'new_user': True,
-                'full_name': f"{new_user.first_name} {new_user.last_name}",
-                'mobile_number': new_user.mobile_number,
-            }
-
-            kyc_response = requests.request(
-                "POST", f'{config.app_path}/kycs', json=kyc_payload)
-
-            if kyc_response.status_code != 201:
-                if user_data.referral_code and referral_confirmation_id:
-                    ngn_wallet_id = CurrencyModel.query.filter_by(
-                        short_code='ngn').first().id
-                    referral_wallet = WalletModel.query.filter_by(
-                        user_id=referral_confirmation_id,
-                        currency_id=ngn_wallet_id
-                    ).first()
-
-                    decrypted = float(
-                        Cryptographer.decrypt(referral_wallet.fund))
-                    MinimumBalance(decrypted)
-                    referral_bonus = decrypted - float(500.00)
-                    MinimumBalance(referral_bonus)
-                    referral_wallet.fund = Cryptographer.encrypt(
-                        referral_bonus)
-                    referral_wallet.save()
-
-                WalletModel.query.filter_by(
-                    user_id=new_user.id).first().delete()
-                UserModel.query.filter_by(id=new_user.id).first().delete()
-
-                return jsonify({
-                    'code': kyc_response.status_code,
-                    'status_message': kyc_response.json().get('code_status', 'error'),
-                    'message': kyc_response.json().get('data', 'an error occurred while creating KYC')
-                }), kyc_response.status_code
-
-            # Send verification email
-            verification_code = str(secrets.randbelow(1000000)).zfill(6)
-
-            # noinspection PyArgumentList
-            new_verification_code = TokenVerificationModel(
-                channel='email',
-                channel_contact=new_user.email_address,
-                code_sent=Cryptographer.encrypt(verification_code),
-                expiration_time=900,
-                timestamp=datetime.now(),
-                status='pending'
+            registration.stage_kyc(
+                new_user.id,
+                f"{new_user.first_name} {new_user.last_name}",
+                new_user.mobile_number,
             )
-            new_verification_code.save()
 
-            expiry_time = new_verification_code.timestamp + \
-                timedelta(seconds=new_verification_code.expiration_time)
-            current_year = datetime.now().year
+            db.session.commit()
 
-            MailtrapHelper.mailtrap_email_sender(
-                config.mailtrap_payverve_security_name,
-                config.mailtrap_payverve_security_email,
-                '/send',
-                [{"email": new_user.email_address,
-                    "name": f"{new_user.first_name} {new_user.last_name}"}],
-                f"{new_user.first_name} Confirm your Account",
-                render_template(
+            # Everything below is a side effect of an account that already
+            # exists. A template or Mailtrap failure here used to fall through
+            # to the generic handlers and return 500 for a registration that
+            # had in fact succeeded -- and the caller could not retry, because
+            # the email address was taken. The user can request a new code from
+            # the resend endpoint, so log and carry on.
+            #
+            # The two sends also used to run inline. Each is bounded at
+            # MAILTRAP_TIMEOUT = (10, 20), so a slow upstream could hold the
+            # response for up to 60s: exactly the mobile client's receive
+            # timeout, which reported "Something went wrong" for a signup that
+            # had worked. The verification row is still written here, because
+            # the code must exist before the caller is told to go and enter it,
+            # and both templates are rendered here, because that needs the app
+            # context. Only the network calls are handed off.
+            try:
+                verification_code = str(secrets.randbelow(1000000)).zfill(6)
+                # Local-dev convenience only. Must stay behind is_dev: in
+                # production this puts a live verification code in the logs, where
+                # anyone with log access can use it.
+                if config.is_dev:
+                    print(f"[DEV] Verification code for "
+                          f"{new_user.email_address}: {verification_code}")
+
+                # noinspection PyArgumentList
+                new_verification_code = TokenVerificationModel(
+                    channel='email',
+                    channel_contact=new_user.email_address,
+                    code_sent=Cryptographer.encrypt(verification_code),
+                    expiration_time=900,
+                    timestamp=datetime.now(),
+                    status='pending'
+                )
+
+                new_verification_code.save()
+
+                expiry_time = new_verification_code.timestamp +                     timedelta(seconds=new_verification_code.expiration_time)
+                current_year = datetime.now().year
+
+                full_name = f"{new_user.first_name} {new_user.last_name}"
+                recipient = [{"email": new_user.email_address,
+                              "name": full_name}]
+
+                verification_html = render_template(
                     'customer/email_verification.html',
                     first_name=new_user.first_name,
                     last_name=new_user.last_name,
@@ -322,24 +255,38 @@ class UserResource(Resource):
                     current_year=current_year,
                     expiry_time=expiry_time.strftime("%I:%M %p"),
                 )
-            )
-
-            # Send welcome email
-            MailtrapHelper.mailtrap_email_sender(
-                config.mailtrap_payverve_eva_name,
-                config.mailtrap_payverve_eva_email,
-                '/send',
-                [{"email": new_user.email_address,
-                    "name": f"{new_user.first_name} {new_user.last_name}"}],
-                f"Welcome to Payverve, {new_user.first_name} – Your Boardless Journey Starts Here 🌱",
-                render_template(
+                welcome_html = render_template(
                     'customer/email_welcome.html',
                     first_name=new_user.first_name,
                     last_name=new_user.last_name,
                     user_email_address=new_user.email_address,
                     current_year=current_year,
                 )
-            )
+
+                run_detached(
+                    'signup-verification-email',
+                    MailtrapHelper.mailtrap_email_sender,
+                    config.mailtrap_payverve_security_name,
+                    config.mailtrap_payverve_security_email,
+                    '/send',
+                    recipient,
+                    f"{new_user.first_name} Confirm your Account",
+                    verification_html,
+                )
+                run_detached(
+                    'signup-welcome-email',
+                    MailtrapHelper.mailtrap_email_sender,
+                    config.mailtrap_payverve_eva_name,
+                    config.mailtrap_payverve_eva_email,
+                    '/send',
+                    recipient,
+                    f"Welcome to Payverve, {new_user.first_name} – Your Boardless Journey Starts Here 🌱",
+                    welcome_html,
+                )
+            except Exception as e:
+                db.session.rollback()
+                print(f'[registration] account {new_user.email_address} was '
+                      f'created but the verification email failed: {e}')
 
             return jsonify({
                 'code': 201,
@@ -347,13 +294,22 @@ class UserResource(Resource):
                 'message': 'account was successfully created'
             }), 201
 
+        except registration.RegistrationError as e:
+            # A signup step refused. Nothing was committed, so the rollback
+            # leaves no half-registered user behind and no money moved.
+            db.session.rollback()
+            return jsonify(e.as_payload()), e.code
+
         except ValueError as e:
+            db.session.rollback()
             return jsonify({'code': 400, 'status_message': 'bad request - value error', 'message': str(e)}), 400
 
         except TypeError as e:
+            db.session.rollback()
             return jsonify({'code': 400, 'status_message': 'bad request - type error', 'message': str(e)}), 400
 
         except IntegrityError:
+            db.session.rollback()
             return jsonify({
                 'code': 409,
                 'status_message': 'conflict - integrity error',
@@ -361,15 +317,19 @@ class UserResource(Resource):
             }), 409
 
         except DataError:
+            db.session.rollback()
             return jsonify({'code': 400, 'status_message': 'bad request - data error', 'message': 'ensure input data are correct'}), 400
 
         except InternalError:
+            db.session.rollback()
             return jsonify({'code': 500, 'status_message': 'internal server error', 'message': 'could not fetch data'}), 500
 
         except (OperationalError, DisconnectionError, SQLAlchemyError):
+            db.session.rollback()
             return jsonify({'code': 500, 'status_message': 'database error', 'message': 'could not fetch data'}), 500
 
         except ProgrammingError:
+            db.session.rollback()
             return jsonify({'code': 500, 'status_message': 'database error - programming error', 'message': 'could not fetch table'}), 500
 
     @staticmethod
@@ -377,6 +337,14 @@ class UserResource(Resource):
         """ Retrieve all users account """
 
         users = UserModel.query.all()
+
+        # Was an unscoped dump of every row to any signed-in customer.
+        # Filtered on the result rather than in the query so the existing
+        # ordering and shape are untouched; these tables are small.
+        if not caller_is_admin():
+            _me = caller_id()
+            users = [r for r in users
+                      if str(getattr(r, 'id', None)) == _me]
 
         try:
             if not users:
@@ -450,6 +418,11 @@ class UserResource(Resource):
         user = UserModel.query.filter_by(id=id).first()
 
         try:
+            # the id in the path was trusted outright, with no check that it belongs to the caller.
+            if not owns(id):
+                return not_found(
+                    'no user account was found')
+
             if not user:
                 return jsonify({
                     'code': 404,
@@ -535,6 +508,11 @@ class UserResource(Resource):
         user = UserModel.query.filter_by(id=id).first()
 
         try:
+            # the id in the path was trusted outright, with no check that it belongs to the caller.
+            if not owns(id):
+                return forbidden(
+                    'you cannot modify another customer account')
+
             if not user:
                 return jsonify({
                     'code': 404,
@@ -649,6 +627,11 @@ class UserResource(Resource):
         user = UserModel.query.filter_by(id=id).first()
 
         try:
+            # the id in the path was trusted outright, with no check that it belongs to the caller.
+            if not owns(id):
+                return forbidden(
+                    'you cannot delete another customer account')
+
             if not user:
                 return jsonify({
                     'code': 404,
@@ -822,6 +805,7 @@ class UserResource(Resource):
     )
     def resend_email_otp_base_verification(email_address: str):
         """ this method is used to resend the email verification token """
+        print(">>>>>>>> ENTERED resend_email_otp_base_verification <<<<<<<<")
 
         try:
 
@@ -849,12 +833,13 @@ class UserResource(Resource):
                 channel_contact=email_address,
                 status='pending',
             ).order_by(TokenVerificationModel.created_at.desc()).first()
-
+            print("3. confirmation =", confirmation)
             if confirmation:
                 expected_expiry = confirmation.timestamp + \
                     timedelta(seconds=confirmation.expiration_time)
 
                 if expected_expiry > datetime.now():
+                    print("6. Generating OTP")
                     return jsonify({
                         'code': 400,
                         'status_message': 'bad request',
@@ -867,6 +852,9 @@ class UserResource(Resource):
             # resend verification email
 
             verification_code = str(secrets.randbelow(1000000)).zfill(6)
+            # Local-dev convenience only; see the note in create().
+            if config.is_dev:
+                print(f"[DEV] Resend verification code: {verification_code}")
 
             # noinspection PyArgumentList
             new_verification_code = TokenVerificationModel(
@@ -944,6 +932,11 @@ class UserResource(Resource):
         """ this method is used to change the password of a user """
 
         try:
+            # the id in the path was trusted outright, with no check that it belongs to the caller.
+            if not owns(id):
+                return forbidden(
+                    'you cannot change the password on another customer account')
+
 
             PasswordValidation(password)
 
@@ -1030,6 +1023,11 @@ class UserResource(Resource):
         """ this method is used to create the auth pin of a user """
 
         try:
+            # the owner id came from the URL and was trusted outright.
+            if not owns(id):
+                return forbidden(
+                    'you cannot set a pin on another customer account')
+
 
             if auth_pin is None or len(str(auth_pin)) != 6:
                 return jsonify({
@@ -1115,6 +1113,11 @@ class UserResource(Resource):
         """ this method is used to change the auth pin of a user """
 
         try:
+            # the owner id came from the URL and was trusted outright.
+            if not owns(id):
+                return forbidden(
+                    'you cannot change the pin on another customer account')
+
 
             if old_auth_pin is None or len(str(old_auth_pin)) != 6:
                 return jsonify({
@@ -1236,6 +1239,12 @@ class UserResource(Resource):
         """ this method is used to create the transaction_pin of a user """
 
         try:
+            # the owner id came from the URL and was trusted outright, so a
+            # caller could set a transaction pin on any account that had none.
+            if not owns(id):
+                return forbidden(
+                    'you cannot set a pin on another customer account')
+
 
             if transaction_pin is None or len(str(transaction_pin)) != 4:
                 return jsonify({
@@ -1320,6 +1329,12 @@ class UserResource(Resource):
         """ this method is used to change the transaction_pin of a user """
 
         try:
+            # the owner id came from the URL and was trusted outright; the old
+            # pin is verified, so this was a pin-guessing oracle.
+            if not owns(id):
+                return forbidden(
+                    'you cannot change the pin on another customer account')
+
 
             if old_transaction_pin is None or len(str(old_transaction_pin)) != 4:
                 return jsonify({
@@ -1440,6 +1455,12 @@ class UserResource(Resource):
         """  """
 
         try:
+            # the owner id came from the URL and was trusted outright, which
+            # made this a pin-guessing oracle against any account.
+            if not owns(id):
+                return forbidden(
+                    'you cannot verify a pin on another customer account')
+
 
             if transaction_pin is None or len(str(transaction_pin)) != 4:
                 return jsonify({
@@ -1530,6 +1551,11 @@ class UserResource(Resource):
         """  """
 
         try:
+            # the owner id came from the URL and was trusted outright.
+            if not owns(id):
+                return forbidden(
+                    'you cannot verify a pin on another customer account')
+
 
             if auth_pin is None or len(str(auth_pin)) != 6:
                 return jsonify({

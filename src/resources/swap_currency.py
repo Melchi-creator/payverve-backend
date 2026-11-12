@@ -19,6 +19,8 @@ from sqlalchemy.exc import DataError, \
 
 import config
 from .notification import NotificationResource
+from ..auth import (caller_id, caller_is_admin, not_found, owns)
+from ..auth import forbidden
 from ..models import PayverveWalletModel, SwapCurrencyModel, TransactionModel, WalletModel
 from ..utilities import Cryptographer, RandomGenerator, parse_params
 from ..value_object import MinimumBalance
@@ -41,6 +43,11 @@ class SwapCurrencyResource(Resource):
         # @ TODO: add a real fx charge system
 
         try:
+            # the owner came from the request, with no check that it is the caller.
+            if not owns(user_id):
+                return forbidden(
+                    'you cannot swap from another customer wallet')
+
 
             # @ TODO: to be update when foreign currencies become available
 
@@ -291,6 +298,14 @@ class SwapCurrencyResource(Resource):
         """ Retrieve all swapped currencies """
 
         swapped_currencies = SwapCurrencyModel.query.order_by(SwapCurrencyModel.created_at.desc()).all()
+        # Was an unscoped dump of every row to any signed-in customer.
+        # Filtered on the result rather than in the query so the existing
+        # ordering and shape are untouched; these tables are small.
+        if not caller_is_admin():
+            _me = caller_id()
+            swapped_currencies = [r for r in swapped_currencies
+                      if str(getattr(r, 'user_id', None)) == _me]
+
 
         try:
             if not swapped_currencies:
@@ -354,6 +369,12 @@ class SwapCurrencyResource(Resource):
         swapped_currency = SwapCurrencyModel.query.filter_by(id=id).first()
 
         try:
+            # the id in the path was trusted outright, with no check that it belongs to the caller.
+            _owner = SwapCurrencyModel.query.filter_by(id=id).first()
+            if _owner is not None and not owns(_owner.user_id):
+                return not_found(
+                    'no swap was found')
+
             if not swapped_currency:
                 return jsonify({
                     'code': 404,
@@ -412,6 +433,11 @@ class SwapCurrencyResource(Resource):
         swapped_currencies = SwapCurrencyModel.query.filter_by(user_id=id).order_by(SwapCurrencyModel.created_at.desc()).all()
 
         try:
+            # the id in the path was trusted outright, with no check that it belongs to the caller.
+            if not owns(id):
+                return not_found(
+                    'no swap was found')
+
             if not swapped_currencies:
                 return jsonify({
                     'code': 404,

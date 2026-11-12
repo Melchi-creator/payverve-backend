@@ -17,12 +17,13 @@ class VirtualAccountNumberModel(db.Model, BaseModel, metaclass=MetaBaseModel):
 
     id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     virtual_account_id = db.Column(db.String(), nullable=False, unique=True)
-    account_number = db.Column(db.BigInteger(), nullable=False, unique=True)
+    account_number = db.Column(db.String(), nullable=False, unique=True)
     reference = db.Column(db.String(), nullable=False, unique=True)
     account_bank_name = db.Column(db.String(), nullable=False)
     account_type = db.Column(db.String(), nullable=False, default='static')
     status = db.Column(db.String(), nullable=False, default='limited')
-    account_expiration_datetime = db.Column(db.DateTime(), nullable=False)
+    # A static account does not expire, so this is normally null.
+    account_expiration_datetime = db.Column(db.DateTime(), nullable=True)
     customer_code = db.Column(db.String(), nullable=False)
     currency_ticker = db.Column(db.String(), nullable=False, default='NGN')
     is_active = db.Column(db.Boolean(), default=True, nullable=False)
@@ -32,5 +33,7 @@ class VirtualAccountNumberModel(db.Model, BaseModel, metaclass=MetaBaseModel):
 
     # foreign keys
 
-    user_id = db.Column(UUID(as_uuid=True), db.ForeignKey('users.id'), nullable=False)
-    currency_id = db.Column(UUID(as_uuid=True), db.ForeignKey('currencies.id'), nullable=False)
+    user_id = db.Column(UUID(as_uuid=True), db.ForeignKey(
+        'users.id'), nullable=False)
+    currency_id = db.Column(UUID(as_uuid=True), db.ForeignKey(
+        'currencies.id'), nullable=False)

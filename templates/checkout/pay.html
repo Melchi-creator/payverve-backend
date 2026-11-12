@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>{% if charge %}Pay {{ charge.business_name }}{% else %}Payverve checkout{% endif %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='checkout/checkout.css') }}">
+</head>
+<body>
+<main class="wrap">
+  <header class="brand">
+    <span class="logo" aria-hidden="true">P</span>
+    <span class="brand-name">Payverve</span>
+    <span class="secure">Secure checkout</span>
+  </header>
+
+  {% if not charge %}
+  <section class="card">
+    <h1 class="title">
+      {% if failed %}We couldn't load this checkout{% else %}This checkout link isn't valid{% endif %}
+    </h1>
+    <p class="muted">
+      {% if failed %}Please refresh the page in a moment.{% else %}Go back to the shop and start the payment again.{% endif %}
+    </p>
+  </section>
+  {% else %}
+  <section class="card" id="checkout"
+           data-status="{{ charge.status }}"
+           data-seconds="{{ charge.seconds_remaining }}"
+           data-status-url="{{ status_url }}"
+           data-return-url="{{ charge.return_url or '' }}">
+
+    <div class="summary">
+      <p class="muted">You are paying</p>
+      <p class="merchant">{{ charge.business_name }}</p>
+      <p class="amount">&#8358;{{ '{:,.2f}'.format(charge.amount | float) }}</p>
+      <p class="muted small">Order {{ charge.reference }}</p>
+    </div>
+
+    <!-- pending -->
+    <div class="state" data-when="pending" {% if charge.status != 'pending' %}hidden{% endif %}>
+      {% if charge.bank_transfer.available %}
+      <p class="instruction">
+        Transfer <strong>exactly &#8358;{{ '{:,.2f}'.format(charge.amount | float) }}</strong>
+        to the account below from any Nigerian bank app.
+      </p>
+
+      <dl class="account">
+        <div class="row">
+          <dt>Account number</dt>
+          <dd>
+            <span class="acct" id="acct">{{ charge.bank_transfer.account_number }}</span>
+            <button type="button" class="copy" data-copy="{{ charge.bank_transfer.account_number }}">Copy</button>
+          </dd>
+        </div>
+        <div class="row">
+          <dt>Bank</dt>
+          <dd class="cap">{{ charge.bank_transfer.bank_name }}</dd>
+        </div>
+        <div class="row">
+          <dt>Amount</dt>
+          <dd>
+            <span>&#8358;{{ '{:,.2f}'.format(charge.amount | float) }}</span>
+            <button type="button" class="copy" data-copy="{{ charge.amount }}">Copy</button>
+          </dd>
+        </div>
+      </dl>
+
+      <p class="note">
+        Your bank may show the shop owner's name for this account. Send the exact
+        amount in one transfer, or the payment can't be matched to your order.
+      </p>
+
+      <div class="waiting" role="status" aria-live="polite">
+        <span class="spinner" aria-hidden="true"></span>
+        <span id="waiting-text">Waiting for your transfer&hellip;</span>
+      </div>
+
+      <p class="timer">
+        This account is reserved for your order for
+        <strong id="countdown">{{ (charge.seconds_remaining // 60) }}:{{ '%02d' % (charge.seconds_remaining % 60) }}</strong>
+      </p>
+      {% else %}
+      <p class="instruction">
+        This shop can't accept bank transfers yet. Please choose another way to pay on the shop's site.
+      </p>
+      {% endif %}
+    </div>
+
+    <!-- paid -->
+    <div class="state done" data-when="paid" {% if charge.status != 'paid' %}hidden{% endif %}>
+      <span class="badge ok" aria-hidden="true">&#10003;</span>
+      <h1 class="title">Payment received</h1>
+      <p class="muted">{{ charge.business_name }} has been told your order is paid.</p>
+      {% if charge.return_url %}
+      <a class="button" id="return-link" href="{{ charge.return_url }}">Return to {{ charge.business_name }}</a>
+      <p class="muted small" id="redirect-note">Taking you back to the shop&hellip;</p>
+      {% endif %}
+    </div>
+
+    <!-- expired -->
+    <div class="state done" data-when="expired" {% if charge.status != 'expired' %}hidden{% endif %}>
+      <span class="badge bad" aria-hidden="true">!</span>
+      <h1 class="title">This checkout has expired</h1>
+      <p class="muted">
+        Don't send money to this account for this order. If you already did,
+        keep your bank receipt and contact {{ charge.business_name }}.
+      </p>
+      {% if charge.return_url %}
+      <a class="button secondary" href="{{ charge.return_url }}">Back to {{ charge.business_name }}</a>
+      {% endif %}
+    </div>
+  </section>
+  {% endif %}
+
+  <footer class="foot">Payments processed by Payverve</footer>
+</main>
+{% if charge %}
+<script src="{{ url_for('static', filename='checkout/checkout.js') }}" defer></script>
+{% endif %}
+</body>
+</html>
