@@ -176,8 +176,12 @@ def main():
               f'https://shop.example/thanks?reference=ORDER-1&charge_code={code}')
 
         # --- the checkout page a shop sends its buyer to ---------------
+        # Pinned: a developer's .env may set PUBLIC_BASE_URL, and this
+        # checks the fallback to the request's own address.
+        import config
+        config.public_base_url = ''
         check('checkout_url is the absolute page url',
-              again['data']['checkout_url'],
+              post_charge('ORDER-1', '1500.00')[0]['data']['checkout_url'],
               f'http://localhost/pay/{code}')
 
         def page(c):
