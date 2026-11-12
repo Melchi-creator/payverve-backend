@@ -17,7 +17,9 @@ Two ways to pay a charge:
 Functions here stage work in the session and do not commit, matching
 services/registration.py: the caller owns the transaction.
 """
+import ipaddress
 import secrets
+import socket
 from datetime import datetime, timedelta
 from decimal import Decimal
 from urllib.parse import urlencode, urlsplit, urlunsplit
@@ -88,12 +90,13 @@ def stage_merchant(user, business_name, webhook_url=None):
         raise RegistrationError(409, 'conflict',
                                 'this account already has a merchant profile')
 
+    webhook_url = clean_webhook_url(webhook_url)
     public_key, secret_key, secret_hash, preview = issue_keys()
 
     # Signs outgoing webhooks. Encrypted rather than hashed: we must recover
     # the plaintext to compute a signature, unlike the secret key, which we
     # only ever compare.
-    webhook_secret = f'whsec_{secrets.token_hex(24)}'
+    webhook_secret = _new_webhook_secret()
 
     # noinspection PyArgumentList
     merchant = MerchantModel(
@@ -101,12 +104,146 @@ def stage_merchant(user, business_name, webhook_url=None):
         public_key=public_key,
         secret_key_hash=secret_hash,
         secret_key_preview=preview,
-        webhook_url=(webhook_url or '').strip() or None,
+        webhook_url=webhook_url,
         webhook_secret=encrypt_identifier(webhook_secret),
         user_id=user.id,
     )
     db.session.add(merchant)
     return merchant, secret_key, webhook_secret
+
+
+def _new_webhook_secret():
+    return f'whsec_{secrets.token_hex(24)}'
+
+
+def _blocked_address(address):
+    """True for an address our server must never be made to post to:
+    loopback, private networks, link-local (cloud metadata lives at
+    169.254.169.254), and the like."""
+    try:
+        ip = ipaddress.ip_address(address)
+    except ValueError:
+        return False
+    return not ip.is_global
+
+
+def _allow_local_targets():
+    import config
+    return bool(getattr(config, 'is_dev', False))
+
+
+def webhook_host_is_public(url):
+    """Resolve the webhook's host and refuse any non-public address.
+
+    Checked again at every delivery, not only at registration: a name that
+    pointed at a public address when the shop saved it can be repointed at
+    our own internal network afterwards.
+    """
+    if _allow_local_targets():
+        return True
+
+    host = urlsplit(url).hostname
+
+    if not host:
+        return False
+
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except OSError:
+        return False
+
+    addresses = {info[4][0] for info in infos}
+    return bool(addresses) and not any(_blocked_address(a) for a in addresses)
+
+
+def clean_webhook_url(webhook_url):
+    """An https URL to a public host, or None to switch webhooks off.
+
+    Our server posts payment events to this address, so it must not be a
+    way to make Payverve call its own internal network (SSRF). https only,
+    because the body says which order was paid. Development allows http and
+    localhost so a developer can receive webhooks on their own machine.
+    """
+    webhook_url = (webhook_url or '').strip()
+
+    if not webhook_url:
+        return None
+
+    parts = urlsplit(webhook_url)
+    local_ok = _allow_local_targets()
+    schemes = ('https', 'http') if local_ok else ('https',)
+    host = (parts.hostname or '').lower()
+
+    if parts.scheme not in schemes or not host or len(webhook_url) > 2000:
+        raise RegistrationError(400, 'bad request',
+                                'webhook_url must be an https url')
+
+    if not local_ok and (host == 'localhost' or host.endswith('.localhost')
+                         or host.endswith('.internal')
+                         or _blocked_address(host.strip('[]'))):
+        raise RegistrationError(400, 'bad request',
+                                'webhook_url must be a public address')
+    return webhook_url
+
+
+def _check_owner_pin(user, transaction_pin):
+    """Changing a shop's keys or where its payment events go needs the
+    owner's transaction pin, not just a session: a stolen login token must not
+    be enough to cut a shop off or read its order traffic."""
+    if not user.transaction_pin:
+        raise RegistrationError(400, 'bad request',
+                                'set a transaction pin first')
+
+    if not transaction_pin or             not user.check_transaction_pin(str(transaction_pin)):
+        raise RegistrationError(400, 'bad request', 'incorrect transaction pin')
+
+
+def rotate_secret_key(merchant, user, transaction_pin):
+    """Replace the shop's secret key. Does not commit.
+
+    The old key stops working the moment this commits -- that is the point
+    when a key has leaked -- so the shop's server must be updated straight
+    away. The public key is kept: it only identifies the shop.
+    Returns the new secret, the only time it exists in plaintext.
+    """
+    _check_owner_pin(user, transaction_pin)
+    _, secret_key, secret_hash, preview = issue_keys()
+    merchant.secret_key_hash = secret_hash
+    merchant.secret_key_preview = preview
+    db.session.add(merchant)
+    return secret_key
+
+
+def rotate_webhook_secret(merchant, user, transaction_pin):
+    """Replace the secret webhooks are signed with. Does not commit.
+
+    Deliveries are signed when sent, not when queued, so retries still
+    pending go out signed with the new secret.
+    """
+    _check_owner_pin(user, transaction_pin)
+    webhook_secret = _new_webhook_secret()
+    merchant.webhook_secret = encrypt_identifier(webhook_secret)
+    db.session.add(merchant)
+    return webhook_secret
+
+
+def update_webhook_url(merchant, user, transaction_pin, webhook_url):
+    """Point payment events somewhere else, or nowhere. Does not commit.
+
+    Events already queued keep the address they were queued with: an event
+    that has happened is delivered where the shop said at the time.
+    Returns a new webhook secret if the shop never had one, else None.
+    """
+    _check_owner_pin(user, transaction_pin)
+    merchant.webhook_url = clean_webhook_url(webhook_url)
+    issued = None
+
+    if merchant.webhook_url and not merchant.webhook_secret:
+        issued = _new_webhook_secret()
+        merchant.webhook_secret = encrypt_identifier(issued)
+
+    db.session.add(merchant)
+    return issued
 
 
 def stage_charge(merchant, reference, amount, callback_url=None,

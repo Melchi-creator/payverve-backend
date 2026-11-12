@@ -13,7 +13,7 @@ from .fixed_deposit import FixedDepositResource
 from .foreign_transfer import ForeignTransferResource
 from .kyc import KYCResource
 from .local_transfer import LocalTransferResource
-from .merchant import MerchantResource
+from .merchant import MerchantResource, MerchantSettingsResource
 from .misc import MiscellaneousResources
 from .device import DeviceResource
 from .notification import NotificationResource

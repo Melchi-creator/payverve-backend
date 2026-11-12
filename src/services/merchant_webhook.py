@@ -116,7 +116,16 @@ def attempt(delivery_id):
     raw = delivery.payload.encode()
     delivery.attempts += 1
 
+    from .checkout import webhook_host_is_public
+
     try:
+        # Re-checked at every send: a name that was public when the shop
+        # saved it can later be repointed at our internal network. A refusal
+        # is a failed attempt, backing off like any unreachable shop.
+        if not webhook_host_is_public(delivery.target_url):
+            raise ValueError('webhook host does not resolve to a public '
+                             'address')
+
         response = requests.post(
             delivery.target_url,
             data=raw,
@@ -126,6 +135,9 @@ def attempt(delivery_id):
                 SIGNATURE_HEADER: sign(secret, raw),
             },
             timeout=WEBHOOK_TIMEOUT,
+            # A redirect would send our signed request to an address that
+            # was never checked. A 3xx is simply a failed attempt.
+            allow_redirects=False,
         )
         delivery.last_status_code = response.status_code
 
