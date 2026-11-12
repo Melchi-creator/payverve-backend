@@ -28,7 +28,7 @@ jobs:
       - name: Send due webhooks
         run: |
           code=$(curl -sS -o /tmp/body -w '%{http_code}' \
-            -X POST https://payverve-backend-1.onrender.com/internal/retry-webhooks \
+            -X POST https://api.payverve.ng/internal/retry-webhooks \
             -H "X-Webhook-Retry-Secret: ${{ secrets.WEBHOOK_RETRY_SECRET }}")
           cat /tmp/body
           echo
